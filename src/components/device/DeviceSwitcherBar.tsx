@@ -8,9 +8,9 @@ import {
   Sliders, 
   ShieldCheck, 
   HardDrive, 
-  Box,
-  Cpu,
-  Lock
+  Box, 
+  Cpu, 
+  Lock 
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
@@ -40,14 +40,14 @@ export const DeviceSwitcherBar: React.FC = () => {
 
   return (
     <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-1 sm:gap-2 select-none text-xs text-white">
-      {/* Brand & Anti-Monopoly Guardian Trigger */}
+      {/* Security Guardrails Direct Status Badge */}
       <button 
-        onClick={() => openApp('guardian')}
+        onClick={() => openApp('security')}
         className="flex items-center gap-1.5 px-2 border-r border-neutral-700 font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-        title="Open Anti-Monopoly Core Dashboard"
+        title="Security Guardrails: SELinux Enforcing, Verified Boot, FBE Encrypted. Click to inspect."
       >
-        <ShieldCheck size={14} className="text-emerald-400" />
-        <span className="hidden md:inline">Anti-Monopoly Core</span>
+        <Lock size={13} className="text-emerald-400" />
+        <span className="hidden md:inline">Hardened OS</span>
       </button>
 
       {/* Hardware Adaptation Tier Live Badge */}
@@ -59,7 +59,6 @@ export const DeviceSwitcherBar: React.FC = () => {
         >
           <Cpu size={12} className="text-cyan-400" />
           <span className="capitalize">{adaptivePolicy.tier}</span>
-          <span className="hidden xl:inline text-neutral-400">({hardwareSpecs?.cpuCores}C)</span>
         </button>
       )}
 

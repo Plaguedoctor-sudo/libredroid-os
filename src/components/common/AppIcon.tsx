@@ -15,6 +15,7 @@ import {
   Cpu, 
   ShieldCheck, 
   ShieldAlert, 
+  Lock,
   Film, 
   Tv, 
   MapPin, 
@@ -34,6 +35,11 @@ interface AppIconProps {
 }
 
 const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> = {
+  security: {
+    icon: Lock,
+    bg: 'bg-gradient-to-tr from-emerald-600 via-teal-700 to-cyan-800',
+    color: 'text-white',
+  },
   predatory_shield: {
     icon: ShieldAlert,
     bg: 'bg-gradient-to-tr from-rose-500 via-pink-600 to-red-700',
