@@ -18,6 +18,7 @@ interface WindowContextType {
   returnHome: () => void;
   goBack: () => void;
   purgeDisposableWindows: () => void;
+  updateWindowDomain: (id: string, domain: OsDomainId) => void;
 }
 
 const WindowContext = createContext<WindowContextType | undefined>(undefined);
@@ -151,6 +152,18 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  const updateWindowDomain = (id: string, domain: OsDomainId) => {
+    setWindows((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, osDomain: domain } : w))
+    );
+    addNotification({
+      appId: 'hypervisor',
+      appName: 'Hypervisor Migration',
+      title: 'Domain Switched',
+      body: `Window migrated to security domain: ${domain}.`,
+    });
+  };
+
   const minimizeWindow = (id: string) => {
     setWindows((prev) =>
       prev.map((w) => (w.id === id ? { ...w, isMinimized: true } : w))
@@ -237,6 +250,7 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         returnHome,
         goBack,
         purgeDisposableWindows,
+        updateWindowDomain,
       }}
     >
       {children}

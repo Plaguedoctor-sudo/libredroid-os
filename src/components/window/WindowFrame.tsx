@@ -39,7 +39,8 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
     focusWindow, 
     activeWindowId,
     updateWindowPosition,
-    updateWindowSize
+    updateWindowSize,
+    updateWindowDomain
   } = useWindow();
 
   const { actualDevice } = useSystem();
@@ -48,6 +49,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isDomainSelectorOpen, setIsDomainSelectorOpen] = useState(false);
 
   // Resolve Qubes-style security domain configuration
   const domainConfig = MULTI_OS_DOMAINS.find((d) => d.id === win.osDomain) || MULTI_OS_DOMAINS[4];
@@ -129,13 +131,40 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
             <div className="flex items-center gap-2">
               <AppIcon appId={win.appId} size="sm" />
               <span className="text-xs font-semibold text-white">{win.title}</span>
-              {/* Qubes Security Domain Badge */}
-              <span 
-                className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shadow-sm"
-                style={{ backgroundColor: `${domainConfig.colorHex}25`, color: domainConfig.colorHex, border: `1px solid ${domainConfig.colorHex}50` }}
-              >
-                [{domainConfig.badgeLabel}]
-              </span>
+              {/* Qubes Security Domain Badge with Clickable Switcher */}
+              <div className="relative">
+                <button 
+                  onClick={() => setIsDomainSelectorOpen(!isDomainSelectorOpen)}
+                  className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shadow-sm transition-transform hover:scale-105"
+                  style={{ backgroundColor: `${domainConfig.colorHex}25`, color: domainConfig.colorHex, border: `1px solid ${domainConfig.colorHex}50` }}
+                  title="Click to migrate app to another security domain"
+                >
+                  [{domainConfig.badgeLabel}]
+                </button>
+
+                {isDomainSelectorOpen && (
+                  <div className="absolute top-full left-0 mt-1.5 w-52 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl py-1 z-50 animate-fade-in font-sans">
+                    <div className="px-2.5 py-1 text-[9px] uppercase font-bold text-neutral-400">Migrate to OS Domain</div>
+                    {MULTI_OS_DOMAINS.map((dom) => (
+                      <button
+                        key={dom.id}
+                        onClick={() => {
+                          updateWindowDomain(win.id, dom.id);
+                          setIsDomainSelectorOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left transition-colors ${
+                          win.osDomain === dom.id
+                            ? 'bg-neutral-800 text-white font-semibold'
+                            : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+                        }`}
+                      >
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dom.colorHex }} />
+                        <span className="truncate">{dom.badgeLabel}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1">
               <button 
@@ -193,18 +222,51 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
         onMouseDown={handleMouseDown}
         className="h-10 bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800 px-3 flex items-center justify-between cursor-move shrink-0"
       >
-        <div className="flex items-center gap-2 pointer-events-none">
-          <AppIcon appId={win.appId} size="sm" />
-          <span className="text-xs font-semibold text-neutral-200 truncate max-w-[160px]">
-            {win.title}
-          </span>
-          {/* Security Domain Pill */}
-          <span 
-            className="text-[10px] font-mono px-2 py-0.5 rounded-md font-bold"
-            style={{ backgroundColor: `${domainConfig.colorHex}25`, color: domainConfig.colorHex, border: `1px solid ${domainConfig.colorHex}60` }}
-          >
-            {domainConfig.badgeLabel.split(' ')[0]}
-          </span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pointer-events-none">
+            <AppIcon appId={win.appId} size="sm" />
+            <span className="text-xs font-semibold text-neutral-200 truncate max-w-[160px]">
+              {win.title}
+            </span>
+          </div>
+          {/* Security Domain Pill with Switcher */}
+          <div className="relative">
+            <button 
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setIsDomainSelectorOpen(!isDomainSelectorOpen)}
+              className="text-[10px] font-mono px-2 py-0.5 rounded-md font-bold transition-transform hover:scale-105"
+              style={{ backgroundColor: `${domainConfig.colorHex}25`, color: domainConfig.colorHex, border: `1px solid ${domainConfig.colorHex}60` }}
+              title="Click to migrate app to another security domain"
+            >
+              {domainConfig.badgeLabel.split(' ')[0]}
+            </button>
+
+            {isDomainSelectorOpen && (
+              <div 
+                onMouseDown={(e) => e.stopPropagation()}
+                className="absolute top-full left-0 mt-1.5 w-52 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl py-1 z-50 animate-fade-in font-sans"
+              >
+                <div className="px-2.5 py-1 text-[9px] uppercase font-bold text-neutral-400">Migrate to OS Domain</div>
+                {MULTI_OS_DOMAINS.map((dom) => (
+                  <button
+                    key={dom.id}
+                    onClick={() => {
+                      updateWindowDomain(win.id, dom.id);
+                      setIsDomainSelectorOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left transition-colors ${
+                      win.osDomain === dom.id
+                        ? 'bg-neutral-800 text-white font-semibold'
+                        : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+                    }`}
+                  >
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dom.colorHex }} />
+                    <span className="truncate">{dom.badgeLabel}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Window controls */}
