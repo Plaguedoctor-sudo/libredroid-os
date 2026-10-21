@@ -1,58 +1,68 @@
-# OmniOS - Universal Adaptive Android System
+# LibreDroid OS - Sovereign Universal Operating Environment
 
-OmniOS is a universal, multi-form-factor operating system shell and application runtime inspired by Google Android (AOSP) and Samsung DeX / ChromeOS. It fluidly adapts its UI paradigms, navigation models, and window management to any device size or input mechanism.
-
----
-
-## 🌟 Adaptive Form Factors
-
-OmniOS dynamically detects and adapts to 5 distinct form factors:
-
-1. **Auto-Adaptive**: Continuously monitors the browser viewport and switches dynamically between phone, tablet, and desktop layouts.
-2. **Smartphone Mode (Pixel 9 Pro)**:
-   - Fullscreen app containers
-   - Android 3-button navigation & gesture pill
-   - Punch-hole camera bezel simulation
-   - Swipe-up Google App Drawer
-   - Top status bar with quick settings shade pull-down
-3. **Tablet Mode (Pixel Tablet)**:
-   - High-DPI app grid with pinned bottom dock
-   - Multi-column quick settings and split notifications
-4. **Foldable Mode (Pixel Fold)**:
-   - Hinge state simulation: **Folded** (narrow outer cover screen) vs **Unfolded** (wide dual-pane canvas)
-5. **Desktop Mode (Samsung DeX / ChromeOS)**:
-   - Floating, draggable, resizable multi-window desktop manager
-   - Bottom taskbar with Start / Apps launcher, running app indicators, and system tray
-   - Minimize, Maximize, and Close window controls
+**LibreDroid OS** is an independent, non-monopolistic universal operating environment designed to run across smartphones, foldables, tablets, and desktops. It eliminates proprietary Big Tech lock-in (zero Google Play Services / tracking dependencies) while maintaining **full compatibility with existing Android APK applications** via a containerized **Waydroid AOSP** runtime.
 
 ---
 
-## 📱 Built-In Universal Applications
+## 🛡️ Independence from the Monopoly
 
-- **Chrome Browser**: Multi-tab browsing, URL navigation, Google search engine simulation, bookmarks, and quick shortcuts.
-- **Files & Drive**: Virtual hierarchical filesystem (`Documents`, `Downloads`, `Cloud Drive`), file creation, reading text files, and storage quota tracking.
-- **Pixel Camera**: Real webcam hardware integration (`navigator.mediaDevices`), viewfinder grid, capture shutter with flash, and real-time color filters (Vintage, Grayscale, Cyberpunk).
-- **Omni Terminal Pro**: Interactive command-line shell with `help`, `neofetch`, `device <mode>`, `battery`, `whoami`, `ls`, `clear`, and system diagnostics.
-- **Calculator**: Material 3 calculator with basic operations and safe expression calculation.
-- **Keep Notes**: Google Keep-style sticky note keeper with customizable color palettes and `localStorage` persistence.
-- **Play Store**: App repository allowing 1-click installation, simulated updates, and app launching.
-- **Clock & Stopwatch**: Real-time world clock and stopwatch with lap control.
-- **Google Photos**: Gallery viewer with lightbox preview, photo metadata, and editing simulation.
-- **Omni Gemini Assistant**: Smart AI assistant sheet for voice/text device commands (switching form factors, opening apps, checking battery).
+| Component | Proprietary Monopoly Default | LibreDroid Sovereign FOSS Replacement |
+| :--- | :--- | :--- |
+| **App Repository** | Google Play Store | **F-Droid Store** (100% Free & Open-Source verified APKs) |
+| **Search Engine** | Google Search | **DuckDuckGo / SearXNG** (Zero tracking & surveillance) |
+| **Browser** | Google Chrome | **LibreBrowse / Chromium FOSS** with ad/tracker blocking |
+| **Services Core** | Google Play Services (GmsCore) | **microG** (Free software implementation) |
+| **Cloud Storage** | Google Drive | **Nextcloud Hub / Local Self-Hosted Mesh** |
+| **Photo Backup** | Google Photos | **Immich / Fossify Gallery** (Local on-device machine vision) |
+| **Notes & Sync** | Google Keep | **Joplin Notes** (End-to-End PGP Encrypted) |
+| **Assistant** | Google Gemini / Assistant | **Sovereign Local AI** (100% On-device, zero cloud telemetry) |
+| **Maps & GPS** | Google Maps | **OsmAnd** (OpenStreetMap offline vector maps) |
+| **Identity & Auth** | Google Account SSO | **Self-Sovereign Identity** (Matrix, Nextcloud, Passkeys, GPG) |
 
 ---
 
-## 🚀 Running the Project
+## ⚡ Running Existing Android Apps (.APK)
+
+LibreDroid incorporates a dedicated **APK Installer & Waydroid Runner** (`src/services/apkManager.ts` & `src/components/apps/ApkInstallerApp.tsx`):
+- **Sideload Any APK**: Upload or drag-and-drop any `.apk` package file.
+- **Manifest Parsing**: Automatically verifies package names, versions, and permissions (`android.permission.*`).
+- **Waydroid Sandbox Execution**: Runs the app inside an isolated LXC container without requiring proprietary Google Play Services.
+- **Pre-Bundled FOSS APKs**: Includes ready-to-launch popular open-source apps:
+  - **VLC Media Player** (`org.videolan.vlc`)
+  - **NewPipe** (`org.schabi.newpipe`)
+  - **OsmAnd Maps** (`net.osmand.plus`)
+  - **Element Matrix Messenger** (`im.vector.app`)
+  - **K-9 Mail / Thunderbird** (`com.fsck.k9`)
+
+---
+
+## 💿 Independent Installable System
+
+LibreDroid is built to be deployed both as a **Progressive Web App (PWA)** and as a **Bare-Metal Bootable Operating System**:
+
+### 1. PWA Standalone Mode
+- Manifest: [`public/manifest.webmanifest`](file:///home/nitin/fkgugal/public/manifest.webmanifest)
+- Service Worker: [`public/sw.js`](file:///home/nitin/fkgugal/public/sw.js)
+- Installable with 1-click on any device (Android phone, Linux PC, Mac, Windows, Chromebook).
+
+### 2. Bare-Metal OS Installer Wizard
+- Launch the **OS Installer** app directly from the desktop or settings.
+- Select target drive (`/dev/nvme0n1`, `/dev/sda`, USB flash drive).
+- Select partition scheme (Full Disk Erase vs Dual-boot alongside Windows/Linux).
+- Live installation progress and bootable USB flash commands (`dd if=libredroid.iso of=/dev/sdX`).
+- Scripts provided in [`installer/build-iso.sh`](file:///home/nitin/fkgugal/installer/build-iso.sh) and [`installer/waydroid-setup.sh`](file:///home/nitin/fkgugal/installer/waydroid-setup.sh).
+
+---
+
+## 🚀 Getting Started
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 npm install
 
-# Start development server
+# 2. Run development server (live on http://localhost:3001)
 npm run dev
 
-# Build for production
+# 3. Build production bundle
 npm run build
 ```
-
-Dev server runs on `http://localhost:3001` (or `3000`).
