@@ -10,6 +10,14 @@ import {
   Settings, 
   Clock, 
   Image, 
+  Box,
+  HardDrive,
+  Film,
+  Tv,
+  MapPin,
+  MessageSquare,
+  Mail,
+  Layers,
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -22,25 +30,25 @@ interface AppIconProps {
   badge?: number;
 }
 
-const ICON_MAP: Record<AppId, { icon: LucideIcon; bg: string; color: string }> = {
+const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> = {
   browser: {
     icon: Compass,
-    bg: 'bg-gradient-to-tr from-blue-600 via-yellow-500 to-green-500',
+    bg: 'bg-gradient-to-tr from-amber-500 to-orange-600',
     color: 'text-white',
   },
   files: {
     icon: Folder,
-    bg: 'bg-gradient-to-tr from-blue-600 to-sky-400',
+    bg: 'bg-gradient-to-tr from-blue-600 to-sky-500',
     color: 'text-white',
   },
   notes: {
     icon: FileText,
-    bg: 'bg-gradient-to-tr from-amber-400 to-orange-500',
+    bg: 'bg-gradient-to-tr from-indigo-600 to-blue-600',
     color: 'text-white',
   },
   camera: {
     icon: Camera,
-    bg: 'bg-gradient-to-tr from-rose-500 to-pink-600',
+    bg: 'bg-gradient-to-tr from-rose-500 to-red-600',
     color: 'text-white',
   },
   terminal: {
@@ -50,17 +58,17 @@ const ICON_MAP: Record<AppId, { icon: LucideIcon; bg: string; color: string }> =
   },
   calculator: {
     icon: Calculator,
-    bg: 'bg-gradient-to-tr from-teal-500 to-emerald-600',
+    bg: 'bg-gradient-to-tr from-cyan-600 to-teal-600',
     color: 'text-white',
   },
   store: {
     icon: ShoppingBag,
-    bg: 'bg-gradient-to-tr from-cyan-500 via-blue-500 to-indigo-600',
+    bg: 'bg-gradient-to-tr from-blue-500 via-teal-500 to-emerald-500',
     color: 'text-white',
   },
   settings: {
     icon: Settings,
-    bg: 'bg-gradient-to-tr from-zinc-700 to-zinc-900 border border-zinc-600',
+    bg: 'bg-gradient-to-tr from-neutral-700 to-neutral-900 border border-neutral-600',
     color: 'text-gray-100',
   },
   clock: {
@@ -70,7 +78,43 @@ const ICON_MAP: Record<AppId, { icon: LucideIcon; bg: string; color: string }> =
   },
   photos: {
     icon: Image,
-    bg: 'bg-gradient-to-tr from-red-500 via-amber-400 to-emerald-400',
+    bg: 'bg-gradient-to-tr from-teal-500 to-emerald-600',
+    color: 'text-white',
+  },
+  apk_installer: {
+    icon: Box,
+    bg: 'bg-gradient-to-tr from-emerald-500 to-teal-700',
+    color: 'text-white',
+  },
+  system_installer: {
+    icon: HardDrive,
+    bg: 'bg-gradient-to-tr from-purple-600 to-indigo-800',
+    color: 'text-white',
+  },
+  // Open source sideloaded apps
+  'org.videolan.vlc': {
+    icon: Film,
+    bg: 'bg-gradient-to-tr from-orange-500 to-amber-600',
+    color: 'text-white',
+  },
+  'org.schabi.newpipe': {
+    icon: Tv,
+    bg: 'bg-gradient-to-tr from-red-600 to-rose-700',
+    color: 'text-white',
+  },
+  'net.osmand.plus': {
+    icon: MapPin,
+    bg: 'bg-gradient-to-tr from-amber-500 to-yellow-600',
+    color: 'text-white',
+  },
+  'im.vector.app': {
+    icon: MessageSquare,
+    bg: 'bg-gradient-to-tr from-emerald-600 to-teal-700',
+    color: 'text-white',
+  },
+  'com.fsck.k9': {
+    icon: Mail,
+    bg: 'bg-gradient-to-tr from-blue-700 to-indigo-800',
     color: 'text-white',
   },
 };
@@ -82,8 +126,8 @@ export const AppIcon: React.FC<AppIconProps> = ({
   badge,
 }) => {
   const iconConfig = ICON_MAP[appId] || {
-    icon: Compass,
-    bg: 'bg-blue-600',
+    icon: Layers,
+    bg: 'bg-gradient-to-tr from-purple-700 to-indigo-800',
     color: 'text-white',
   };
   const Icon = iconConfig.icon;

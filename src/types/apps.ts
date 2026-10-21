@@ -10,7 +10,11 @@ export type AppId =
   | 'notes'
   | 'store'
   | 'clock'
-  | 'photos';
+  | 'photos'
+  | 'maps'
+  | 'apk_installer'
+  | 'system_installer'
+  | string; // Dynamic sideloaded APKs
 
 export interface AppMetadata {
   id: AppId;
@@ -18,7 +22,12 @@ export interface AppMetadata {
   icon: string;
   color: string;
   badge?: number;
-  category: 'system' | 'productivity' | 'media' | 'utility';
+  category: 'system' | 'productivity' | 'media' | 'utility' | 'foss';
+  isApk?: boolean;
+  packageName?: string;
+  version?: string;
+  author?: string;
+  permissions?: string[];
   defaultWidth?: number;
   defaultHeight?: number;
 }

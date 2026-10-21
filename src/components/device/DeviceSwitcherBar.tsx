@@ -4,13 +4,14 @@ import {
   Tablet, 
   Laptop, 
   FoldHorizontal, 
-  RotateCw, 
   RefreshCw, 
   Sliders,
-  Sparkles,
-  Info
+  ShieldCheck,
+  HardDrive,
+  Box
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { useWindow } from '../../context/WindowContext';
 import { DeviceMode } from '../../types/system';
 
 export const DeviceSwitcherBar: React.FC = () => {
@@ -20,9 +21,10 @@ export const DeviceSwitcherBar: React.FC = () => {
     actualDevice, 
     isFolded, 
     setIsFolded,
-    setIsAssistantOpen,
     setIsShadeOpen
   } = useSystem();
+
+  const { openApp } = useWindow();
 
   const devices: { id: DeviceMode; label: string; icon: any }[] = [
     { id: 'auto', label: 'Auto Detect', icon: RefreshCw },
@@ -33,10 +35,11 @@ export const DeviceSwitcherBar: React.FC = () => {
   ];
 
   return (
-    <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/90 backdrop-blur-xl border border-neutral-700/80 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-1 sm:gap-2 select-none text-xs text-white">
-      <div className="flex items-center gap-1.5 px-2 border-r border-neutral-700 font-semibold text-purple-300">
-        <Sparkles size={14} className="text-purple-400" />
-        <span className="hidden md:inline">OmniOS Universal</span>
+    <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-1 sm:gap-2 select-none text-xs text-white">
+      {/* Brand Badge */}
+      <div className="flex items-center gap-1.5 px-2 border-r border-neutral-700 font-semibold text-emerald-400">
+        <ShieldCheck size={14} className="text-emerald-400" />
+        <span className="hidden md:inline">LibreDroid OS</span>
       </div>
 
       {/* Device Form Factor Pills */}
@@ -50,7 +53,7 @@ export const DeviceSwitcherBar: React.FC = () => {
               onClick={() => setDeviceMode(d.id)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
                 isActive
-                  ? 'bg-purple-600 text-white shadow'
+                  ? 'bg-emerald-600 text-white shadow'
                   : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
               }`}
               title={`Switch to ${d.label} mode`}
@@ -72,6 +75,26 @@ export const DeviceSwitcherBar: React.FC = () => {
           {isFolded ? 'Unfold' : 'Fold'}
         </button>
       )}
+
+      {/* Quick Action: Sideload APK */}
+      <button
+        onClick={() => openApp('apk_installer')}
+        className="hidden lg:flex items-center gap-1 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-emerald-300 rounded-full text-[11px] font-medium transition-colors"
+        title="Sideload Android .apk"
+      >
+        <Box size={13} />
+        <span>Sideload APK</span>
+      </button>
+
+      {/* Quick Action: Hardware Installer */}
+      <button
+        onClick={() => openApp('system_installer')}
+        className="hidden md:flex items-center gap-1 px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/30 rounded-full text-[11px] font-medium transition-colors"
+        title="Hardware OS Installer"
+      >
+        <HardDrive size={13} />
+        <span>Install OS</span>
+      </button>
 
       {/* Quick Settings trigger */}
       <button

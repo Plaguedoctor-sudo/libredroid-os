@@ -2,13 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2334a853'><path d='M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-.9996.9993-.9996c.552 0 1.0001.4481 1.0001.9996 0 .5515-.4481 1.0001-1.0001 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-.9996.9993-.9996c.552 0 1.0001.4481 1.0001.9996 0 .5515-.4481 1.0001-1.0001 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 0 0-.1521-.5676.416.416 0 0 0-.5676.1521l-2.0223 3.503C15.5902 8.4111 13.8533 8.125 12 8.125c-1.8535 0-3.5902.2861-5.1368.8247L4.8409 5.4467a.4161.4161 0 0 0-.5676-.1521.4157.4157 0 0 0-.1521.5676l1.9973 3.4592C2.6889 11.1867.3333 14.8624.3333 19.125h23.3334c0-4.2626-2.3556-7.9383-5.7862-9.8036'/></svg>" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#1c1b1f" />
+    <meta name="theme-color" content="#10b981" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>OmniOS - Adaptive Universal Android System</title>
-    <!-- Google Fonts: Roboto & Roboto Flex -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>LibreDroid OS - Sovereign Universal Operating Environment</title>
+    <!-- Fonts: Plus Jakarta Sans & Roboto Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -16,5 +17,12 @@
   <body class="bg-black text-gray-100 select-none overflow-hidden antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

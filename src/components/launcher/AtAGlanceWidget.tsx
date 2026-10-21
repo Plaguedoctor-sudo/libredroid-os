@@ -1,5 +1,5 @@
 import React from 'react';
-import { CloudSun, Calendar, Sparkles } from 'lucide-react';
+import { CloudSun, ShieldCheck, Sparkles } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 
 export const AtAGlanceWidget: React.FC = () => {
@@ -26,10 +26,10 @@ export const AtAGlanceWidget: React.FC = () => {
       {/* Dynamic Context Pill / Smart Suggestion */}
       <button 
         onClick={() => setIsAssistantOpen(true)}
-        className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-xs font-medium text-white/90 border border-white/10 transition-all hover:scale-102"
+        className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-emerald-950/40 hover:bg-emerald-900/60 backdrop-blur-md rounded-full text-xs font-medium text-emerald-300 border border-emerald-500/30 transition-all hover:scale-102"
       >
-        <Sparkles size={13} className="text-purple-300" />
-        <span>Universal System Active • All profiles synced</span>
+        <ShieldCheck size={13} className="text-emerald-400" />
+        <span>LibreDroid Sovereign • Zero Big Tech Telemetry</span>
       </button>
     </div>
   );

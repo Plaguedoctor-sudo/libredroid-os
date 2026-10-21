@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Search, Pin, Tag } from 'lucide-react';
+import { Plus, Trash2, Search, Lock, ShieldCheck } from 'lucide-react';
 
 interface Note {
   id: string;
@@ -10,31 +10,31 @@ interface Note {
 }
 
 const COLORS = [
-  'bg-amber-900/40 border-amber-600/50',
+  'bg-indigo-900/40 border-indigo-600/50',
   'bg-emerald-900/40 border-emerald-600/50',
   'bg-blue-900/40 border-blue-600/50',
   'bg-purple-900/40 border-purple-600/50',
-  'bg-rose-900/40 border-rose-600/50',
+  'bg-amber-900/40 border-amber-600/50',
 ];
 
 export const NotesApp: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>(() => {
-    const saved = localStorage.getItem('omni_notes');
+    const saved = localStorage.getItem('libredroid_notes');
     if (saved) {
       try { return JSON.parse(saved); } catch {}
     }
     return [
       {
         id: '1',
-        title: 'Universal System Ideas',
-        content: 'Design system should automatically scale typography and padding between 320px phone and 4K ultra-wide monitors.',
+        title: 'Sovereign Operating System Goals',
+        content: '1. No corporate tracking or telemetry.\n2. Containerized Waydroid AOSP execution.\n3. Native installation to any PC or phone hardware.',
         color: COLORS[0],
         createdAt: 'Today',
       },
       {
         id: '2',
-        title: 'Android Gesture Specs',
-        content: 'Swipe up: App Drawer\nSwipe down: Quick Settings\nSwipe sideways: Fast App Switcher',
+        title: 'F-Droid App Recommendations',
+        content: 'Install NewPipe for private media streaming, OsmAnd for offline vector maps, and Element for Matrix encrypted messaging.',
         color: COLORS[1],
         createdAt: 'Yesterday',
       },
@@ -47,7 +47,7 @@ export const NotesApp: React.FC = () => {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    localStorage.setItem('omni_notes', JSON.stringify(notes));
+    localStorage.setItem('libredroid_notes', JSON.stringify(notes));
   }, [notes]);
 
   const addNote = () => {
@@ -76,16 +76,21 @@ export const NotesApp: React.FC = () => {
   return (
     <div className="flex-1 w-full h-full flex flex-col bg-neutral-900 text-white p-4 select-none overflow-hidden">
       {/* Top Search & Actions */}
-      <div className="flex items-center gap-3 pb-3 border-b border-neutral-800 shrink-0">
+      <div className="flex items-center justify-between gap-3 pb-3 border-b border-neutral-800 shrink-0">
         <div className="flex-1 flex items-center gap-2 bg-neutral-800 rounded-full px-3 py-1.5 border border-neutral-700">
           <Search size={14} className="text-neutral-400" />
           <input
             type="text"
-            placeholder="Search notes..."
+            placeholder="Search Joplin encrypted notes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-transparent text-xs text-white focus:outline-none"
           />
+        </div>
+
+        <div className="flex items-center gap-1.5 text-xs text-indigo-300 font-mono bg-indigo-950/60 px-3 py-1.5 rounded-full border border-indigo-500/30">
+          <Lock size={12} />
+          <span>E2EE Active</span>
         </div>
       </div>
 
@@ -93,13 +98,13 @@ export const NotesApp: React.FC = () => {
       <div className="bg-neutral-800/80 border border-neutral-700/80 rounded-2xl p-3 my-3 shadow-md shrink-0 space-y-2">
         <input
           type="text"
-          placeholder="Title"
+          placeholder="Note Title"
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           className="w-full bg-transparent text-xs font-semibold text-white focus:outline-none placeholder-neutral-500"
         />
         <textarea
-          placeholder="Take a note..."
+          placeholder="Write your private note..."
           value={newContent}
           onChange={(e) => setNewContent(e.target.value)}
           rows={2}
@@ -118,9 +123,9 @@ export const NotesApp: React.FC = () => {
           <button
             onClick={addNote}
             disabled={!newTitle.trim() && !newContent.trim()}
-            className="px-3 py-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-semibold text-xs rounded-xl transition-all"
+            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold text-xs rounded-xl transition-all"
           >
-            Add Note
+            Save Note
           </button>
         </div>
       </div>

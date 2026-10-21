@@ -9,12 +9,10 @@ import {
   Volume2, 
   VolumeX, 
   Sun, 
-  Moon, 
   RotateCw, 
   BatteryMedium, 
-  ShieldAlert, 
+  ShieldCheck, 
   Settings, 
-  Power, 
   X, 
   Smartphone, 
   Tablet, 
@@ -22,7 +20,8 @@ import {
   RefreshCw,
   Bell,
   Trash2,
-  ExternalLink
+  HardDrive,
+  Box
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
@@ -74,6 +73,16 @@ export const QuickSettingsPanel: React.FC = () => {
             <button 
               onClick={() => {
                 setIsShadeOpen(false);
+                openApp('system_installer');
+              }}
+              className="p-2 hover:bg-neutral-800 rounded-full transition-colors text-purple-300 hover:text-white"
+              title="Install OS to Disk"
+            >
+              <HardDrive size={18} />
+            </button>
+            <button 
+              onClick={() => {
+                setIsShadeOpen(false);
                 openApp('settings');
               }}
               className="p-2 hover:bg-neutral-800 rounded-full transition-colors text-neutral-300 hover:text-white"
@@ -91,30 +100,55 @@ export const QuickSettingsPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* User Account Bar & Cloud Sync */}
+        {/* User Account Bar & Mesh Sync */}
         <div className="flex items-center justify-between bg-neutral-800/60 p-3 rounded-2xl border border-neutral-700/50">
           <div className="flex items-center gap-3">
             <img 
               src={account.avatarUrl} 
               alt={account.name} 
-              className="w-10 h-10 rounded-full object-cover border border-purple-400"
+              className="w-10 h-10 rounded-full object-cover border border-emerald-400"
             />
             <div>
               <div className="text-sm font-semibold flex items-center gap-1.5">
                 {account.name}
-                <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full font-medium">
-                  Universal ID
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded-full font-medium">
+                  Sovereign ID
                 </span>
               </div>
-              <div className="text-xs text-neutral-400">{account.email}</div>
+              <div className="text-xs text-neutral-400">Nextcloud / Matrix Mesh Identity</div>
             </div>
           </div>
           <button 
             onClick={syncAccount}
-            className="flex items-center gap-1.5 text-xs bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/30 px-3 py-1.5 rounded-xl transition-colors"
+            className="flex items-center gap-1.5 text-xs bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/30 px-3 py-1.5 rounded-xl transition-colors"
           >
             <RefreshCw size={12} className="animate-spin-slow" />
             <span>Sync</span>
+          </button>
+        </div>
+
+        {/* Quick App Shortcuts: Sideload APK & Hardware Installer */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => {
+              setIsShadeOpen(false);
+              openApp('apk_installer');
+            }}
+            className="flex items-center gap-2 p-2.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 rounded-2xl text-xs font-semibold text-emerald-300 transition-colors"
+          >
+            <Box size={16} />
+            <span>Sideload Android APK</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setIsShadeOpen(false);
+              openApp('system_installer');
+            }}
+            className="flex items-center gap-2 p-2.5 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 rounded-2xl text-xs font-semibold text-purple-300 transition-colors"
+          >
+            <HardDrive size={16} />
+            <span>Install OS to Hardware</span>
           </button>
         </div>
 
@@ -122,14 +156,14 @@ export const QuickSettingsPanel: React.FC = () => {
         <div className="bg-neutral-800/40 p-3 rounded-2xl border border-neutral-700/40">
           <div className="text-xs font-semibold text-neutral-400 mb-2 uppercase tracking-wider flex items-center justify-between">
             <span>Adaptive Form Factor</span>
-            <span className="text-[11px] text-purple-400 capitalize">Active: {actualDevice}</span>
+            <span className="text-[11px] text-emerald-400 capitalize">Active: {actualDevice}</span>
           </div>
           <div className="grid grid-cols-4 gap-2">
             {[
               { id: 'auto', label: 'Auto', icon: RefreshCw },
               { id: 'phone', label: 'Phone', icon: Smartphone },
               { id: 'tablet', label: 'Tablet', icon: Tablet },
-              { id: 'desktop', label: 'Dex/Desktop', icon: Laptop },
+              { id: 'desktop', label: 'DeX/Desktop', icon: Laptop },
             ].map((d) => {
               const Icon = d.icon;
               const isSelected = deviceMode === d.id;
@@ -139,7 +173,7 @@ export const QuickSettingsPanel: React.FC = () => {
                   onClick={() => setDeviceMode(d.id as any)}
                   className={`flex flex-col items-center justify-center p-2 rounded-xl text-xs font-medium transition-all ${
                     isSelected 
-                      ? 'bg-purple-600 text-white shadow-md' 
+                      ? 'bg-emerald-600 text-white shadow-md' 
                       : 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-300'
                   }`}
                 >
@@ -151,23 +185,23 @@ export const QuickSettingsPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* Quick Settings Grid (Material You Pill Tiles) */}
+        {/* Quick Settings Grid */}
         <div className="grid grid-cols-2 gap-2.5">
           {/* Wi-Fi */}
           <button
             onClick={() => toggleQuickSetting('wifi')}
             className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
               quickSettings.wifi 
-                ? 'bg-blue-600 text-white font-medium' 
+                ? 'bg-emerald-600 text-white font-medium' 
                 : 'bg-neutral-800 text-neutral-400'
             }`}
           >
-            <div className={`p-2 rounded-xl ${quickSettings.wifi ? 'bg-blue-700' : 'bg-neutral-700'}`}>
+            <div className={`p-2 rounded-xl ${quickSettings.wifi ? 'bg-emerald-700' : 'bg-neutral-700'}`}>
               {quickSettings.wifi ? <Wifi size={18} /> : <WifiOff size={18} />}
             </div>
             <div className="text-left">
               <div className="text-sm font-semibold">Internet</div>
-              <div className="text-xs opacity-80">{quickSettings.wifi ? 'Omni-WiFi 6' : 'Off'}</div>
+              <div className="text-xs opacity-80">{quickSettings.wifi ? 'Mesh-WiFi' : 'Off'}</div>
             </div>
           </button>
 
@@ -176,16 +210,16 @@ export const QuickSettingsPanel: React.FC = () => {
             onClick={() => toggleQuickSetting('bluetooth')}
             className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
               quickSettings.bluetooth 
-                ? 'bg-blue-600 text-white font-medium' 
+                ? 'bg-emerald-600 text-white font-medium' 
                 : 'bg-neutral-800 text-neutral-400'
             }`}
           >
-            <div className={`p-2 rounded-xl ${quickSettings.bluetooth ? 'bg-blue-700' : 'bg-neutral-700'}`}>
+            <div className={`p-2 rounded-xl ${quickSettings.bluetooth ? 'bg-emerald-700' : 'bg-neutral-700'}`}>
               {quickSettings.bluetooth ? <Bluetooth size={18} /> : <BluetoothOff size={18} />}
             </div>
             <div className="text-left">
               <div className="text-sm font-semibold">Bluetooth</div>
-              <div className="text-xs opacity-80">{quickSettings.bluetooth ? 'Pixel Buds Pro' : 'Off'}</div>
+              <div className="text-xs opacity-80">{quickSettings.bluetooth ? 'Connected' : 'Off'}</div>
             </div>
           </button>
 
@@ -207,21 +241,21 @@ export const QuickSettingsPanel: React.FC = () => {
             </div>
           </button>
 
-          {/* Do Not Disturb */}
+          {/* Anti-Tracking Shield */}
           <button
             onClick={() => toggleQuickSetting('dnd')}
             className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
               quickSettings.dnd 
-                ? 'bg-purple-600 text-white font-medium' 
+                ? 'bg-blue-600 text-white font-medium' 
                 : 'bg-neutral-800 text-neutral-400'
             }`}
           >
-            <div className={`p-2 rounded-xl ${quickSettings.dnd ? 'bg-purple-700' : 'bg-neutral-700'}`}>
-              <ShieldAlert size={18} />
+            <div className={`p-2 rounded-xl ${quickSettings.dnd ? 'bg-blue-700' : 'bg-neutral-700'}`}>
+              <ShieldCheck size={18} />
             </div>
             <div className="text-left">
-              <div className="text-sm font-semibold">Do Not Disturb</div>
-              <div className="text-xs opacity-80">{quickSettings.dnd ? 'Total Silence' : 'Off'}</div>
+              <div className="text-sm font-semibold">Privacy Shield</div>
+              <div className="text-xs opacity-80">{quickSettings.dnd ? 'Zero Telemetry' : 'Normal'}</div>
             </div>
           </button>
 
@@ -230,11 +264,11 @@ export const QuickSettingsPanel: React.FC = () => {
             onClick={() => toggleQuickSetting('autoRotate')}
             className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
               quickSettings.autoRotate 
-                ? 'bg-blue-600 text-white font-medium' 
+                ? 'bg-emerald-600 text-white font-medium' 
                 : 'bg-neutral-800 text-neutral-400'
             }`}
           >
-            <div className={`p-2 rounded-xl ${quickSettings.autoRotate ? 'bg-blue-700' : 'bg-neutral-700'}`}>
+            <div className={`p-2 rounded-xl ${quickSettings.autoRotate ? 'bg-emerald-700' : 'bg-neutral-700'}`}>
               <RotateCw size={18} />
             </div>
             <div className="text-left">
@@ -257,7 +291,7 @@ export const QuickSettingsPanel: React.FC = () => {
             </div>
             <div className="text-left">
               <div className="text-sm font-semibold">Battery ({batteryLevel}%)</div>
-              <div className="text-xs opacity-80">{quickSettings.batterySaver ? 'Saver On' : 'Optimal'}</div>
+              <div className="text-xs opacity-80">{quickSettings.batterySaver ? 'Saver On' : 'Standard'}</div>
             </div>
           </button>
         </div>
@@ -272,7 +306,7 @@ export const QuickSettingsPanel: React.FC = () => {
               max="100"
               value={quickSettings.brightness}
               onChange={(e) => setQuickSettingValue('brightness', Number(e.target.value))}
-              className="w-full accent-purple-400 h-2 bg-neutral-700 rounded-lg cursor-pointer"
+              className="w-full accent-emerald-400 h-2 bg-neutral-700 rounded-lg cursor-pointer"
             />
             <span className="text-xs text-neutral-400 w-8 text-right">{quickSettings.brightness}%</span>
           </div>
@@ -326,7 +360,7 @@ export const QuickSettingsPanel: React.FC = () => {
                 >
                   <div className="flex-1">
                     <div className="flex items-center justify-between text-[11px] text-neutral-400 mb-1">
-                      <span className="font-medium text-purple-300">{notif.appName}</span>
+                      <span className="font-medium text-emerald-300">{notif.appName}</span>
                       <span>{notif.time}</span>
                     </div>
                     <div className="text-sm font-medium text-white mb-0.5">{notif.title}</div>

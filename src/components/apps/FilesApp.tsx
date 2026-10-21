@@ -2,16 +2,13 @@ import React, { useState } from 'react';
 import { 
   Folder, 
   FileText, 
-  Image, 
-  Film, 
+  HardDrive, 
+  Cloud, 
   Plus, 
   Trash2, 
-  Cloud, 
-  HardDrive, 
   Search, 
-  Eye,
   X,
-  DownloadCloud
+  Server
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { VFile } from '../../types/system';
@@ -24,42 +21,42 @@ export const FilesApp: React.FC = () => {
 
   const [files, setFiles] = useState<VFile[]>([
     { id: '1', name: 'Documents', isFolder: true, parentId: 'root', modified: 'Oct 20, 2026' },
-    { id: '2', name: 'Downloads', isFolder: true, parentId: 'root', modified: 'Yesterday' },
-    { id: '3', name: 'Cloud Drive', isFolder: true, parentId: 'root', modified: 'Just now' },
-    { id: '4', name: 'System Logs', isFolder: true, parentId: 'root', modified: 'Oct 18, 2026' },
+    { id: '2', name: 'Downloads (APKs)', isFolder: true, parentId: 'root', modified: 'Yesterday' },
+    { id: '3', name: 'Nextcloud Sovereign Hub', isFolder: true, parentId: 'root', modified: 'Just now' },
+    { id: '4', name: 'Waydroid App Data', isFolder: true, parentId: 'root', modified: 'Oct 18, 2026' },
     { 
       id: '5', 
-      name: 'Omni-Architecture-Overview.txt', 
+      name: 'LibreDroid-Manifesto.txt', 
       isFolder: false, 
       parentId: 'root', 
-      size: '4.8 KB', 
+      size: '3.6 KB', 
       modified: 'Today',
-      content: 'Omni Universal System Architecture:\n1. Adaptive UI Layer: switches fluidly between Phone, Tablet, Foldable & Desktop.\n2. HAL & Virtual Driver Bus: Abstracting hardware sensors, battery, display pipelines.\n3. Sandboxed Application Container: Running isolated web applications with universal APIs.\n4. Universal Identity: Unified account syncing across all devices in real time.'
+      content: 'LibreDroid Sovereign Operating Principles:\n1. Non-Monopolistic: Zero proprietary software locks or un-removable Big Tech bloat.\n2. True Android App Compatibility: Runs real .apk Android packages via containerized Waydroid/microG.\n3. Universal Device Adaptation: Adapts fluidly between smartphone, tablet, foldable, and desktop DeX modes.\n4. Independent Hardware Installation: Can be flashed as a native bootable OS to SSD, eMMC, or USB drive.'
     },
     { 
       id: '6', 
-      name: 'User-Config.json', 
+      name: 'Waydroid-Kernel-Config.conf', 
       isFolder: false, 
       parentId: 'root', 
-      size: '1.2 KB', 
+      size: '1.4 KB', 
       modified: 'Oct 21, 2026',
-      content: '{\n  "system": "OmniOS",\n  "version": "1.0-universal",\n  "theme": "material-you",\n  "formFactor": "adaptive"\n}'
+      content: 'CONFIG_ANDROID=y\nCONFIG_ANDROID_BINDER_IPC=y\nCONFIG_ASHMEM=y\nCONFIG_NAMESPACES=y\nCONFIG_NET_NS=y\nCONFIG_PID_NS=y\nCONFIG_IPC_NS=y'
     },
     { 
       id: '7', 
-      name: 'Project-Roadmap.md', 
+      name: 'Nextcloud-Encrypted-Notes.md', 
       isFolder: false, 
       parentId: '1', 
-      size: '2.4 KB', 
+      size: '2.1 KB', 
       modified: 'Oct 19, 2026',
-      content: '# Universal Android Roadmap\n- Phase 1: Core Shell & Responsive Viewports\n- Phase 2: Material 3 Theming & Monet Engine\n- Phase 3: Android App Sandbox\n- Phase 4: Hardware Multi-Monitor DeX Support'
+      content: '# Nextcloud Private Hub\n- Self-hosted sync cluster on Raspberry Pi / Home Server\n- Zero third-party surveillance\n- End-to-end PGP encrypted file vaults'
     },
     { 
       id: '8', 
-      name: 'Universal-Wallpaper.jpg', 
+      name: 'NewPipe-v0.27.0.apk', 
       isFolder: false, 
-      parentId: '3', 
-      size: '3.1 MB', 
+      parentId: '2', 
+      size: '14.8 MB', 
       modified: 'Today' 
     },
   ]);
@@ -72,7 +69,7 @@ export const FilesApp: React.FC = () => {
   });
 
   const handleCreateFile = () => {
-    const name = prompt('Enter new file name (e.g. notes.txt):');
+    const name = prompt('Enter new file name (e.g. config.txt):');
     if (!name) return;
     const newFile: VFile = {
       id: Math.random().toString(36).substring(2, 7),
@@ -81,7 +78,7 @@ export const FilesApp: React.FC = () => {
       parentId: currentFolder,
       size: '1.0 KB',
       modified: 'Just now',
-      content: 'New universal file content created on ' + new Date().toLocaleString(),
+      content: 'Self-sovereign file created on ' + new Date().toLocaleString(),
     };
     setFiles((prev) => [...prev, newFile]);
   };
@@ -98,14 +95,14 @@ export const FilesApp: React.FC = () => {
           {currentFolder !== 'root' && (
             <button
               onClick={() => setCurrentFolder('root')}
-              className="px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 rounded-lg text-purple-300 font-medium transition-colors"
+              className="px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 rounded-lg text-emerald-300 font-medium transition-colors"
             >
               ← Root
             </button>
           )}
           <span className="text-sm font-bold flex items-center gap-1.5">
-            <HardDrive size={16} className="text-blue-400" />
-            <span>Files & Drive</span>
+            <Server size={16} className="text-blue-400" />
+            <span>Nextcloud Files & Drive</span>
           </span>
         </div>
 
@@ -114,7 +111,7 @@ export const FilesApp: React.FC = () => {
           <Search size={14} className="text-neutral-400" />
           <input
             type="text"
-            placeholder="Search files..."
+            placeholder="Search files & APKs..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-transparent text-xs text-white focus:outline-none"
@@ -124,7 +121,7 @@ export const FilesApp: React.FC = () => {
         {/* Add File */}
         <button
           onClick={handleCreateFile}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-medium transition-colors shadow"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium transition-colors shadow"
         >
           <Plus size={14} />
           <span className="hidden sm:inline">New File</span>
@@ -133,46 +130,52 @@ export const FilesApp: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (Desktop/Tablet) */}
-        <div className="hidden sm:flex flex-col w-48 bg-neutral-950/80 border-r border-neutral-800 p-3 gap-1">
+        {/* Left Sidebar */}
+        <div className="hidden sm:flex flex-col w-52 bg-neutral-950/80 border-r border-neutral-800 p-3 gap-1">
           <button
             onClick={() => setCurrentFolder('root')}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors ${
-              currentFolder === 'root' ? 'bg-purple-600/20 text-purple-300 font-semibold' : 'text-neutral-400 hover:bg-neutral-800'
+              currentFolder === 'root' ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'text-neutral-400 hover:bg-neutral-800'
             }`}
           >
             <HardDrive size={15} />
-            <span>Internal Storage</span>
+            <span>Encrypted Local Drive</span>
           </button>
           <button
             onClick={() => setCurrentFolder('3')}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors ${
-              currentFolder === '3' ? 'bg-purple-600/20 text-purple-300 font-semibold' : 'text-neutral-400 hover:bg-neutral-800'
+              currentFolder === '3' ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'text-neutral-400 hover:bg-neutral-800'
             }`}
           >
             <Cloud size={15} />
-            <span>Google Drive</span>
+            <span>Nextcloud Self-Hosted</span>
+          </button>
+          <button
+            onClick={() => setCurrentFolder('2')}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors ${
+              currentFolder === '2' ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'text-neutral-400 hover:bg-neutral-800'
+            }`}
+          >
+            <Folder size={15} />
+            <span>Sideloaded APKs</span>
           </button>
 
           {/* Storage Meter */}
           <div className="mt-auto bg-neutral-900 p-3 rounded-2xl border border-neutral-800 text-[11px]">
             <div className="flex justify-between text-neutral-400 mb-1">
-              <span>Cloud Storage</span>
-              <span>{account.storageUsedGb} GB</span>
+              <span>Sovereign Storage</span>
+              <span>18.4 GB</span>
             </div>
             <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-blue-500 rounded-full" 
-                style={{ width: `${(account.storageUsedGb / account.storageTotalGb) * 100}%` }}
-              />
+              <div className="h-full bg-blue-500 rounded-full w-[18%]" />
             </div>
             <div className="text-[10px] text-neutral-500 mt-1.5">
-              {account.storageTotalGb - account.storageUsedGb} GB free of {account.storageTotalGb} GB
+              493.6 GB free of 512 GB SSD
             </div>
           </div>
         </div>
 
-        {/* Files Grid / List */}
+        {/* Files Grid */}
         <div className="flex-1 p-4 overflow-y-auto">
           {displayedFiles.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-neutral-500 text-xs">
@@ -197,6 +200,8 @@ export const FilesApp: React.FC = () => {
                     <div className="p-2.5 rounded-xl bg-neutral-700/50 group-hover:bg-neutral-700 transition-colors">
                       {file.isFolder ? (
                         <Folder size={24} className="text-amber-400" />
+                      ) : file.name.endsWith('.apk') ? (
+                        <FileText size={24} className="text-emerald-400" />
                       ) : (
                         <FileText size={24} className="text-blue-400" />
                       )}
@@ -248,7 +253,7 @@ export const FilesApp: React.FC = () => {
               </button>
             </div>
             <div className="bg-neutral-950 p-3 rounded-2xl font-mono text-xs text-neutral-300 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed border border-neutral-800">
-              {previewFile.content || 'Binary / media file preview not available.'}
+              {previewFile.content || 'Binary data or Android package file.'}
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <button 

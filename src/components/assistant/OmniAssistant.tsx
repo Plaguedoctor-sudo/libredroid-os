@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Mic, Send, X, Laptop, Smartphone, Tablet, Terminal } from 'lucide-react';
+import { Sparkles, Send, X, ShieldCheck, Box, HardDrive } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 
@@ -18,7 +18,7 @@ export const OmniAssistant: React.FC = () => {
   const [messages, setMessages] = useState<Array<{ sender: 'user' | 'assistant'; text: string }>>([
     {
       sender: 'assistant',
-      text: "Hi there! I'm your Omni Gemini Assistant. How can I help you across your devices today?",
+      text: "Hello! I am your Sovereign Local AI Assistant. I run 100% on-device with zero telemetry sent to Big Tech clouds. How can I assist your system today?",
     },
   ]);
 
@@ -35,34 +35,43 @@ export const OmniAssistant: React.FC = () => {
     // Handle smart triggers
     const lower = userText.toLowerCase();
     setTimeout(() => {
-      let reply = "I understand. I can help configure your device or launch universal apps!";
+      let reply = "Processed via local on-device quantized model (Llama-3-8B-Q4_K_M).";
       
       if (lower.includes('desktop') || lower.includes('dex')) {
         setDeviceMode('desktop');
-        reply = "Switching to Desktop/Dex mode with freeform resizable windows!";
+        reply = "Switching to Desktop/DeX mode with freeform resizable windows!";
       } else if (lower.includes('phone') || lower.includes('mobile')) {
         setDeviceMode('phone');
         reply = "Switching to Compact Phone mode with gesture navigation!";
       } else if (lower.includes('tablet')) {
         setDeviceMode('tablet');
         reply = "Switching to Tablet layout mode with high-DPI dock!";
-      } else if (lower.includes('browser') || lower.includes('chrome') || lower.includes('search')) {
+      } else if (lower.includes('apk') || lower.includes('install app')) {
+        openApp('apk_installer');
+        reply = "Opening APK Package Installer & Waydroid Runner. You can sideload any Android .apk file.";
+      } else if (lower.includes('f-droid') || lower.includes('store')) {
+        openApp('store');
+        reply = "Opening F-Droid Free Software repository.";
+      } else if (lower.includes('install system') || lower.includes('iso') || lower.includes('hardware')) {
+        openApp('system_installer');
+        reply = "Opening LibreDroid Hardware System Installer wizard.";
+      } else if (lower.includes('browser') || lower.includes('search')) {
         openApp('browser');
-        reply = "Opening Chrome browser for you now.";
+        reply = "Opening LibreBrowse with DuckDuckGo private search.";
       } else if (lower.includes('settings')) {
         openApp('settings');
         reply = "Opening System Settings.";
       } else if (lower.includes('terminal')) {
         openApp('terminal');
-        reply = "Launching Omni Terminal environment.";
+        reply = "Launching Termux bash environment.";
       } else if (lower.includes('battery')) {
-        reply = `Your battery is at ${batteryLevel}%. Wi-Fi is ${quickSettings.wifi ? 'connected' : 'off'}.`;
-      } else if (lower.includes('who are you') || lower.includes('what is this')) {
-        reply = `This is OmniOS: an adaptive universal Android system operating environment designed to run seamlessly on phones, tablets, foldables, and desktops!`;
+        reply = `Battery level is ${batteryLevel}%. Running under power governor 'conservative' with zero background tracking analytics.`;
+      } else if (lower.includes('monopoly') || lower.includes('google') || lower.includes('independent')) {
+        reply = "LibreDroid is an independent universal OS built on Linux and Waydroid AOSP without Google Play Services or proprietary telemetry. All apps originate from F-Droid or direct APK sideloading.";
       }
 
       setMessages((prev) => [...prev, { sender: 'assistant', text: reply }]);
-    }, 400);
+    }, 350);
   };
 
   return (
@@ -71,23 +80,23 @@ export const OmniAssistant: React.FC = () => {
       onClick={() => setIsAssistantOpen(false)}
     >
       <div 
-        className="w-full max-w-lg bg-neutral-900/95 border border-purple-500/30 rounded-3xl p-5 shadow-2xl flex flex-col gap-4 text-white glow-primary"
+        className="w-full max-w-lg bg-neutral-900/95 border border-emerald-500/30 rounded-3xl p-5 shadow-2xl flex flex-col gap-4 text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Assistant Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-400 rounded-xl text-white">
+            <div className="p-2 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl text-white">
               <Sparkles size={18} />
             </div>
             <div>
               <div className="text-sm font-bold flex items-center gap-1.5">
-                Omni Gemini
-                <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-mono">
-                  v2.0
+                Sovereign Local AI
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono">
+                  100% On-Device
                 </span>
               </div>
-              <div className="text-xs text-neutral-400">Universal Assistant</div>
+              <div className="text-xs text-neutral-400">Zero Cloud Dependency • Private</div>
             </div>
           </div>
           <button 
@@ -108,7 +117,7 @@ export const OmniAssistant: React.FC = () => {
               <div 
                 className={`max-w-[85%] p-3 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                   m.sender === 'user' 
-                    ? 'bg-purple-600 text-white rounded-br-none' 
+                    ? 'bg-emerald-600 text-white rounded-br-none' 
                     : 'bg-neutral-800/90 text-neutral-200 border border-neutral-700/60 rounded-bl-none'
                 }`}
               >
@@ -121,10 +130,10 @@ export const OmniAssistant: React.FC = () => {
         {/* Quick Suggestion Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           {[
+            { label: 'Sideload APK', cmd: 'how do i sideload apk' },
+            { label: 'Install to Hardware', cmd: 'install system to hardware' },
+            { label: 'F-Droid Store', cmd: 'open f-droid' },
             { label: 'Switch to Desktop', cmd: 'switch to desktop' },
-            { label: 'Open Terminal', cmd: 'open terminal' },
-            { label: 'Battery Status', cmd: 'what is battery status' },
-            { label: 'Open Chrome', cmd: 'open browser' },
           ].map((chip) => (
             <button
               key={chip.label}
@@ -142,7 +151,7 @@ export const OmniAssistant: React.FC = () => {
         <div className="flex items-center gap-2 bg-neutral-800/90 border border-neutral-700 rounded-2xl px-3 py-2">
           <input
             type="text"
-            placeholder="Ask Omni anything or command system..."
+            placeholder="Ask local model or give system command..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
@@ -152,7 +161,7 @@ export const OmniAssistant: React.FC = () => {
           <button 
             onClick={handleSend}
             disabled={!input.trim()}
-            className="p-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-xl transition-all"
+            className="p-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl transition-all"
           >
             <Send size={15} />
           </button>

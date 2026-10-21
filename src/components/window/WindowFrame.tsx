@@ -13,9 +13,12 @@ import { CameraApp } from '../apps/CameraApp';
 import { TerminalApp } from '../apps/TerminalApp';
 import { CalculatorApp } from '../apps/CalculatorApp';
 import { NotesApp } from '../apps/NotesApp';
-import { PlayStoreApp } from '../apps/PlayStoreApp';
+import { FDroidApp } from '../apps/FDroidApp';
 import { ClockApp } from '../apps/ClockApp';
 import { PhotosApp } from '../apps/PhotosApp';
+import { ApkInstallerApp } from '../apps/ApkInstallerApp';
+import { SystemInstallerApp } from '../apps/SystemInstallerApp';
+import { WaydroidAppRunner } from '../apps/WaydroidAppRunner';
 
 interface WindowFrameProps {
   window: WindowInstance;
@@ -49,10 +52,14 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       case 'terminal': return <TerminalApp />;
       case 'calculator': return <CalculatorApp />;
       case 'notes': return <NotesApp />;
-      case 'store': return <PlayStoreApp />;
+      case 'store': return <FDroidApp />;
       case 'clock': return <ClockApp />;
       case 'photos': return <PhotosApp />;
-      default: return <div className="p-4 text-white">App container</div>;
+      case 'apk_installer': return <ApkInstallerApp />;
+      case 'system_installer': return <SystemInstallerApp />;
+      default:
+        // Handle all sideloaded Android APKs inside Waydroid Container
+        return <WaydroidAppRunner appId={win.appId} title={win.title} />;
     }
   };
 
@@ -153,7 +160,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       }}
       className={`absolute flex flex-col rounded-2xl overflow-hidden shadow-2xl transition-shadow select-none ${
         isActive 
-          ? 'ring-2 ring-purple-500/80 shadow-purple-950/40' 
+          ? 'ring-2 ring-emerald-500/80 shadow-emerald-950/40' 
           : 'ring-1 ring-neutral-700/60 shadow-black/60'
       }`}
     >

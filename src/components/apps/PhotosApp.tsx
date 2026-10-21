@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, Heart, Trash2, Share2, Sparkles, X } from 'lucide-react';
+import { Image, Heart, Share2, Sparkles, X, ShieldCheck } from 'lucide-react';
 
 interface PhotoItem {
   id: string;
@@ -55,13 +55,16 @@ export const PhotosApp: React.FC = () => {
       {/* Top Header */}
       <div className="p-3 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <Image size={18} className="text-amber-400" />
-          <span className="text-sm font-bold">Google Photos</span>
+          <Image size={18} className="text-teal-400" />
+          <span className="text-sm font-bold">Immich FOSS Gallery</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-neutral-400">
           <span>{photos.length} photos</span>
           <span>•</span>
-          <span className="text-purple-300">Backed up</span>
+          <span className="text-emerald-400 font-mono flex items-center gap-1">
+            <ShieldCheck size={13} />
+            <span>Local Vault</span>
+          </span>
         </div>
       </div>
 
@@ -118,15 +121,15 @@ export const PhotosApp: React.FC = () => {
           <div className="flex items-center gap-6 pb-2 text-neutral-400">
             <button className="flex items-center gap-1.5 hover:text-white text-xs">
               <Share2 size={16} />
-              <span>Share</span>
+              <span>Share Locally</span>
             </button>
             <button className="flex items-center gap-1.5 hover:text-pink-400 text-xs">
               <Heart size={16} />
               <span>Favorite</span>
             </button>
-            <button className="flex items-center gap-1.5 hover:text-purple-300 text-xs">
+            <button className="flex items-center gap-1.5 hover:text-teal-300 text-xs">
               <Sparkles size={16} />
-              <span>Magic Edit</span>
+              <span>Local Tagging</span>
             </button>
           </div>
         </div>
