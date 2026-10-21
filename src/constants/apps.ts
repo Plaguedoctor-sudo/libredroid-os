@@ -1,0 +1,75 @@
+import { AppMetadata } from '../types/apps';
+
+export const SYSTEM_APPS: AppMetadata[] = [
+  {
+    id: 'browser',
+    name: 'Chrome',
+    icon: 'Compass',
+    color: 'from-blue-500 to-emerald-400',
+    category: 'productivity',
+  },
+  {
+    id: 'files',
+    name: 'Files',
+    icon: 'Folder',
+    color: 'from-blue-600 to-indigo-600',
+    category: 'system',
+  },
+  {
+    id: 'notes',
+    name: 'Keep Notes',
+    icon: 'FileText',
+    color: 'from-amber-400 to-yellow-500',
+    category: 'productivity',
+  },
+  {
+    id: 'camera',
+    name: 'Camera',
+    icon: 'Camera',
+    color: 'from-red-500 to-rose-600',
+    category: 'media',
+  },
+  {
+    id: 'terminal',
+    name: 'Terminal',
+    icon: 'Terminal',
+    color: 'from-gray-800 to-gray-950',
+    category: 'utility',
+  },
+  {
+    id: 'calculator',
+    name: 'Calculator',
+    icon: 'Calculator',
+    color: 'from-cyan-500 to-blue-600',
+    category: 'utility',
+  },
+  {
+    id: 'store',
+    name: 'Play Store',
+    icon: 'ShoppingBag',
+    color: 'from-green-500 to-teal-500',
+    category: 'system',
+    badge: 3,
+  },
+  {
+    id: 'settings',
+    name: 'Settings',
+    icon: 'Settings',
+    color: 'from-slate-600 to-slate-800',
+    category: 'system',
+  },
+  {
+    id: 'clock',
+    name: 'Clock',
+    icon: 'Clock',
+    color: 'from-indigo-500 to-purple-600',
+    category: 'utility',
+  },
+  {
+    id: 'photos',
+    name: 'Photos',
+    icon: 'Image',
+    color: 'from-red-400 via-yellow-400 to-green-500',
+    category: 'media',
+  },
+];
