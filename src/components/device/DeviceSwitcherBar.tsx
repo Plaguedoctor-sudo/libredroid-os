@@ -5,10 +5,12 @@ import {
   Laptop, 
   FoldHorizontal, 
   RefreshCw, 
-  Sliders,
-  ShieldCheck,
-  HardDrive,
-  Box
+  Sliders, 
+  ShieldCheck, 
+  HardDrive, 
+  Box,
+  Cpu,
+  Activity
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
@@ -21,7 +23,9 @@ export const DeviceSwitcherBar: React.FC = () => {
     actualDevice, 
     isFolded, 
     setIsFolded,
-    setIsShadeOpen
+    setIsShadeOpen,
+    hardwareSpecs,
+    adaptivePolicy
   } = useSystem();
 
   const { openApp } = useWindow();
@@ -39,8 +43,21 @@ export const DeviceSwitcherBar: React.FC = () => {
       {/* Brand Badge */}
       <div className="flex items-center gap-1.5 px-2 border-r border-neutral-700 font-semibold text-emerald-400">
         <ShieldCheck size={14} className="text-emerald-400" />
-        <span className="hidden md:inline">LibreDroid OS</span>
+        <span className="hidden md:inline">LibreDroid</span>
       </div>
+
+      {/* Hardware Adaptation Tier Live Badge */}
+      {adaptivePolicy && (
+        <button
+          onClick={() => openApp('hardware')}
+          className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 rounded-full text-[11px] font-mono text-cyan-300 transition-colors"
+          title={`Adaptive Hardware HAL: ${hardwareSpecs?.cpuCores} Cores, ${hardwareSpecs?.ramGb}GB RAM, ${adaptivePolicy.tier} profile. Click to inspect HAL.`}
+        >
+          <Cpu size={12} className="text-cyan-400" />
+          <span className="capitalize">{adaptivePolicy.tier}</span>
+          <span className="hidden xl:inline text-neutral-400">({hardwareSpecs?.cpuCores}C)</span>
+        </button>
+      )}
 
       {/* Device Form Factor Pills */}
       <div className="flex items-center gap-1">
@@ -83,7 +100,7 @@ export const DeviceSwitcherBar: React.FC = () => {
         title="Sideload Android .apk"
       >
         <Box size={13} />
-        <span>Sideload APK</span>
+        <span>Sideload</span>
       </button>
 
       {/* Quick Action: Hardware Installer */}

@@ -12,6 +12,7 @@ import {
   Image, 
   Box,
   HardDrive,
+  Cpu,
   Film,
   Tv,
   MapPin,
@@ -81,6 +82,11 @@ const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> 
     bg: 'bg-gradient-to-tr from-teal-500 to-emerald-600',
     color: 'text-white',
   },
+  hardware: {
+    icon: Cpu,
+    bg: 'bg-gradient-to-tr from-cyan-500 to-blue-700',
+    color: 'text-white',
+  },
   apk_installer: {
     icon: Box,
     bg: 'bg-gradient-to-tr from-emerald-500 to-teal-700',
@@ -91,7 +97,6 @@ const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> 
     bg: 'bg-gradient-to-tr from-purple-600 to-indigo-800',
     color: 'text-white',
   },
-  // Open source sideloaded apps
   'org.videolan.vlc': {
     icon: Film,
     bg: 'bg-gradient-to-tr from-orange-500 to-amber-600',

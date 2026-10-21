@@ -6,23 +6,29 @@ import {
   QuickSettingsState, 
   SystemWallpaper 
 } from '../types/system';
+import { 
+  HardwareSpecs, 
+  AdaptivePolicy, 
+  detectHardwareSpecs, 
+  getAdaptivePolicyForHardware 
+} from '../services/hardwareDetector';
 
 export const WALLPAPERS: SystemWallpaper[] = [
   {
     id: 'material-waves',
-    name: 'Material Cosmic Waves',
+    name: 'Cosmic Emerald Waves',
     url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2000&q=80',
-    themeColor: '#7c4dff',
+    themeColor: '#10b981',
   },
   {
     id: 'aurora-borealis',
-    name: 'Android Emerald Aurora',
+    name: 'Nordic Aurora',
     url: 'https://images.unsplash.com/photo-1517411032315-54ef2cb783bb?auto=format&fit=crop&w=2000&q=80',
     themeColor: '#00bfa5',
   },
   {
     id: 'cyber-dusk',
-    name: 'Pixel Sunset Dunes',
+    name: 'Dusk Mountain Peaks',
     url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=80',
     themeColor: '#ff6d00',
   },
@@ -62,6 +68,12 @@ interface SystemContextType {
   setIsRecentsOpen: (open: boolean) => void;
   isAssistantOpen: boolean;
   setIsAssistantOpen: (open: boolean) => void;
+  // Hardware Abstraction & Adaptation
+  hardwareSpecs: HardwareSpecs | null;
+  adaptivePolicy: AdaptivePolicy | null;
+  autoHardwareAdaptation: boolean;
+  setAutoHardwareAdaptation: (val: boolean) => void;
+  setManualTier: (tier: 'low-end' | 'mid-range' | 'flagship' | 'workstation') => void;
 }
 
 const SystemContext = createContext<SystemContextType | undefined>(undefined);
@@ -80,6 +92,11 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isRecentsOpen, setIsRecentsOpen] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
+  // Hardware State
+  const [hardwareSpecs, setHardwareSpecs] = useState<HardwareSpecs | null>(null);
+  const [adaptivePolicy, setAdaptivePolicy] = useState<AdaptivePolicy | null>(null);
+  const [autoHardwareAdaptation, setAutoHardwareAdaptation] = useState(true);
+
   const [quickSettings, setQuickSettings] = useState<QuickSettingsState>({
     wifi: true,
     bluetooth: true,
@@ -96,44 +113,51 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [notifications, setNotifications] = useState<SystemNotification[]>([
     {
       id: '1',
-      appId: 'system',
-      appName: 'Omni System',
-      title: 'Universal Android Ready',
-      body: 'Adapting seamlessly between Phone, Tablet, Foldable & Desktop modes.',
+      appId: 'hardware',
+      appName: 'HAL Engine',
+      title: 'Hardware Profile Active',
+      body: 'Operating system tuned for host CPU, RAM, and GPU capabilities.',
       time: 'Just now',
       read: false,
     },
     {
       id: '2',
-      appId: 'store',
-      appName: 'Play Store',
-      title: '3 Updates Available',
-      body: 'Chrome, Notes, and Terminal updated for high-DPI responsive layouts.',
-      time: '12m ago',
+      appId: 'system',
+      appName: 'LibreDroid System',
+      title: 'Independent OS Ready',
+      body: 'Zero proprietary Google dependencies. F-Droid & Waydroid APK engine active.',
+      time: '1m ago',
       read: false,
-    },
-    {
-      id: '3',
-      appId: 'files',
-      appName: 'Google Drive Sync',
-      title: 'Cross-Device Sync Complete',
-      body: '14.2 GB of cloud files synchronized with Omni Cloud profile.',
-      time: '1h ago',
-      read: true,
     },
   ]);
 
   const [account, setAccount] = useState<UserAccount>({
-    name: 'Universal User',
-    email: 'user@omni-android.system',
+    name: 'Sovereign User',
+    email: 'user@matrix.libredroid.local',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    syncedDevicesCount: 4,
-    storageUsedGb: 14.2,
-    storageTotalGb: 100,
+    syncedDevicesCount: 3,
+    storageUsedGb: 18.4,
+    storageTotalGb: 512,
     lastSynced: 'Just now',
   });
 
-  // Track window resizing for auto detection
+  // Hardware Probing on Mount
+  useEffect(() => {
+    detectHardwareSpecs().then((specs) => {
+      setHardwareSpecs(specs);
+      const policy = getAdaptivePolicyForHardware(specs);
+      setAdaptivePolicy(policy);
+      setBatteryLevel(specs.batteryLevel);
+      setIsCharging(specs.isCharging);
+
+      // Auto-adapt power governor or battery saver if low battery
+      if (specs.batteryLevel <= 20 && !specs.isCharging) {
+        setQuickSettings((prev) => ({ ...prev, batterySaver: true }));
+      }
+    });
+  }, []);
+
+  // Track window resizing
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -191,14 +215,23 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const syncAccount = () => {
     setAccount((prev) => ({
       ...prev,
-      lastSynced: 'Synchronized just now',
+      lastSynced: 'Synchronized to mesh just now',
     }));
     addNotification({
       appId: 'system',
-      appName: 'Omni Sync',
-      title: 'Cloud State Synced',
-      body: 'All device tabs, files, and preferences are synchronized across your universal devices.',
+      appName: 'Mesh Sync',
+      title: 'Peer Nodes Synchronized',
+      body: 'Encrypted Nextcloud vaults and Matrix sessions updated across your hardware devices.',
     });
+  };
+
+  const setManualTier = (tier: 'low-end' | 'mid-range' | 'flagship' | 'workstation') => {
+    setAutoHardwareAdaptation(false);
+    if (hardwareSpecs) {
+      const updatedSpecs: HardwareSpecs = { ...hardwareSpecs, tier };
+      setHardwareSpecs(updatedSpecs);
+      setAdaptivePolicy(getAdaptivePolicyForHardware(updatedSpecs));
+    }
   };
 
   return (
@@ -231,6 +264,11 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsRecentsOpen,
         isAssistantOpen,
         setIsAssistantOpen,
+        hardwareSpecs,
+        adaptivePolicy,
+        autoHardwareAdaptation,
+        setAutoHardwareAdaptation,
+        setManualTier,
       }}
     >
       {children}

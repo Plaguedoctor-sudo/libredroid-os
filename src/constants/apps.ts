@@ -11,12 +11,12 @@ export const SYSTEM_APPS: AppMetadata[] = [
     author: 'F-Droid Community',
   },
   {
-    id: 'browser',
-    name: 'LibreBrowse',
-    icon: 'Compass',
-    color: 'from-orange-500 to-amber-500',
-    category: 'productivity',
-    author: 'Chromium / Mozilla FOSS',
+    id: 'hardware',
+    name: 'Hardware HAL',
+    icon: 'Cpu',
+    color: 'from-cyan-600 to-blue-700',
+    category: 'system',
+    author: 'LibreDroid HAL Engine',
   },
   {
     id: 'apk_installer',
@@ -25,6 +25,14 @@ export const SYSTEM_APPS: AppMetadata[] = [
     color: 'from-emerald-500 to-teal-600',
     category: 'system',
     author: 'Waydroid AOSP Container',
+  },
+  {
+    id: 'browser',
+    name: 'LibreBrowse',
+    icon: 'Compass',
+    color: 'from-orange-500 to-amber-500',
+    category: 'productivity',
+    author: 'Chromium / Mozilla FOSS',
   },
   {
     id: 'system_installer',
