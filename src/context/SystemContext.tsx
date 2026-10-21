@@ -12,6 +12,7 @@ import {
   detectHardwareSpecs, 
   getAdaptivePolicyForHardware 
 } from '../services/hardwareDetector';
+import { PREDATORY_KEYWORDS } from '../services/antiPredatoryEngine';
 
 export const WALLPAPERS: SystemWallpaper[] = [
   {
@@ -113,19 +114,19 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [notifications, setNotifications] = useState<SystemNotification[]>([
     {
       id: '1',
-      appId: 'hardware',
-      appName: 'HAL Engine',
-      title: 'Hardware Profile Active',
-      body: 'Operating system tuned for host CPU, RAM, and GPU capabilities.',
+      appId: 'predatory_shield',
+      appName: 'Anti-Predatory Shield',
+      title: 'Attention & Privacy Sentinel Active',
+      body: 'Deceptive dark patterns, fake urgency alerts, and wake-locks are blocked at the OS layer.',
       time: 'Just now',
       read: false,
     },
     {
       id: '2',
-      appId: 'system',
-      appName: 'LibreDroid System',
-      title: 'Independent OS Ready',
-      body: 'Zero proprietary Google dependencies. F-Droid & Waydroid APK engine active.',
+      appId: 'hardware',
+      appName: 'HAL Engine',
+      title: 'Hardware Profile Active',
+      body: 'Operating system tuned for host CPU, RAM, and GPU capabilities.',
       time: '1m ago',
       read: false,
     },
@@ -150,7 +151,6 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setBatteryLevel(specs.batteryLevel);
       setIsCharging(specs.isCharging);
 
-      // Auto-adapt power governor or battery saver if low battery
       if (specs.batteryLevel <= 20 && !specs.isCharging) {
         setQuickSettings((prev) => ({ ...prev, batterySaver: true }));
       }
@@ -203,6 +203,25 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const addNotification = (notif: Omit<SystemNotification, 'id' | 'time' | 'read'>) => {
+    // OS-level anti-predatory spam inspection
+    const fullText = `${notif.title} ${notif.body}`.toLowerCase();
+    const isPredatorySpam = PREDATORY_KEYWORDS.some((kw) => fullText.includes(kw));
+
+    if (isPredatorySpam) {
+      // Quarantined! Send an ethical defense alert instead
+      const quarantinedNotif: SystemNotification = {
+        id: Math.random().toString(36).substring(2, 9),
+        appId: 'predatory_shield',
+        appName: 'Anti-Predatory Shield',
+        title: 'Predatory Notification Intercepted',
+        body: `Blocked artificial urgency push from "${notif.appName}": "${notif.title}".`,
+        time: 'Just now',
+        read: false,
+      };
+      setNotifications((prev) => [quarantinedNotif, ...prev]);
+      return;
+    }
+
     const newNotif: SystemNotification = {
       ...notif,
       id: Math.random().toString(36).substring(2, 9),

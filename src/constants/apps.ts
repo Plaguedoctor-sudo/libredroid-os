@@ -2,6 +2,15 @@ import { AppMetadata } from '../types/apps';
 
 export const SYSTEM_APPS: AppMetadata[] = [
   {
+    id: 'predatory_shield',
+    name: 'Anti-Predatory Shield',
+    icon: 'ShieldAlert',
+    color: 'from-rose-500 via-pink-600 to-red-700',
+    category: 'system',
+    badge: 5,
+    author: 'LibreDroid Ethical Defense',
+  },
+  {
     id: 'guardian',
     name: 'Anti-Monopoly Core',
     icon: 'ShieldCheck',

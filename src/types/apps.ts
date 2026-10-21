@@ -13,6 +13,7 @@ export type AppId =
   | 'photos'
   | 'hardware'
   | 'guardian'
+  | 'predatory_shield'
   | 'apk_installer'
   | 'system_installer'
   | string; // Dynamic sideloaded APKs

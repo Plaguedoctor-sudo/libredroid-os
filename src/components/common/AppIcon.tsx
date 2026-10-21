@@ -10,16 +10,17 @@ import {
   Settings, 
   Clock, 
   Image, 
-  Box,
-  HardDrive,
-  Cpu,
-  ShieldCheck,
-  Film,
-  Tv,
-  MapPin,
-  MessageSquare,
-  Mail,
-  Layers,
+  Box, 
+  HardDrive, 
+  Cpu, 
+  ShieldCheck, 
+  ShieldAlert, 
+  Film, 
+  Tv, 
+  MapPin, 
+  MessageSquare, 
+  Mail, 
+  Layers, 
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -33,6 +34,11 @@ interface AppIconProps {
 }
 
 const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> = {
+  predatory_shield: {
+    icon: ShieldAlert,
+    bg: 'bg-gradient-to-tr from-rose-500 via-pink-600 to-red-700',
+    color: 'text-white',
+  },
   guardian: {
     icon: ShieldCheck,
     bg: 'bg-gradient-to-tr from-emerald-500 via-teal-600 to-cyan-700',
