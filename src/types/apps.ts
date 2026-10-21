@@ -12,6 +12,7 @@ export type AppId =
   | 'clock'
   | 'photos'
   | 'hardware'
+  | 'guardian'
   | 'apk_installer'
   | 'system_installer'
   | string; // Dynamic sideloaded APKs

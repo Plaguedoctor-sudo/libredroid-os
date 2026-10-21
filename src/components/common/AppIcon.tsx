@@ -13,6 +13,7 @@ import {
   Box,
   HardDrive,
   Cpu,
+  ShieldCheck,
   Film,
   Tv,
   MapPin,
@@ -32,6 +33,11 @@ interface AppIconProps {
 }
 
 const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> = {
+  guardian: {
+    icon: ShieldCheck,
+    bg: 'bg-gradient-to-tr from-emerald-500 via-teal-600 to-cyan-700',
+    color: 'text-white',
+  },
   browser: {
     icon: Compass,
     bg: 'bg-gradient-to-tr from-amber-500 to-orange-600',

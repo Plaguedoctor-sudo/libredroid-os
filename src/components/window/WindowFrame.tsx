@@ -17,6 +17,7 @@ import { FDroidApp } from '../apps/FDroidApp';
 import { ClockApp } from '../apps/ClockApp';
 import { PhotosApp } from '../apps/PhotosApp';
 import { HardwareManagerApp } from '../apps/HardwareManagerApp';
+import { AntiMonopolyGuardianApp } from '../apps/AntiMonopolyGuardianApp';
 import { ApkInstallerApp } from '../apps/ApkInstallerApp';
 import { SystemInstallerApp } from '../apps/SystemInstallerApp';
 import { WaydroidAppRunner } from '../apps/WaydroidAppRunner';
@@ -36,7 +37,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
     updateWindowSize
   } = useWindow();
 
-  const { actualDevice, adaptivePolicy } = useSystem();
+  const { actualDevice } = useSystem();
   const isDesktop = actualDevice === 'desktop';
   const isActive = activeWindowId === win.id;
 
@@ -57,6 +58,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       case 'clock': return <ClockApp />;
       case 'photos': return <PhotosApp />;
       case 'hardware': return <HardwareManagerApp />;
+      case 'guardian': return <AntiMonopolyGuardianApp />;
       case 'apk_installer': return <ApkInstallerApp />;
       case 'system_installer': return <SystemInstallerApp />;
       default:
