@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Minus, Square, Copy, X } from 'lucide-react';
+import { Minus, Square, Copy, X, Layers, ShieldCheck, Radio, AlertTriangle } from 'lucide-react';
 import { WindowInstance } from '../../types/apps';
 import { useWindow } from '../../context/WindowContext';
 import { useSystem } from '../../context/SystemContext';
 import { AppIcon } from '../common/AppIcon';
+import { MULTI_OS_DOMAINS } from '../../services/multiOsHypervisor';
 
 // Apps registry map
 import { BrowserApp } from '../apps/BrowserApp';
@@ -21,6 +22,7 @@ import { AntiMonopolyGuardianApp } from '../apps/AntiMonopolyGuardianApp';
 import { AntiPredatoryShieldApp } from '../apps/AntiPredatoryShieldApp';
 import { SecurityGuardrailsApp } from '../apps/SecurityGuardrailsApp';
 import { LinuxSandboxApp } from '../apps/LinuxSandboxApp';
+import { MultiOsHypervisorApp } from '../apps/MultiOsHypervisorApp';
 import { ApkInstallerApp } from '../apps/ApkInstallerApp';
 import { SystemInstallerApp } from '../apps/SystemInstallerApp';
 import { WaydroidAppRunner } from '../apps/WaydroidAppRunner';
@@ -47,6 +49,9 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Resolve Qubes-style security domain configuration
+  const domainConfig = MULTI_OS_DOMAINS.find((d) => d.id === win.osDomain) || MULTI_OS_DOMAINS[4];
+
   // Render the appropriate inner application component
   const renderAppContent = () => {
     switch (win.appId) {
@@ -65,6 +70,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       case 'predatory_shield': return <AntiPredatoryShieldApp />;
       case 'security': return <SecurityGuardrailsApp />;
       case 'linux_sandbox': return <LinuxSandboxApp />;
+      case 'hypervisor': return <MultiOsHypervisorApp />;
       case 'apk_installer': return <ApkInstallerApp />;
       case 'system_installer': return <SystemInstallerApp />;
       default:
@@ -117,12 +123,19 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
         style={{ zIndex: win.zIndex }}
         onClick={() => focusWindow(win.id)}
       >
-        {/* Top Header Controls (For Desktop Maximized mode) */}
+        {/* Top Header Controls */}
         {isDesktop && (
           <div className="h-10 bg-neutral-950/95 border-b border-neutral-800 flex items-center justify-between px-3 shrink-0">
             <div className="flex items-center gap-2">
               <AppIcon appId={win.appId} size="sm" />
               <span className="text-xs font-semibold text-white">{win.title}</span>
+              {/* Qubes Security Domain Badge */}
+              <span 
+                className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shadow-sm"
+                style={{ backgroundColor: `${domainConfig.colorHex}25`, color: domainConfig.colorHex, border: `1px solid ${domainConfig.colorHex}50` }}
+              >
+                [{domainConfig.badgeLabel}]
+              </span>
             </div>
             <div className="flex items-center gap-1">
               <button 
@@ -157,7 +170,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
     );
   }
 
-  // Desktop Freeform Window Mode
+  // Desktop Freeform Window Mode (Qubes Multi-OS Compartmentalized Border)
   return (
     <div
       onClick={() => focusWindow(win.id)}
@@ -167,22 +180,30 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
         top: `${win.position.y}px`,
         width: `${win.size.width}px`,
         height: `${win.size.height}px`,
+        borderColor: domainConfig.colorHex,
       }}
-      className={`absolute flex flex-col rounded-2xl overflow-hidden shadow-2xl transition-shadow select-none ${
+      className={`absolute flex flex-col rounded-2xl overflow-hidden shadow-2xl transition-shadow select-none border-2 ${
         isActive 
-          ? 'ring-2 ring-cyan-500/80 shadow-cyan-950/40' 
-          : 'ring-1 ring-neutral-700/60 shadow-black/60'
+          ? 'shadow-2xl ring-1' 
+          : 'shadow-black/70 opacity-95'
       }`}
     >
-      {/* Draggable Titlebar */}
+      {/* Draggable Titlebar with Qubes Domain Header */}
       <div
         onMouseDown={handleMouseDown}
         className="h-10 bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800 px-3 flex items-center justify-between cursor-move shrink-0"
       >
         <div className="flex items-center gap-2 pointer-events-none">
           <AppIcon appId={win.appId} size="sm" />
-          <span className="text-xs font-semibold text-neutral-200 truncate max-w-[200px]">
+          <span className="text-xs font-semibold text-neutral-200 truncate max-w-[160px]">
             {win.title}
+          </span>
+          {/* Security Domain Pill */}
+          <span 
+            className="text-[10px] font-mono px-2 py-0.5 rounded-md font-bold"
+            style={{ backgroundColor: `${domainConfig.colorHex}25`, color: domainConfig.colorHex, border: `1px solid ${domainConfig.colorHex}60` }}
+          >
+            {domainConfig.badgeLabel.split(' ')[0]}
           </span>
         </div>
 

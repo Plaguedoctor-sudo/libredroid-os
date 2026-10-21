@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AppId, WindowInstance } from '../types/apps';
 import { useSystem } from './SystemContext';
+import { OsDomainId } from '../services/multiOsHypervisor';
 
 interface WindowContextType {
   windows: WindowInstance[];
   activeWindowId: string | null;
-  openApp: (appId: AppId, title?: string) => void;
+  openApp: (appId: AppId, title?: string, domain?: OsDomainId) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
   maximizeWindow: (id: string) => void;
@@ -13,28 +14,55 @@ interface WindowContextType {
   updateWindowPosition: (id: string, x: number, y: number) => void;
   updateWindowSize: (id: string, width: number, height: number) => void;
   closeAll: () => void;
-  activeAppId: AppId | null; // For phone mode single app view
+  activeAppId: AppId | null;
   returnHome: () => void;
   goBack: () => void;
+  purgeDisposableWindows: () => void;
 }
 
 const WindowContext = createContext<WindowContextType | undefined>(undefined);
 
-const APP_TITLES: Record<AppId, string> = {
-  browser: 'Google Chrome',
-  files: 'Files / Drive',
+const APP_TITLES: Record<string, string> = {
+  browser: 'LibreBrowse (Tor Routed)',
+  files: 'Nextcloud Files Hub',
   settings: 'System Settings',
-  camera: 'Camera',
-  terminal: 'Omni Terminal',
-  calculator: 'Calculator',
-  notes: 'Google Keep Notes',
-  store: 'Play Store',
-  clock: 'Clock & Timer',
-  photos: 'Photos Gallery',
+  camera: 'Open Camera',
+  terminal: 'Disposable Alpine Shell',
+  calculator: 'LibreCalc',
+  notes: 'Joplin Vault Notes',
+  store: 'F-Droid Store',
+  clock: 'Clock',
+  photos: 'Immich Gallery',
+  hardware: 'Hardware HAL Manager',
+  guardian: 'Anti-Monopoly Core',
+  predatory_shield: 'Anti-Predatory Shield',
+  security: 'Security Guardrails',
+  linux_sandbox: 'Linux Sandboxing',
+  hypervisor: 'Multi-OS Hypervisor Matrix',
+  apk_installer: 'APK Package Installer',
+  system_installer: 'Hardware OS Installer',
+};
+
+const DEFAULT_APP_DOMAINS: Record<string, OsDomainId> = {
+  browser: 'anonymity-whonix',
+  notes: 'vault-airgap',
+  settings: 'vault-airgap',
+  terminal: 'disposable-alpine',
+  files: 'workstation-debian',
+  calculator: 'workstation-debian',
+  clock: 'workstation-debian',
+  photos: 'workstation-debian',
+  hardware: 'workstation-debian',
+  guardian: 'vault-airgap',
+  security: 'vault-airgap',
+  linux_sandbox: 'workstation-debian',
+  hypervisor: 'vault-airgap',
+  apk_installer: 'hardened-android',
+  system_installer: 'vault-airgap',
 };
 
 export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { actualDevice, setIsRecentsOpen, setIsAppDrawerOpen } = useSystem();
+  const { actualDevice, setIsRecentsOpen, setIsAppDrawerOpen, addNotification } = useSystem();
   const [windows, setWindows] = useState<WindowInstance[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [nextZ, setNextZ] = useState(10);
@@ -42,9 +70,12 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const activeWindow = windows.find((w) => w.id === activeWindowId);
   const activeAppId = activeWindow && !activeWindow.isMinimized ? activeWindow.appId : null;
 
-  const openApp = (appId: AppId, customTitle?: string) => {
+  const openApp = (appId: AppId, customTitle?: string, domain?: OsDomainId) => {
     setIsRecentsOpen(false);
     setIsAppDrawerOpen(false);
+
+    // Resolve security domain
+    const targetDomain: OsDomainId = domain || DEFAULT_APP_DOMAINS[appId] || (appId.startsWith('org.') || appId.startsWith('com.') ? 'hardened-android' : 'workstation-debian');
 
     // Check if an instance already exists
     const existing = windows.find((w) => w.appId === appId);
@@ -52,7 +83,7 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setWindows((prev) =>
         prev.map((w) =>
           w.id === existing.id
-            ? { ...w, isMinimized: false, zIndex: nextZ + 1 }
+            ? { ...w, isMinimized: false, zIndex: nextZ + 1, osDomain: targetDomain }
             : w
         )
       );
@@ -61,7 +92,7 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    // Default sizing based on device
+    // Sizing
     const isDesktop = actualDevice === 'desktop';
     const initialWidth = isDesktop ? Math.min(840, window.innerWidth - 80) : window.innerWidth;
     const initialHeight = isDesktop ? Math.min(600, window.innerHeight - 120) : window.innerHeight;
@@ -75,10 +106,11 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       appId,
       title: customTitle || APP_TITLES[appId] || 'App',
       isMinimized: false,
-      isMaximized: !isDesktop, // phone & tablet maximize by default
+      isMaximized: !isDesktop,
       zIndex: nextZ + 1,
       position: { x: initialX, y: initialY },
       size: { width: initialWidth, height: initialHeight },
+      osDomain: targetDomain,
     };
 
     setNextZ((z) => z + 1);
@@ -87,6 +119,16 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const closeWindow = (id: string) => {
+    const targetWin = windows.find((w) => w.id === id);
+    if (targetWin?.osDomain === 'disposable-alpine') {
+      addNotification({
+        appId: 'hypervisor',
+        appName: 'Ephemeral Disposable VM',
+        title: 'MicroVM Sanitized & Purged',
+        body: `Ephemeral domain for ${targetWin.title} was destroyed. All temporary RAM purged.`,
+      });
+    }
+
     setWindows((prev) => prev.filter((w) => w.id !== id));
     if (activeWindowId === id) {
       const remaining = windows.filter((w) => w.id !== id);
@@ -96,6 +138,17 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setActiveWindowId(null);
       }
     }
+  };
+
+  const purgeDisposableWindows = () => {
+    const disposableCount = windows.filter((w) => w.osDomain === 'disposable-alpine').length;
+    setWindows((prev) => prev.filter((w) => w.osDomain !== 'disposable-alpine'));
+    addNotification({
+      appId: 'hypervisor',
+      appName: 'Qubes Hypervisor Core',
+      title: 'Disposable Domains Wiped',
+      body: `Permanently destroyed ${disposableCount} ephemeral microVM instance(s) from memory.`,
+    });
   };
 
   const minimizeWindow = (id: string) => {
@@ -153,7 +206,6 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const returnHome = () => {
-    // In phone/tablet mode, minimize all to reveal home screen
     if (actualDevice !== 'desktop') {
       setWindows((prev) => prev.map((w) => ({ ...w, isMinimized: true })));
       setActiveWindowId(null);
@@ -164,7 +216,6 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const goBack = () => {
     if (activeWindowId) {
-      // simulate back / minimize
       minimizeWindow(activeWindowId);
     }
   };
@@ -185,6 +236,7 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activeAppId,
         returnHome,
         goBack,
+        purgeDisposableWindows,
       }}
     >
       {children}

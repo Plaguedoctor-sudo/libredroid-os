@@ -1,4 +1,5 @@
 import React from 'react';
+import { OsDomainId } from '../services/multiOsHypervisor';
 
 export type AppId = 
   | 'browser'
@@ -16,6 +17,7 @@ export type AppId =
   | 'predatory_shield'
   | 'security'
   | 'linux_sandbox'
+  | 'hypervisor'
   | 'apk_installer'
   | 'system_installer'
   | string; // Dynamic sideloaded APKs
@@ -34,6 +36,7 @@ export interface AppMetadata {
   permissions?: string[];
   defaultWidth?: number;
   defaultHeight?: number;
+  defaultDomain?: OsDomainId;
 }
 
 export interface WindowInstance {
@@ -45,4 +48,5 @@ export interface WindowInstance {
   zIndex: number;
   position: { x: number; y: number };
   size: { width: number; height: number };
+  osDomain?: OsDomainId;
 }

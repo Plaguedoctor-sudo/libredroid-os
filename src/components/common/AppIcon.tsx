@@ -16,12 +16,12 @@ import {
   ShieldCheck, 
   ShieldAlert, 
   Lock,
+  Layers,
   Film, 
   Tv, 
   MapPin, 
   MessageSquare, 
   Mail, 
-  Layers, 
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -35,6 +35,11 @@ interface AppIconProps {
 }
 
 const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> = {
+  hypervisor: {
+    icon: Layers,
+    bg: 'bg-gradient-to-tr from-purple-600 via-indigo-700 to-blue-800',
+    color: 'text-white',
+  },
   linux_sandbox: {
     icon: Box,
     bg: 'bg-gradient-to-tr from-cyan-600 via-teal-700 to-blue-800',

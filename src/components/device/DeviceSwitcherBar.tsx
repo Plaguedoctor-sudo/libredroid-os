@@ -41,14 +41,24 @@ export const DeviceSwitcherBar: React.FC = () => {
 
   return (
     <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-1 sm:gap-2 select-none text-xs text-white">
-      {/* Security Guardrails Direct Status Badge */}
+      {/* Multi-OS Qubes Hypervisor Direct Status Badge */}
+      <button 
+        onClick={() => openApp('hypervisor')}
+        className="flex items-center gap-1.5 px-2 border-r border-neutral-700 font-semibold text-purple-400 hover:text-purple-300 transition-colors"
+        title="Multi-OS Hypervisor Matrix: 5 Specialized OS Domains (seL4 Vault, Whonix Tor, GrapheneOS Android, Disposable Alpine, Debian Work)."
+      >
+        <Layers size={13} className="text-purple-400" />
+        <span className="hidden md:inline">Multi-OS Matrix</span>
+      </button>
+
+      {/* Security Guardrails Badge */}
       <button 
         onClick={() => openApp('security')}
-        className="flex items-center gap-1.5 px-2 border-r border-neutral-700 font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-        title="Security Guardrails: SELinux Enforcing, Verified Boot, FBE Encrypted. Click to inspect."
+        className="flex items-center gap-1 px-2 py-0.5 bg-neutral-800 hover:bg-neutral-750 rounded-full text-[11px] font-mono text-emerald-300 transition-colors"
+        title="Hardened Guardrails"
       >
-        <Lock size={13} className="text-emerald-400" />
-        <span className="hidden md:inline">Hardened OS</span>
+        <Lock size={12} className="text-emerald-400" />
+        <span className="hidden xl:inline">Hardened</span>
       </button>
 
       {/* Linux Sandbox Core Button */}
@@ -61,18 +71,6 @@ export const DeviceSwitcherBar: React.FC = () => {
         <span>Sandbox</span>
       </button>
 
-      {/* Hardware Adaptation Tier Live Badge */}
-      {adaptivePolicy && (
-        <button
-          onClick={() => openApp('hardware')}
-          className="hidden lg:flex items-center gap-1 px-2 py-0.5 bg-neutral-800 hover:bg-neutral-750 rounded-full text-[11px] font-mono text-neutral-300 transition-colors"
-          title={`Adaptive Hardware HAL: ${hardwareSpecs?.cpuCores} Cores, ${hardwareSpecs?.ramGb}GB RAM.`}
-        >
-          <Cpu size={12} className="text-purple-400" />
-          <span className="capitalize">{adaptivePolicy.tier}</span>
-        </button>
-      )}
-
       {/* Device Form Factor Pills */}
       <div className="flex items-center gap-1">
         {devices.map((d) => {
@@ -84,7 +82,7 @@ export const DeviceSwitcherBar: React.FC = () => {
               onClick={() => setDeviceMode(d.id)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
                 isActive
-                  ? 'bg-emerald-600 text-white shadow'
+                  ? 'bg-purple-600 text-white shadow'
                   : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
               }`}
               title={`Switch to ${d.label} mode`}

@@ -2,6 +2,15 @@ import { AppMetadata } from '../types/apps';
 
 export const SYSTEM_APPS: AppMetadata[] = [
   {
+    id: 'hypervisor',
+    name: 'Multi-OS Matrix',
+    icon: 'Layers',
+    color: 'from-purple-600 via-indigo-700 to-blue-800',
+    category: 'system',
+    badge: 5,
+    author: 'Qubes / seL4 Hypervisor',
+  },
+  {
     id: 'linux_sandbox',
     name: 'Linux Sandbox',
     icon: 'Box',
