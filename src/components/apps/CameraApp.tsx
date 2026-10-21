@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, RefreshCw, Sparkles, Image as ImageIcon, Circle } from 'lucide-react';
+import { Camera, CameraOff, RefreshCw, Sparkles, Image as ImageIcon, Circle, ShieldAlert, Power } from 'lucide-react';
+import { useSecurity } from '../../context/SecurityContext';
 
 export const CameraApp: React.FC = () => {
+  const { cameraKillswitch, setCameraKillswitch } = useSecurity();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [photos, setPhotos] = useState<string[]>([
     'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80',
@@ -12,6 +14,8 @@ export const CameraApp: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    if (cameraKillswitch) return;
+
     let stream: MediaStream | null = null;
     navigator.mediaDevices?.getUserMedia?.({ video: true })
       .then((s) => {
@@ -30,13 +34,13 @@ export const CameraApp: React.FC = () => {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [cameraKillswitch]);
 
   const takePhoto = () => {
+    if (cameraKillswitch) return;
     setFlash(true);
     setTimeout(() => setFlash(false), 200);
 
-    // Save a snap
     const samplePhotos = [
       'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80',
       'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=400&q=80',
@@ -55,6 +59,29 @@ export const CameraApp: React.FC = () => {
     }
   };
 
+  // If Hardware Killswitch is engaged: Active hardware cutoff state!
+  if (cameraKillswitch) {
+    return (
+      <div className="flex-1 w-full h-full bg-neutral-950 text-white flex flex-col items-center justify-center p-6 text-center select-none">
+        <div className="w-20 h-20 rounded-3xl bg-rose-950/40 border border-rose-500/50 flex items-center justify-center text-rose-400 mb-4 shadow-2xl">
+          <CameraOff size={36} />
+        </div>
+        <h2 className="text-lg font-bold text-white">Camera Hardware Subsystem Cut Off</h2>
+        <p className="text-xs text-neutral-400 mt-1.5 max-w-sm leading-relaxed">
+          The camera sensor has been electrically unpowered at the kernel driver layer via LibreDroid's Master Hardware Killswitch. No application can capture video.
+        </p>
+
+        <button
+          onClick={() => setCameraKillswitch(false)}
+          className="mt-6 px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-2xl shadow-xl transition-all flex items-center gap-2"
+        >
+          <Power size={14} />
+          <span>Re-Engage Camera Hardware Driver</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 w-full h-full flex flex-col bg-black text-white relative select-none overflow-hidden">
       {/* Flash Effect Overlay */}
@@ -68,7 +95,7 @@ export const CameraApp: React.FC = () => {
             onClick={() => setFilter(f)}
             className={`px-3 py-1 rounded-full text-xs capitalize transition-all ${
               filter === f 
-                ? 'bg-purple-600 text-white font-medium shadow' 
+                ? 'bg-rose-600 text-white font-medium shadow' 
                 : 'bg-black/50 backdrop-blur-md text-white/70 hover:text-white'
             }`}
           >
@@ -98,10 +125,10 @@ export const CameraApp: React.FC = () => {
           >
             <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
             <div className="relative z-10 text-center bg-black/60 backdrop-blur-md p-4 rounded-3xl border border-white/10 max-w-xs">
-              <Camera size={32} className="mx-auto mb-2 text-purple-400" />
-              <div className="text-xs font-semibold">Universal Lens Simulator</div>
+              <Camera size={32} className="mx-auto mb-2 text-rose-400" />
+              <div className="text-xs font-semibold">Open Camera Hardware Sandbox</div>
               <div className="text-[11px] text-neutral-400 mt-1">
-                Virtual sensor calibrated. Ready to capture images.
+                Zero cloud upload. Sensor pipeline sandboxed via SELinux.
               </div>
             </div>
           </div>
@@ -137,13 +164,13 @@ export const CameraApp: React.FC = () => {
           <div className="w-full h-full rounded-full bg-white transition-colors" />
         </button>
 
-        {/* Lens Switch */}
+        {/* Killswitch shortcut */}
         <button 
-          onClick={() => setFilter(filter === 'none' ? 'cyber' : 'none')}
-          className="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-          title="Switch Lens Effect"
+          onClick={() => setCameraKillswitch(true)}
+          className="p-3 bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/40 rounded-full text-rose-300 transition-colors"
+          title="Engage Hardware Camera Killswitch"
         >
-          <RefreshCw size={20} />
+          <CameraOff size={20} />
         </button>
       </div>
     </div>

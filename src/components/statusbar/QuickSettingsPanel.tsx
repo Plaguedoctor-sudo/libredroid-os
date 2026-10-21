@@ -17,14 +17,20 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  RefreshCw,
-  Bell,
-  Trash2,
-  HardDrive,
-  Box
+  RefreshCw, 
+  Bell, 
+  Trash2, 
+  HardDrive, 
+  Box, 
+  Camera, 
+  CameraOff, 
+  Mic, 
+  MicOff, 
+  Layers 
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
+import { useSecurity } from '../../context/SecurityContext';
 
 export const QuickSettingsPanel: React.FC = () => {
   const { 
@@ -45,7 +51,8 @@ export const QuickSettingsPanel: React.FC = () => {
     actualDevice
   } = useSystem();
 
-  const { openApp } = useWindow();
+  const { openApp, purgeDisposableWindows } = useWindow();
+  const { cameraKillswitch, setCameraKillswitch, micKillswitch, setMicKillswitch } = useSecurity();
 
   if (!isShadeOpen) return null;
 
@@ -73,12 +80,22 @@ export const QuickSettingsPanel: React.FC = () => {
             <button 
               onClick={() => {
                 setIsShadeOpen(false);
-                openApp('system_installer');
+                openApp('security');
               }}
-              className="p-2 hover:bg-neutral-800 rounded-full transition-colors text-purple-300 hover:text-white"
-              title="Install OS to Disk"
+              className="p-2 hover:bg-neutral-800 rounded-full transition-colors text-emerald-400 hover:text-white"
+              title="Security Guardrails"
             >
-              <HardDrive size={18} />
+              <ShieldCheck size={18} />
+            </button>
+            <button 
+              onClick={() => {
+                setIsShadeOpen(false);
+                openApp('hypervisor');
+              }}
+              className="p-2 hover:bg-neutral-800 rounded-full transition-colors text-purple-400 hover:text-white"
+              title="Multi-OS Matrix"
+            >
+              <Layers size={18} />
             </button>
             <button 
               onClick={() => {
@@ -100,94 +117,36 @@ export const QuickSettingsPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* User Account Bar & Mesh Sync */}
-        <div className="flex items-center justify-between bg-neutral-800/60 p-3 rounded-2xl border border-neutral-700/50">
-          <div className="flex items-center gap-3">
-            <img 
-              src={account.avatarUrl} 
-              alt={account.name} 
-              className="w-10 h-10 rounded-full object-cover border border-emerald-400"
-            />
-            <div>
-              <div className="text-sm font-semibold flex items-center gap-1.5">
-                {account.name}
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded-full font-medium">
-                  Sovereign ID
-                </span>
-              </div>
-              <div className="text-xs text-neutral-400">Nextcloud / Matrix Mesh Identity</div>
-            </div>
-          </div>
-          <button 
-            onClick={syncAccount}
-            className="flex items-center gap-1.5 text-xs bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/30 px-3 py-1.5 rounded-xl transition-colors"
-          >
-            <RefreshCw size={12} className="animate-spin-slow" />
-            <span>Sync</span>
-          </button>
-        </div>
-
-        {/* Quick App Shortcuts: Sideload APK & Hardware Installer */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Master Hardware Killswitches Bar */}
+        <div className="grid grid-cols-2 gap-2 bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
           <button
-            onClick={() => {
-              setIsShadeOpen(false);
-              openApp('apk_installer');
-            }}
-            className="flex items-center gap-2 p-2.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 rounded-2xl text-xs font-semibold text-emerald-300 transition-colors"
+            onClick={() => setCameraKillswitch((prev) => !prev)}
+            className={`flex items-center gap-2.5 p-2 rounded-xl text-xs font-semibold transition-all ${
+              cameraKillswitch
+                ? 'bg-rose-600 text-white shadow-lg'
+                : 'bg-neutral-800/80 text-neutral-300 hover:bg-neutral-700'
+            }`}
           >
-            <Box size={16} />
-            <span>Sideload Android APK</span>
+            {cameraKillswitch ? <CameraOff size={16} /> : <Camera size={16} />}
+            <span>Camera: {cameraKillswitch ? 'CUT OFF' : 'Active'}</span>
           </button>
 
           <button
-            onClick={() => {
-              setIsShadeOpen(false);
-              openApp('system_installer');
-            }}
-            className="flex items-center gap-2 p-2.5 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 rounded-2xl text-xs font-semibold text-purple-300 transition-colors"
+            onClick={() => setMicKillswitch((prev) => !prev)}
+            className={`flex items-center gap-2.5 p-2 rounded-xl text-xs font-semibold transition-all ${
+              micKillswitch
+                ? 'bg-rose-600 text-white shadow-lg'
+                : 'bg-neutral-800/80 text-neutral-300 hover:bg-neutral-700'
+            }`}
           >
-            <HardDrive size={16} />
-            <span>Install OS to Hardware</span>
+            {micKillswitch ? <MicOff size={16} /> : <Mic size={16} />}
+            <span>Mic: {micKillswitch ? 'CUT OFF' : 'Active'}</span>
           </button>
-        </div>
-
-        {/* Device Adaptive Switcher */}
-        <div className="bg-neutral-800/40 p-3 rounded-2xl border border-neutral-700/40">
-          <div className="text-xs font-semibold text-neutral-400 mb-2 uppercase tracking-wider flex items-center justify-between">
-            <span>Adaptive Form Factor</span>
-            <span className="text-[11px] text-emerald-400 capitalize">Active: {actualDevice}</span>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { id: 'auto', label: 'Auto', icon: RefreshCw },
-              { id: 'phone', label: 'Phone', icon: Smartphone },
-              { id: 'tablet', label: 'Tablet', icon: Tablet },
-              { id: 'desktop', label: 'DeX/Desktop', icon: Laptop },
-            ].map((d) => {
-              const Icon = d.icon;
-              const isSelected = deviceMode === d.id;
-              return (
-                <button
-                  key={d.id}
-                  onClick={() => setDeviceMode(d.id as any)}
-                  className={`flex flex-col items-center justify-center p-2 rounded-xl text-xs font-medium transition-all ${
-                    isSelected 
-                      ? 'bg-emerald-600 text-white shadow-md' 
-                      : 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-300'
-                  }`}
-                >
-                  <Icon size={16} className="mb-1" />
-                  {d.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {/* Quick Settings Grid */}
         <div className="grid grid-cols-2 gap-2.5">
-          {/* Wi-Fi */}
+          {/* Internet */}
           <button
             onClick={() => toggleQuickSetting('wifi')}
             className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
@@ -201,25 +160,25 @@ export const QuickSettingsPanel: React.FC = () => {
             </div>
             <div className="text-left">
               <div className="text-sm font-semibold">Internet</div>
-              <div className="text-xs opacity-80">{quickSettings.wifi ? 'Mesh-WiFi' : 'Off'}</div>
+              <div className="text-xs opacity-80">{quickSettings.wifi ? 'Mesh Tor/DoH' : 'Off'}</div>
             </div>
           </button>
 
-          {/* Bluetooth */}
+          {/* Privacy Shield */}
           <button
-            onClick={() => toggleQuickSetting('bluetooth')}
+            onClick={() => toggleQuickSetting('dnd')}
             className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
-              quickSettings.bluetooth 
-                ? 'bg-emerald-600 text-white font-medium' 
+              quickSettings.dnd 
+                ? 'bg-purple-600 text-white font-medium' 
                 : 'bg-neutral-800 text-neutral-400'
             }`}
           >
-            <div className={`p-2 rounded-xl ${quickSettings.bluetooth ? 'bg-emerald-700' : 'bg-neutral-700'}`}>
-              {quickSettings.bluetooth ? <Bluetooth size={18} /> : <BluetoothOff size={18} />}
+            <div className={`p-2 rounded-xl ${quickSettings.dnd ? 'bg-purple-700' : 'bg-neutral-700'}`}>
+              <ShieldCheck size={18} />
             </div>
             <div className="text-left">
-              <div className="text-sm font-semibold">Bluetooth</div>
-              <div className="text-xs opacity-80">{quickSettings.bluetooth ? 'Connected' : 'Off'}</div>
+              <div className="text-sm font-semibold">Privacy Shield</div>
+              <div className="text-xs opacity-80">{quickSettings.dnd ? 'Zero Telemetry' : 'Normal'}</div>
             </div>
           </button>
 
@@ -241,57 +200,20 @@ export const QuickSettingsPanel: React.FC = () => {
             </div>
           </button>
 
-          {/* Anti-Tracking Shield */}
+          {/* Purge Disposable MicroVMs */}
           <button
-            onClick={() => toggleQuickSetting('dnd')}
-            className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
-              quickSettings.dnd 
-                ? 'bg-blue-600 text-white font-medium' 
-                : 'bg-neutral-800 text-neutral-400'
-            }`}
+            onClick={() => {
+              purgeDisposableWindows();
+              setIsShadeOpen(false);
+            }}
+            className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-800 hover:bg-red-950/60 text-neutral-300 hover:text-red-300 transition-all border border-neutral-750"
           >
-            <div className={`p-2 rounded-xl ${quickSettings.dnd ? 'bg-blue-700' : 'bg-neutral-700'}`}>
-              <ShieldCheck size={18} />
+            <div className="p-2 rounded-xl bg-neutral-700 text-neutral-300">
+              <Trash2 size={18} />
             </div>
             <div className="text-left">
-              <div className="text-sm font-semibold">Privacy Shield</div>
-              <div className="text-xs opacity-80">{quickSettings.dnd ? 'Zero Telemetry' : 'Normal'}</div>
-            </div>
-          </button>
-
-          {/* Auto Rotate */}
-          <button
-            onClick={() => toggleQuickSetting('autoRotate')}
-            className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
-              quickSettings.autoRotate 
-                ? 'bg-emerald-600 text-white font-medium' 
-                : 'bg-neutral-800 text-neutral-400'
-            }`}
-          >
-            <div className={`p-2 rounded-xl ${quickSettings.autoRotate ? 'bg-emerald-700' : 'bg-neutral-700'}`}>
-              <RotateCw size={18} />
-            </div>
-            <div className="text-left">
-              <div className="text-sm font-semibold">Auto-rotate</div>
-              <div className="text-xs opacity-80">{quickSettings.autoRotate ? 'On' : 'Locked'}</div>
-            </div>
-          </button>
-
-          {/* Battery Saver */}
-          <button
-            onClick={() => toggleQuickSetting('batterySaver')}
-            className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
-              quickSettings.batterySaver 
-                ? 'bg-emerald-600 text-white font-medium' 
-                : 'bg-neutral-800 text-neutral-400'
-            }`}
-          >
-            <div className={`p-2 rounded-xl ${quickSettings.batterySaver ? 'bg-emerald-700' : 'bg-neutral-700'}`}>
-              <BatteryMedium size={18} />
-            </div>
-            <div className="text-left">
-              <div className="text-sm font-semibold">Battery ({batteryLevel}%)</div>
-              <div className="text-xs opacity-80">{quickSettings.batterySaver ? 'Saver On' : 'Standard'}</div>
+              <div className="text-sm font-semibold">Purge Ephemeral</div>
+              <div className="text-xs opacity-80">Wipe Disposable VMs</div>
             </div>
           </button>
         </div>
