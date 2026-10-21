@@ -49,6 +49,8 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [isDomainSelectorOpen, setIsDomainSelectorOpen] = useState(false);
 
   // Resolve Qubes-style security domain configuration
@@ -115,6 +117,41 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
     };
   }, [isDragging, dragStart, win.id, updateWindowPosition]);
 
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    if (!isDesktop || win.isMaximized) return;
+    e.stopPropagation();
+    setIsResizing(true);
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: win.size.width,
+      height: win.size.height,
+    });
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = Math.max(340, resizeStart.width + (e.clientX - resizeStart.x));
+      const newHeight = Math.max(260, resizeStart.height + (e.clientY - resizeStart.y));
+      updateWindowSize(win.id, newWidth, newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, resizeStart, win.id, updateWindowSize]);
+
   if (win.isMinimized) return null;
 
   // Mobile / Tablet Full-Screen Presentation
@@ -125,72 +162,75 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
         style={{ zIndex: win.zIndex }}
         onClick={() => focusWindow(win.id)}
       >
-        {/* Top Header Controls */}
-        {isDesktop && (
-          <div className="h-10 bg-neutral-950/95 border-b border-neutral-800 flex items-center justify-between px-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <AppIcon appId={win.appId} size="sm" />
-              <span className="text-xs font-semibold text-white">{win.title}</span>
-              {/* Qubes Security Domain Badge with Clickable Switcher */}
-              <div className="relative">
-                <button 
-                  onClick={() => setIsDomainSelectorOpen(!isDomainSelectorOpen)}
-                  className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shadow-sm transition-transform hover:scale-105"
-                  style={{ backgroundColor: `${domainConfig.colorHex}25`, color: domainConfig.colorHex, border: `1px solid ${domainConfig.colorHex}50` }}
-                  title="Click to migrate app to another security domain"
-                >
-                  [{domainConfig.badgeLabel}]
-                </button>
+        {/* Domain Accent Color Bar on Top */}
+        <div className="h-0.5 w-full shrink-0" style={{ backgroundColor: domainConfig.colorHex }} />
 
-                {isDomainSelectorOpen && (
-                  <div className="absolute top-full left-0 mt-1.5 w-52 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl py-1 z-50 animate-fade-in font-sans">
-                    <div className="px-2.5 py-1 text-[9px] uppercase font-bold text-neutral-400">Migrate to OS Domain</div>
-                    {MULTI_OS_DOMAINS.map((dom) => (
-                      <button
-                        key={dom.id}
-                        onClick={() => {
-                          updateWindowDomain(win.id, dom.id);
-                          setIsDomainSelectorOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left transition-colors ${
-                          win.osDomain === dom.id
-                            ? 'bg-neutral-800 text-white font-semibold'
-                            : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
-                        }`}
-                      >
-                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dom.colorHex }} />
-                        <span className="truncate">{dom.badgeLabel}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
+        {/* Top Header Controls (Rendered on both Mobile & Desktop Maximized) */}
+        <div className="h-10 bg-neutral-950/95 border-b border-neutral-800 flex items-center justify-between px-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <AppIcon appId={win.appId} size="sm" />
+            <span className="text-xs font-semibold text-white truncate max-w-[130px] sm:max-w-xs">{win.title}</span>
+            {/* Qubes Security Domain Badge with Clickable Switcher */}
+            <div className="relative">
               <button 
-                onClick={() => minimizeWindow(win.id)}
-                className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white"
-                title="Minimize"
+                onClick={() => setIsDomainSelectorOpen(!isDomainSelectorOpen)}
+                className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shadow-sm transition-transform hover:scale-105"
+                style={{ backgroundColor: `${domainConfig.colorHex}25`, color: domainConfig.colorHex, border: `1px solid ${domainConfig.colorHex}50` }}
+                title="Click to migrate app to another security domain"
               >
-                <Minus size={14} />
+                [{domainConfig.badgeLabel.split(' ')[0]}]
               </button>
+
+              {isDomainSelectorOpen && (
+                <div className="absolute top-full left-0 mt-1.5 w-52 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl py-1 z-50 animate-fade-in font-sans">
+                  <div className="px-2.5 py-1 text-[9px] uppercase font-bold text-neutral-400">Migrate to OS Domain</div>
+                  {MULTI_OS_DOMAINS.map((dom) => (
+                    <button
+                      key={dom.id}
+                      onClick={() => {
+                        updateWindowDomain(win.id, dom.id);
+                        setIsDomainSelectorOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left transition-colors ${
+                        win.osDomain === dom.id
+                          ? 'bg-neutral-800 text-white font-semibold'
+                          : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+                      }`}
+                    >
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dom.colorHex }} />
+                      <span className="truncate">{dom.badgeLabel}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => minimizeWindow(win.id)}
+              className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors"
+              title="Minimize"
+            >
+              <Minus size={14} />
+            </button>
+            {isDesktop && (
               <button 
                 onClick={() => maximizeWindow(win.id)}
-                className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white"
+                className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors"
                 title="Restore Down"
               >
                 <Copy size={12} />
               </button>
-              <button 
-                onClick={() => closeWindow(win.id)}
-                className="p-1.5 hover:bg-red-600 rounded-lg text-neutral-400 hover:text-white"
-                title="Close"
-              >
-                <X size={14} />
-              </button>
-            </div>
+            )}
+            <button 
+              onClick={() => closeWindow(win.id)}
+              className="p-1.5 hover:bg-red-600 rounded-lg text-neutral-400 hover:text-white transition-colors"
+              title="Close"
+            >
+              <X size={14} />
+            </button>
           </div>
-        )}
+        </div>
 
         <div className="flex-1 w-full h-full overflow-hidden flex flex-col">
           {renderAppContent()}
@@ -305,8 +345,19 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       </div>
 
       {/* App Body */}
-      <div className="flex-1 w-full h-full overflow-hidden flex flex-col bg-neutral-900">
+      <div className="flex-1 w-full h-full overflow-hidden flex flex-col bg-neutral-900 relative">
         {renderAppContent()}
+
+        {/* Freeform Window Corner Resize Handle */}
+        <div
+          onMouseDown={handleResizeMouseDown}
+          className="absolute bottom-0.5 right-0.5 w-4 h-4 cursor-se-resize flex items-center justify-center text-neutral-500 hover:text-white z-40 transition-colors"
+          title="Drag to resize window"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor">
+            <path d="M8 2L2 8M9 5L5 9M9 8L8 9" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </div>
       </div>
     </div>
   );

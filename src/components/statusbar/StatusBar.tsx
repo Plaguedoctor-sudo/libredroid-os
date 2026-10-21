@@ -10,6 +10,8 @@ import {
   ChevronDown 
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { useWindow } from '../../context/WindowContext';
+import { MULTI_OS_DOMAINS } from '../../services/multiOsHypervisor';
 
 export const StatusBar: React.FC = () => {
   const { 
@@ -22,13 +24,17 @@ export const StatusBar: React.FC = () => {
     actualDevice,
   } = useSystem();
 
+  const { windows, activeWindowId } = useWindow();
+  const activeWin = windows.find((w) => w.id === activeWindowId && !w.isMinimized);
+  const activeDomain = activeWin?.osDomain ? MULTI_OS_DOMAINS.find(d => d.id === activeWin.osDomain) : null;
+
   return (
     <header 
       onClick={() => setIsShadeOpen(true)}
       className="w-full h-8 px-4 flex items-center justify-between text-white text-xs select-none cursor-pointer hover:bg-white/5 transition-colors z-30 shrink-0 font-medium"
       title="Click or pull to expand Quick Settings & Notifications"
     >
-      {/* Left: Live Time & App notification indicator */}
+      {/* Left: Live Time & App notification indicator & Active Security Domain */}
       <div className="flex items-center gap-2">
         <span className="font-semibold tracking-wide">
           {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -37,6 +43,20 @@ export const StatusBar: React.FC = () => {
           <div className="flex items-center gap-1 text-purple-300">
             <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
             <Bell size={12} />
+          </div>
+        )}
+        {activeDomain && (
+          <div 
+            className="flex items-center gap-1 px-1.5 py-0.2 rounded-md text-[9px] font-mono font-bold"
+            style={{
+              backgroundColor: `${activeDomain.colorHex}25`,
+              color: activeDomain.colorHex,
+              border: `1px solid ${activeDomain.colorHex}50`
+            }}
+            title={`Active security domain: ${activeDomain.name}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeDomain.colorHex }} />
+            <span>{activeDomain.badgeLabel.split(' ')[0]}</span>
           </div>
         )}
       </div>

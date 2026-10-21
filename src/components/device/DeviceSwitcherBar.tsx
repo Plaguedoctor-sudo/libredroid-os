@@ -40,7 +40,7 @@ export const DeviceSwitcherBar: React.FC = () => {
   ];
 
   return (
-    <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-1 sm:gap-2 select-none text-xs text-white">
+    <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-1 sm:gap-2 select-none text-xs text-white max-w-[96vw] overflow-x-auto scrollbar-none">
       {/* Multi-OS Qubes Hypervisor Direct Status Badge */}
       <button 
         onClick={() => openApp('hypervisor')}

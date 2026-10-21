@@ -35,7 +35,7 @@ export const DeviceFrame: React.FC = () => {
   const isSimulatedFrame = deviceMode === 'phone' || deviceMode === 'tablet' || deviceMode === 'foldable';
 
   return (
-    <div className="w-full h-screen bg-[#0d0d11] flex items-center justify-center p-0 overflow-hidden relative">
+    <div className={`w-full h-screen bg-[#0d0d11] flex items-center justify-center p-0 overflow-hidden relative ${isSimulatedFrame ? 'pt-12 sm:pt-14 pb-2' : ''}`}>
       {/* Background ambient lighting */}
       <div 
         className="absolute inset-0 opacity-20 blur-3xl pointer-events-none"

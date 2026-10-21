@@ -66,8 +66,24 @@ export const OmniAssistant: React.FC = () => {
         reply = "Launching Termux bash environment.";
       } else if (lower.includes('battery')) {
         reply = `Battery level is ${batteryLevel}%. Running under power governor 'conservative' with zero background tracking analytics.`;
-      } else if (lower.includes('monopoly') || lower.includes('google') || lower.includes('independent')) {
-        reply = "LibreDroid is an independent universal OS built on Linux and Waydroid AOSP without Google Play Services or proprietary telemetry. All apps originate from F-Droid or direct APK sideloading.";
+      } else if (lower.includes('hypervisor') || lower.includes('qubes') || lower.includes('whonix') || lower.includes('vault') || lower.includes('domain')) {
+        openApp('hypervisor');
+        reply = "Opening Multi-OS Hypervisor Matrix. You can inspect or operate inside the 5 specialized OS domains: seL4 Vault, Whonix Tor, GrapheneOS Android, Disposable Alpine, and Debian Workstation.";
+      } else if (lower.includes('security') || lower.includes('guardrail') || lower.includes('firewall')) {
+        openApp('security');
+        reply = "Opening Hardened Security Guardrails & Hardware Killswitches.";
+      } else if (lower.includes('sandbox') || lower.includes('cgroup') || lower.includes('namespace') || lower.includes('seccomp')) {
+        openApp('linux_sandbox');
+        reply = "Opening Linux 35-Year Evolution Sandbox Engine.";
+      } else if (lower.includes('predatory') || lower.includes('subscription') || lower.includes('dark pattern')) {
+        openApp('predatory_shield');
+        reply = "Opening Anti-Predatory Shield. Analyzing dark patterns and active subscriptions.";
+      } else if (lower.includes('hardware') || lower.includes('cpu') || lower.includes('gpu') || lower.includes('hal')) {
+        openApp('hardware');
+        reply = "Opening Hardware HAL Manager.";
+      } else if (lower.includes('monopoly') || lower.includes('google') || lower.includes('independent') || lower.includes('unifiedpush')) {
+        openApp('guardian');
+        reply = "Opening Anti-Monopoly Core & UnifiedPush Provider Manager.";
       }
 
       setMessages((prev) => [...prev, { sender: 'assistant', text: reply }]);

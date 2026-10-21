@@ -3,6 +3,7 @@ import { X, Trash2, SplitSquareVertical } from 'lucide-react';
 import { useWindow } from '../../context/WindowContext';
 import { useSystem } from '../../context/SystemContext';
 import { AppIcon } from '../common/AppIcon';
+import { MULTI_OS_DOMAINS } from '../../services/multiOsHypervisor';
 
 export const RecentsView: React.FC = () => {
   const { windows, focusWindow, closeWindow, closeAll } = useWindow();
@@ -43,48 +44,58 @@ export const RecentsView: React.FC = () => {
             <p className="text-xs text-neutral-500 mt-1">Open apps from the launcher or app drawer</p>
           </div>
         ) : (
-          windows.map((win) => (
-            <div
-              key={win.id}
-              onClick={() => {
-                focusWindow(win.id);
-                setIsRecentsOpen(false);
-              }}
-              className="relative w-64 sm:w-72 h-96 bg-neutral-900 border border-neutral-700/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden shrink-0 cursor-pointer transform hover:scale-105 transition-all group"
-            >
-              {/* Card Titlebar */}
-              <div className="p-3 bg-neutral-800/90 flex items-center justify-between border-b border-neutral-700/50">
-                <div className="flex items-center gap-2">
-                  <AppIcon appId={win.appId} size="sm" />
-                  <span className="text-xs font-semibold text-white truncate max-w-[140px]">
-                    {win.title}
-                  </span>
+          windows.map((win) => {
+            const domainConfig = MULTI_OS_DOMAINS.find((d) => d.id === win.osDomain) || MULTI_OS_DOMAINS[4];
+            return (
+              <div
+                key={win.id}
+                onClick={() => {
+                  focusWindow(win.id);
+                  setIsRecentsOpen(false);
+                }}
+                style={{ borderColor: domainConfig.colorHex }}
+                className="relative w-64 sm:w-72 h-96 bg-neutral-900 border-2 rounded-3xl shadow-2xl flex flex-col overflow-hidden shrink-0 cursor-pointer transform hover:scale-105 transition-all group"
+              >
+                {/* Card Titlebar */}
+                <div className="p-3 bg-neutral-800/90 flex items-center justify-between border-b border-neutral-700/50">
+                  <div className="flex items-center gap-2">
+                    <AppIcon appId={win.appId} size="sm" />
+                    <span className="text-xs font-semibold text-white truncate max-w-[110px]">
+                      {win.title}
+                    </span>
+                    <span 
+                      className="text-[9px] font-mono px-1.5 py-0.5 rounded font-bold"
+                      style={{ backgroundColor: `${domainConfig.colorHex}25`, color: domainConfig.colorHex }}
+                    >
+                      {domainConfig.badgeLabel.split(' ')[0]}
+                    </span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeWindow(win.id);
+                    }}
+                    className="p-1 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-full transition-colors"
+                  >
+                    <X size={15} />
+                  </button>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closeWindow(win.id);
-                  }}
-                  className="p-1 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-full transition-colors"
-                >
-                  <X size={15} />
-                </button>
-              </div>
 
-              {/* Card Preview Snapshot */}
-              <div className="flex-1 bg-neutral-950 flex flex-col items-center justify-center p-4 text-center">
-                <AppIcon appId={win.appId} size="lg" className="mb-3 opacity-80 group-hover:scale-110 transition-transform" />
-                <span className="text-xs text-neutral-400 capitalize">{win.appId}</span>
-                <span className="text-[10px] text-neutral-600 mt-1">Active Process #PID-{win.id}</span>
+                {/* Card Preview Snapshot */}
+                <div className="flex-1 bg-neutral-950 flex flex-col items-center justify-center p-4 text-center">
+                  <AppIcon appId={win.appId} size="lg" className="mb-3 opacity-80 group-hover:scale-110 transition-transform" />
+                  <span className="text-xs text-neutral-400 capitalize">{win.appId}</span>
+                  <span className="text-[10px] text-neutral-500 mt-1 font-mono">Domain: {domainConfig.name}</span>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
       {/* Footer Navigation Tip */}
       <div className="text-xs text-neutral-400 pb-2">
-        Tap a window to resume • Swipe or tap outside to return
+        Tap a task card to resume • Swipe or tap outside to return
       </div>
     </div>
   );
