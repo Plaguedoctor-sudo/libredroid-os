@@ -15,6 +15,7 @@ export type AppId =
   | 'guardian'
   | 'predatory_shield'
   | 'security'
+  | 'linux_sandbox'
   | 'apk_installer'
   | 'system_installer'
   | string; // Dynamic sideloaded APKs

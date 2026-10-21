@@ -10,7 +10,8 @@ import {
   HardDrive, 
   Box, 
   Cpu, 
-  Lock 
+  Lock,
+  Layers
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
@@ -50,14 +51,24 @@ export const DeviceSwitcherBar: React.FC = () => {
         <span className="hidden md:inline">Hardened OS</span>
       </button>
 
+      {/* Linux Sandbox Core Button */}
+      <button
+        onClick={() => openApp('linux_sandbox')}
+        className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 rounded-full text-[11px] font-mono text-cyan-300 transition-colors"
+        title="Linux Namespaces, cgroups v2, Seccomp-BPF & XDG Portals"
+      >
+        <Box size={12} className="text-cyan-400" />
+        <span>Sandbox</span>
+      </button>
+
       {/* Hardware Adaptation Tier Live Badge */}
       {adaptivePolicy && (
         <button
           onClick={() => openApp('hardware')}
-          className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 rounded-full text-[11px] font-mono text-cyan-300 transition-colors"
-          title={`Adaptive Hardware HAL: ${hardwareSpecs?.cpuCores} Cores, ${hardwareSpecs?.ramGb}GB RAM, ${adaptivePolicy.tier} profile.`}
+          className="hidden lg:flex items-center gap-1 px-2 py-0.5 bg-neutral-800 hover:bg-neutral-750 rounded-full text-[11px] font-mono text-neutral-300 transition-colors"
+          title={`Adaptive Hardware HAL: ${hardwareSpecs?.cpuCores} Cores, ${hardwareSpecs?.ramGb}GB RAM.`}
         >
-          <Cpu size={12} className="text-cyan-400" />
+          <Cpu size={12} className="text-purple-400" />
           <span className="capitalize">{adaptivePolicy.tier}</span>
         </button>
       )}
@@ -99,7 +110,7 @@ export const DeviceSwitcherBar: React.FC = () => {
       {/* Quick Action: Sideload APK */}
       <button
         onClick={() => openApp('apk_installer')}
-        className="hidden lg:flex items-center gap-1 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-emerald-300 rounded-full text-[11px] font-medium transition-colors"
+        className="hidden xl:flex items-center gap-1 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-emerald-300 rounded-full text-[11px] font-medium transition-colors"
         title="Sideload Android .apk"
       >
         <Box size={13} />

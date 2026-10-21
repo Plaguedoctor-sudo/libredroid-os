@@ -35,6 +35,11 @@ interface AppIconProps {
 }
 
 const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> = {
+  linux_sandbox: {
+    icon: Box,
+    bg: 'bg-gradient-to-tr from-cyan-600 via-teal-700 to-blue-800',
+    color: 'text-white',
+  },
   security: {
     icon: Lock,
     bg: 'bg-gradient-to-tr from-emerald-600 via-teal-700 to-cyan-800',

@@ -2,6 +2,15 @@ import { AppMetadata } from '../types/apps';
 
 export const SYSTEM_APPS: AppMetadata[] = [
   {
+    id: 'linux_sandbox',
+    name: 'Linux Sandbox',
+    icon: 'Box',
+    color: 'from-cyan-600 via-teal-700 to-blue-800',
+    category: 'system',
+    badge: 3,
+    author: 'LibreDroid Linux Container Core',
+  },
+  {
     id: 'security',
     name: 'Security Guardrails',
     icon: 'Lock',

@@ -20,6 +20,7 @@ import { HardwareManagerApp } from '../apps/HardwareManagerApp';
 import { AntiMonopolyGuardianApp } from '../apps/AntiMonopolyGuardianApp';
 import { AntiPredatoryShieldApp } from '../apps/AntiPredatoryShieldApp';
 import { SecurityGuardrailsApp } from '../apps/SecurityGuardrailsApp';
+import { LinuxSandboxApp } from '../apps/LinuxSandboxApp';
 import { ApkInstallerApp } from '../apps/ApkInstallerApp';
 import { SystemInstallerApp } from '../apps/SystemInstallerApp';
 import { WaydroidAppRunner } from '../apps/WaydroidAppRunner';
@@ -63,6 +64,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       case 'guardian': return <AntiMonopolyGuardianApp />;
       case 'predatory_shield': return <AntiPredatoryShieldApp />;
       case 'security': return <SecurityGuardrailsApp />;
+      case 'linux_sandbox': return <LinuxSandboxApp />;
       case 'apk_installer': return <ApkInstallerApp />;
       case 'system_installer': return <SystemInstallerApp />;
       default:
@@ -168,7 +170,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       }}
       className={`absolute flex flex-col rounded-2xl overflow-hidden shadow-2xl transition-shadow select-none ${
         isActive 
-          ? 'ring-2 ring-emerald-500/80 shadow-emerald-950/40' 
+          ? 'ring-2 ring-cyan-500/80 shadow-cyan-950/40' 
           : 'ring-1 ring-neutral-700/60 shadow-black/60'
       }`}
     >
