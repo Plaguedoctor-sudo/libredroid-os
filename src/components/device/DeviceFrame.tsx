@@ -82,18 +82,18 @@ export const DeviceFrame: React.FC = () => {
           ))}
         </main>
 
-        {/* Bottom Navigation */}
-        {actualDevice === 'desktop' ? (
-          <Taskbar />
-        ) : (
-          <NavigationBar />
-        )}
-
         {/* Global Overlays: Quick Settings, App Drawer, Recents, Assistant */}
         <QuickSettingsPanel />
         <AppDrawer />
         <RecentsView />
         <OmniAssistant />
+
+        {/* Bottom Navigation: High-priority system layer (z-50) so Home & Back are always accessible */}
+        {actualDevice === 'desktop' ? (
+          <Taskbar />
+        ) : (
+          <NavigationBar />
+        )}
       </div>
     </div>
   );

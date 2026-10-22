@@ -85,7 +85,7 @@ export const NavigationBar: React.FC = () => {
   // 1. Apple iOS Swipe Home Indicator Bar
   if (navStyle === 'ios_homebar') {
     return (
-      <footer className="w-full h-10 flex items-center justify-center bg-black/40 backdrop-blur-md shrink-0 z-40 select-none touch-manipulation border-t border-white/5">
+      <footer className="w-full h-10 flex items-center justify-center bg-black/40 backdrop-blur-md shrink-0 z-50 relative select-none touch-manipulation border-t border-white/5">
         <button
           onClick={handleHome}
           onDoubleClick={handleRecents}
@@ -106,7 +106,7 @@ export const NavigationBar: React.FC = () => {
   // 2. Android Modern Gesture Pill
   if (navStyle === 'android_gestures') {
     return (
-      <footer className="w-full h-11 px-6 flex items-center justify-between bg-black/40 backdrop-blur-md text-white/80 shrink-0 z-40 select-none border-t border-white/5 touch-manipulation">
+      <footer className="w-full h-11 px-6 flex items-center justify-between bg-black/40 backdrop-blur-md text-white/80 shrink-0 z-50 relative select-none border-t border-white/5 touch-manipulation">
         <button
           onClick={handleBack}
           className="p-2 text-xs text-white/80 hover:text-white flex items-center gap-1.5 hover:bg-white/10 active:scale-90 rounded-xl transition-all touch-manipulation min-w-[50px] min-h-[40px] justify-center"
@@ -137,7 +137,7 @@ export const NavigationBar: React.FC = () => {
   // 3. Desktop Taskbar Navigation Style (when enabled via Developer/Power User Persona)
   if (navStyle === 'desktop_taskbar') {
     return (
-      <footer className="w-full h-12 px-4 flex items-center justify-between bg-neutral-950/90 backdrop-blur-xl text-white shrink-0 z-40 border-t border-white/10 select-none touch-manipulation">
+      <footer className="w-full h-12 px-4 flex items-center justify-between bg-neutral-950/90 backdrop-blur-xl text-white shrink-0 z-50 relative border-t border-white/10 select-none touch-manipulation">
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
@@ -182,7 +182,7 @@ export const NavigationBar: React.FC = () => {
 
   // 4. Classic 3-Button Navigation (Default with Full Accessible Hitboxes)
   return (
-    <footer className={`w-full flex items-center justify-around bg-black/50 backdrop-blur-md text-white/90 shrink-0 z-40 border-t border-white/10 select-none touch-manipulation ${
+    <footer className={`w-full flex items-center justify-around bg-black/50 backdrop-blur-md text-white/90 shrink-0 z-50 relative border-t border-white/10 select-none touch-manipulation ${
       isAccessible ? 'h-16 px-6 bg-black/80' : 'h-12 px-8'
     }`}>
       {/* Back button */}
