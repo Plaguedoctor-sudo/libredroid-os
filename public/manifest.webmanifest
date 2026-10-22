@@ -3,7 +3,7 @@
   "short_name": "LibreDroid",
   "description": "Independent universal operating system platform with native Android APK execution and zero big-tech monopoly locks.",
   "start_url": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "background_color": "#0d0d11",
   "theme_color": "#10b981",
   "orientation": "any",
