@@ -135,3 +135,41 @@ export async function openInNativeBrowser(url: string): Promise<{ success: boole
     return { success: false, error: err.message };
   }
 }
+
+export interface DeviceContact {
+  id: string;
+  name: string;
+  number: string;
+  avatarColor: string;
+}
+
+export async function fetchDeviceContacts(): Promise<DeviceContact[]> {
+  try {
+    const res = await fetch('/api/contacts/list');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.contacts || [];
+  } catch {
+    return [];
+  }
+}
+
+export interface DevicePhoto {
+  id: string;
+  name: string;
+  caption: string;
+  path: string;
+  url: string;
+  date: string;
+}
+
+export async function fetchDevicePhotos(): Promise<DevicePhoto[]> {
+  try {
+    const res = await fetch('/api/photos/list');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.photos || [];
+  } catch {
+    return [];
+  }
+}

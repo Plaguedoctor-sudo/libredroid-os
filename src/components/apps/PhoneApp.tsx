@@ -17,7 +17,7 @@ import {
   Plus
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
-import { dialPhoneNumber } from '../../services/hardwareBridgeClient';
+import { dialPhoneNumber, fetchDeviceContacts } from '../../services/hardwareBridgeClient';
 
 export interface CallLogItem {
   id: string;
@@ -57,6 +57,18 @@ export const PhoneApp: React.FC = () => {
     { id: '3', name: 'Matrix Voice Gateway', number: '+1 (555) 019-2834', avatarColor: 'bg-purple-600' },
     { id: '4', name: 'Voicemail Hub', number: '123', avatarColor: 'bg-blue-600' },
   ]);
+
+  // Load real device contacts from Android HAL
+  const loadContacts = async () => {
+    const devContacts = await fetchDeviceContacts();
+    if (devContacts && devContacts.length > 0) {
+      setContacts(devContacts);
+    }
+  };
+
+  useEffect(() => {
+    loadContacts();
+  }, [activeTab]);
 
   // Call timer
   useEffect(() => {

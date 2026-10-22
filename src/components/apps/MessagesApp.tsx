@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   MessageSquare, 
   Send, 
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useVirtualKeyboard } from '../../context/KeyboardContext';
-import { sendSmsMessage } from '../../services/hardwareBridgeClient';
+import { sendSmsMessage, fetchDeviceContacts, DeviceContact } from '../../services/hardwareBridgeClient';
 
 export interface MessageThread {
   id: string;
@@ -67,6 +67,13 @@ export const MessagesApp: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isComposingNew, setIsComposingNew] = useState(false);
   const [newRecipientNumber, setNewRecipientNumber] = useState('');
+  const [deviceContacts, setDeviceContacts] = useState<DeviceContact[]>([]);
+
+  useEffect(() => {
+    fetchDeviceContacts().then((contacts) => {
+      if (contacts && contacts.length > 0) setDeviceContacts(contacts);
+    });
+  }, []);
 
   const activeThread = threads.find((t) => t.id === activeThreadId);
 
@@ -249,6 +256,29 @@ export const MessagesApp: React.FC = () => {
                 onChange={(e) => setNewRecipientNumber(e.target.value)}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none"
               />
+
+              {deviceContacts.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">Or Pick Device Contact:</span>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {deviceContacts.slice(0, 12).map((dc) => (
+                      <button
+                        key={dc.id}
+                        type="button"
+                        onClick={() => setNewRecipientNumber(dc.number)}
+                        className={`px-2.5 py-1 rounded-lg text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+                          newRecipientNumber === dc.number
+                            ? 'bg-emerald-600 text-white font-medium'
+                            : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>{dc.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <label className="text-xs font-semibold text-neutral-400 pt-2 block">Initial Message</label>
               <textarea

@@ -412,6 +412,76 @@ export function hardwareBridgePlugin(): Plugin {
           return;
         }
 
+        // ---------------------------------------------------------------------
+        // 8. GET /api/contacts/list
+        // ---------------------------------------------------------------------
+        if (pathname === '/api/contacts/list' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          try {
+            const raw = execSync('adb shell "content query --uri content://contacts/phones --projection display_name:number"', { timeout: 4000 }).toString();
+            const lines = raw.split('\n').filter(Boolean);
+            const contacts: Array<{ id: string; name: string; number: string; avatarColor: string }> = [];
+            const colors = ['bg-emerald-600', 'bg-blue-600', 'bg-purple-600', 'bg-amber-600', 'bg-rose-600', 'bg-indigo-600', 'bg-teal-600'];
+
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              const nameMatch = line.match(/display_name=([^,]+)/);
+              const numMatch = line.match(/number=(.+)$/);
+              if (nameMatch && numMatch) {
+                const name = nameMatch[1].trim();
+                const number = numMatch[1].trim();
+                if (name && number && !contacts.some(c => c.name === name && c.number === number)) {
+                  contacts.push({
+                    id: String(i + 1),
+                    name,
+                    number,
+                    avatarColor: colors[i % colors.length],
+                  });
+                }
+              }
+            }
+
+            res.end(JSON.stringify({ success: true, count: contacts.length, contacts }));
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ success: false, error: err.message, contacts: [] }));
+          }
+          return;
+        }
+
+        // ---------------------------------------------------------------------
+        // 9. GET /api/photos/list
+        // ---------------------------------------------------------------------
+        if (pathname === '/api/photos/list' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          try {
+            const cmd = 'adb shell "find /storage/emulated/0/DCIM/Camera /storage/emulated/0/Pictures /storage/emulated/0 -maxdepth 2 -type f \\( -name \'*.jpg\' -o -name \'*.jpeg\' -o -name \'*.png\' -o -name \'*.webp\' \\) 2>/dev/null"';
+            const raw = execSync(cmd, { timeout: 6000 }).toString();
+            const files = raw.split('\n').map(s => s.trim()).filter(Boolean);
+            const photos = files.slice(0, 50).map((filePath, i) => {
+              const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+              return {
+                id: String(i + 1),
+                path: filePath,
+                name: fileName,
+                caption: fileName.replace(/\.[^.]+$/, '').replace(/_/g, ' '),
+                url: `/api/storage/file?path=${encodeURIComponent(filePath)}`,
+                date: 'On Device'
+              };
+            });
+
+            res.end(JSON.stringify({ success: true, count: photos.length, photos }));
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ success: false, error: err.message, photos: [] }));
+          }
+          return;
+        }
+
         next();
       });
     }
