@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Wifi, 
   WifiOff, 
@@ -26,11 +26,13 @@ import {
   CameraOff, 
   Mic, 
   MicOff, 
-  Layers 
+  Layers,
+  Radio
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import { useSecurity } from '../../context/SecurityContext';
+import { togglePhysicalHardware, fetchHardwareStatus, PhysicalHardwareStatus } from '../../services/hardwareBridgeClient';
 
 export const QuickSettingsPanel: React.FC = () => {
   const { 
@@ -53,6 +55,35 @@ export const QuickSettingsPanel: React.FC = () => {
 
   const { openApp, purgeDisposableWindows } = useWindow();
   const { cameraKillswitch, setCameraKillswitch, micKillswitch, setMicKillswitch } = useSecurity();
+  const [hwStatus, setHwStatus] = useState<PhysicalHardwareStatus | null>(null);
+
+  useEffect(() => {
+    if (isShadeOpen) {
+      fetchHardwareStatus().then(status => {
+        if (status) setHwStatus(status);
+      });
+    }
+  }, [isShadeOpen]);
+
+  const handleWifiToggle = async () => {
+    const nextState = !quickSettings.wifi;
+    toggleQuickSetting('wifi');
+    await togglePhysicalHardware('wifi', nextState);
+    const updated = await fetchHardwareStatus();
+    if (updated) setHwStatus(updated);
+  };
+
+  const handleBluetoothToggle = async () => {
+    const nextState = !quickSettings.bluetooth;
+    toggleQuickSetting('bluetooth');
+    await togglePhysicalHardware('bluetooth', nextState);
+    const updated = await fetchHardwareStatus();
+    if (updated) setHwStatus(updated);
+  };
+
+  const handleHotspotToggle = async () => {
+    await togglePhysicalHardware('hotspot');
+  };
 
   if (!isShadeOpen) return null;
 
@@ -145,22 +176,54 @@ export const QuickSettingsPanel: React.FC = () => {
         </div>
 
         {/* Quick Settings Grid */}
-        <div className="grid grid-cols-2 gap-2.5">
-          {/* Internet */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          {/* Wi-Fi / Physical Internet */}
           <button
-            onClick={() => toggleQuickSetting('wifi')}
+            onClick={handleWifiToggle}
             className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
               quickSettings.wifi 
-                ? 'bg-emerald-600 text-white font-medium' 
+                ? 'bg-emerald-600 text-white font-medium shadow-md' 
                 : 'bg-neutral-800 text-neutral-400'
             }`}
           >
             <div className={`p-2 rounded-xl ${quickSettings.wifi ? 'bg-emerald-700' : 'bg-neutral-700'}`}>
               {quickSettings.wifi ? <Wifi size={18} /> : <WifiOff size={18} />}
             </div>
+            <div className="text-left truncate">
+              <div className="text-sm font-semibold truncate">Wi-Fi</div>
+              <div className="text-xs opacity-80 truncate">{quickSettings.wifi ? (hwStatus?.wifi?.ssid || 'Connected') : 'Off'}</div>
+            </div>
+          </button>
+
+          {/* Bluetooth */}
+          <button
+            onClick={handleBluetoothToggle}
+            className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
+              quickSettings.bluetooth 
+                ? 'bg-blue-600 text-white font-medium shadow-md' 
+                : 'bg-neutral-800 text-neutral-400'
+            }`}
+          >
+            <div className={`p-2 rounded-xl ${quickSettings.bluetooth ? 'bg-blue-700' : 'bg-neutral-700'}`}>
+              {quickSettings.bluetooth ? <Bluetooth size={18} /> : <BluetoothOff size={18} />}
+            </div>
             <div className="text-left">
-              <div className="text-sm font-semibold">Internet</div>
-              <div className="text-xs opacity-80">{quickSettings.wifi ? 'Mesh Tor/DoH' : 'Off'}</div>
+              <div className="text-sm font-semibold">Bluetooth</div>
+              <div className="text-xs opacity-80">{quickSettings.bluetooth ? 'Active' : 'Off'}</div>
+            </div>
+          </button>
+
+          {/* Mobile Hotspot / Tethering */}
+          <button
+            onClick={handleHotspotToggle}
+            className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white transition-all border border-neutral-750"
+          >
+            <div className="p-2 rounded-xl bg-neutral-700 text-amber-400">
+              <Radio size={18} />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-semibold">Hotspot</div>
+              <div className="text-xs opacity-80">Tethering Settings</div>
             </div>
           </button>
 
@@ -200,7 +263,7 @@ export const QuickSettingsPanel: React.FC = () => {
             </div>
           </button>
 
-          {/* Purge Disposable MicroVMs */}
+          {/* Purge Ephemeral */}
           <button
             onClick={() => {
               purgeDisposableWindows();

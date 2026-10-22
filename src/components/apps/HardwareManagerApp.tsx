@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Cpu, 
   Layers, 
@@ -10,11 +10,16 @@ import {
   Monitor, 
   Battery, 
   Wifi, 
-  RefreshCw,
-  Check,
-  Sparkles
+  RefreshCw, 
+  Check, 
+  Sparkles,
+  Smartphone,
+  Radio,
+  Camera,
+  Mic
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { fetchHardwareStatus, PhysicalHardwareStatus } from '../../services/hardwareBridgeClient';
 
 export const HardwareManagerApp: React.FC = () => {
   const { 
@@ -26,6 +31,14 @@ export const HardwareManagerApp: React.FC = () => {
     batteryLevel,
     isCharging 
   } = useSystem();
+
+  const [hw, setHw] = useState<PhysicalHardwareStatus | null>(null);
+
+  useEffect(() => {
+    fetchHardwareStatus().then(data => {
+      if (data) setHw(data);
+    });
+  }, []);
 
   if (!hardwareSpecs || !adaptivePolicy) {
     return (
@@ -211,6 +224,65 @@ export const HardwareManagerApp: React.FC = () => {
             </span>
           </div>
         </div>
+
+        {/* Physical Device Hardware Bus Diagnostics */}
+        {hw && hw.connected && (
+          <div className="bg-neutral-950/80 border border-emerald-500/40 rounded-3xl p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+              <div className="flex items-center gap-2">
+                <Smartphone size={16} className="text-emerald-400" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Physical Host Bus: {hw.deviceModel || 'OnePlus Pad'}
+                </span>
+              </div>
+              <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
+                {hw.osVersion || 'Android 14 ARM64'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              {/* Battery & Thermal */}
+              <div className="p-2.5 bg-neutral-900 rounded-xl border border-neutral-800">
+                <div className="text-[11px] text-neutral-400 flex items-center gap-1">
+                  <Battery size={12} className="text-emerald-400" />
+                  <span>Battery & Temp</span>
+                </div>
+                <div className="text-sm font-bold text-white mt-0.5">{hw.battery?.level}% ({hw.battery?.temperature}°C)</div>
+                <div className="text-[10px] text-emerald-400 font-mono">{hw.battery?.isCharging ? 'Charging (AC)' : 'Battery'}</div>
+              </div>
+
+              {/* Wi-Fi Link */}
+              <div className="p-2.5 bg-neutral-900 rounded-xl border border-neutral-800">
+                <div className="text-[11px] text-neutral-400 flex items-center gap-1">
+                  <Wifi size={12} className="text-blue-400" />
+                  <span>Wi-Fi Network</span>
+                </div>
+                <div className="text-sm font-bold text-white mt-0.5 truncate">{hw.wifi?.ssid || 'Active'}</div>
+                <div className="text-[10px] text-neutral-400 font-mono truncate">{hw.wifi?.ip} ({hw.wifi?.linkSpeed})</div>
+              </div>
+
+              {/* Bluetooth & Hotspot */}
+              <div className="p-2.5 bg-neutral-900 rounded-xl border border-neutral-800">
+                <div className="text-[11px] text-neutral-400 flex items-center gap-1">
+                  <Radio size={12} className="text-purple-400" />
+                  <span>Radio & Hotspot</span>
+                </div>
+                <div className="text-sm font-bold text-white mt-0.5">BT {hw.bluetooth?.enabled ? 'Active' : 'Off'}</div>
+                <div className="text-[10px] text-purple-300 font-mono">Tethering Ready</div>
+              </div>
+
+              {/* Physical Storage */}
+              <div className="p-2.5 bg-neutral-900 rounded-xl border border-neutral-800">
+                <div className="text-[11px] text-neutral-400 flex items-center gap-1">
+                  <HardDrive size={12} className="text-amber-400" />
+                  <span>/sdcard Storage</span>
+                </div>
+                <div className="text-sm font-bold text-white mt-0.5">{hw.storage?.used} / {hw.storage?.total}</div>
+                <div className="text-[10px] text-amber-300 font-mono">{hw.storage?.available} Free ({hw.storage?.usePercent})</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Manual Hardware Profile Simulation */}
         <div>
