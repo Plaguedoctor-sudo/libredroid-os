@@ -24,19 +24,6 @@
           navigator.serviceWorker.register('/sw.js').catch(() => {});
         });
       }
-      // Auto-enter true fullscreen launcher mode on touch / tap
-      function enterFullscreenLauncher() {
-        if (!document.fullscreenElement) {
-          const el = document.documentElement;
-          if (el.requestFullscreen) {
-            el.requestFullscreen().catch(() => {});
-          } else if (el.webkitRequestFullscreen) {
-            el.webkitRequestFullscreen();
-          }
-        }
-      }
-      window.addEventListener('click', enterFullscreenLauncher, { passive: true });
-      window.addEventListener('touchstart', enterFullscreenLauncher, { passive: true });
     </script>
   </body>
 </html>

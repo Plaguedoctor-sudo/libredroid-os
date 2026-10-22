@@ -230,10 +230,8 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const returnHome = () => {
-    if (actualDevice !== 'desktop') {
-      setWindows((prev) => prev.map((w) => ({ ...w, isMinimized: true })));
-      setActiveWindowId(null);
-    }
+    setWindows((prev) => prev.map((w) => ({ ...w, isMinimized: true })));
+    setActiveWindowId(null);
     setIsRecentsOpen(false);
     setIsAppDrawerOpen(false);
   };

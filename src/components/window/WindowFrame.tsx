@@ -32,6 +32,7 @@ import { UniversalPersonaApp } from '../apps/UniversalPersonaApp';
 import { PhoneApp } from '../apps/PhoneApp';
 import { MessagesApp } from '../apps/MessagesApp';
 import { getInstalledAppleApps } from '../../services/appleAppManager';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 
 interface WindowFrameProps {
   window: WindowInstance;
@@ -254,7 +255,9 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
         </div>
 
         <div className="flex-1 w-full h-full overflow-hidden flex flex-col">
-          {renderAppContent()}
+          <ErrorBoundary fallbackTitle={win.title} onReset={() => focusWindow(win.id)}>
+            {renderAppContent()}
+          </ErrorBoundary>
         </div>
       </div>
     );
@@ -367,7 +370,9 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
 
       {/* App Body */}
       <div className="flex-1 w-full h-full overflow-hidden flex flex-col bg-neutral-900 relative">
-        {renderAppContent()}
+        <ErrorBoundary fallbackTitle={win.title} onReset={() => focusWindow(win.id)}>
+          {renderAppContent()}
+        </ErrorBoundary>
 
         {/* Freeform Window Corner Resize Handle */}
         <div

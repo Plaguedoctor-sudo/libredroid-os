@@ -171,14 +171,19 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   // Resolve actual mode
+  const isTouchDevice = typeof navigator !== 'undefined' && 
+    (navigator.maxTouchPoints > 0 || /Android|Tablet|Mobile/i.test(navigator.userAgent));
+
   const actualDevice: 'phone' | 'tablet' | 'foldable' | 'desktop' = 
     deviceMode !== 'auto' 
       ? (deviceMode as 'phone' | 'tablet' | 'foldable' | 'desktop')
-      : windowWidth < 640 
-        ? 'phone' 
-        : windowWidth < 1024 
-          ? 'tablet' 
-          : 'desktop';
+      : isTouchDevice
+        ? (windowWidth < 640 ? 'phone' : 'tablet')
+        : windowWidth < 640 
+          ? 'phone' 
+          : windowWidth < 1024 
+            ? 'tablet' 
+            : 'desktop';
 
   const toggleQuickSetting = (key: keyof QuickSettingsState) => {
     setQuickSettings((prev) => ({
