@@ -1,6 +1,8 @@
 import { Plugin } from 'vite';
 import { execSync, spawn } from 'child_process';
 import url from 'url';
+import http from 'http';
+import https from 'https';
 
 export function hardwareBridgePlugin(): Plugin {
   return {
@@ -308,6 +310,100 @@ export function hardwareBridgePlugin(): Plugin {
                   res.end(JSON.stringify({ success: false, error: 'Failed to write file on device' }));
                 }
               });
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // ---------------------------------------------------------------------
+        // 6. GET /api/proxy/browse?url=...
+        // ---------------------------------------------------------------------
+        if (pathname === '/api/proxy/browse' && req.method === 'GET') {
+          let targetUrl = (parsedUrl.query.url as string) || '';
+          if (!targetUrl) {
+            res.statusCode = 400;
+            return res.end('URL query parameter required');
+          }
+          if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+            targetUrl = 'https://' + targetUrl;
+          }
+
+          try {
+            const client = targetUrl.startsWith('https') ? https : http;
+            const headers = {
+              'User-Agent': 'Mozilla/5.0 (Linux; Android 14; OPD2304) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.9',
+            };
+
+            const proxyReq = client.get(targetUrl, { headers, timeout: 10000 }, (proxyRes) => {
+              if (proxyRes.statusCode && proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
+                let redirectUrl = proxyRes.headers.location;
+                if (!redirectUrl.startsWith('http')) {
+                  const base = new URL(targetUrl);
+                  redirectUrl = new URL(redirectUrl, base.origin).toString();
+                }
+                res.writeHead(302, { Location: `/api/proxy/browse?url=${encodeURIComponent(redirectUrl)}` });
+                return res.end();
+              }
+
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Content-Type', proxyRes.headers['content-type'] || 'text/html; charset=utf-8');
+
+              const contentType = proxyRes.headers['content-type'] || '';
+              if (contentType.includes('text/html')) {
+                let html = '';
+                proxyRes.on('data', chunk => html += chunk);
+                proxyRes.on('end', () => {
+                  const baseTag = `<base href="${targetUrl}">`;
+                  const modified = html.includes('<head>') 
+                    ? html.replace('<head>', `<head>${baseTag}`)
+                    : `${baseTag}${html}`;
+                  res.end(modified);
+                });
+              } else {
+                proxyRes.pipe(res);
+              }
+            });
+
+            proxyReq.on('error', (err) => {
+              res.statusCode = 502;
+              res.setHeader('Content-Type', 'text/html');
+              res.end(`<div style="font-family:sans-serif;padding:24px;background:#18181b;color:#f43f5e;min-height:100vh;">
+                <h2 style="margin-top:0;">Failed to load web page</h2>
+                <p style="color:#a1a1aa;">Target: ${targetUrl}</p>
+                <p style="color:#ef4444;">Error: ${err.message}</p>
+                <p><a href="/api/proxy/browse?url=https://lite.duckduckgo.com/lite/" style="color:#10b981;text-decoration:underline;">Return to DuckDuckGo</a></p>
+              </div>`);
+            });
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(err.message);
+          }
+          return;
+        }
+
+        // ---------------------------------------------------------------------
+        // 7. POST /api/browser/open
+        // ---------------------------------------------------------------------
+        if (pathname === '/api/browser/open' && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          let body = '';
+          req.on('data', chunk => body += chunk);
+          req.on('end', () => {
+            try {
+              const { url: rawUrl } = JSON.parse(body || '{}');
+              let dest = (rawUrl || 'https://duckduckgo.com').trim();
+              if (!dest.startsWith('http://') && !dest.startsWith('https://')) {
+                dest = `https://duckduckgo.com/?q=${encodeURIComponent(dest)}`;
+              }
+              const sanitized = dest.replace(/["$`;&|\\]/g, '');
+              execSync(`adb shell am start -a android.intent.action.VIEW -d "${sanitized}"`, { timeout: 3000 });
+              res.end(JSON.stringify({ success: true, url: sanitized }));
             } catch (err: any) {
               res.statusCode = 500;
               res.end(JSON.stringify({ success: false, error: err.message }));

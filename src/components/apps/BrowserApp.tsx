@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -7,12 +7,15 @@ import {
   Plus, 
   X, 
   Lock, 
-  Bookmark,
-  Share2,
+  ExternalLink,
+  Home,
+  Globe,
   ShieldCheck,
-  ShieldAlert
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { useVirtualKeyboard } from '../../context/KeyboardContext';
+import { openInNativeBrowser } from '../../services/hardwareBridgeClient';
 
 interface Tab {
   id: string;
@@ -20,56 +23,55 @@ interface Tab {
   url: string;
 }
 
+const DEFAULT_HOME = 'duckduckgo:home';
+
 export const BrowserApp: React.FC = () => {
   const [tabs, setTabs] = useState<Tab[]>([
-    { id: '1', title: 'DuckDuckGo', url: 'https://duckduckgo.com' },
-    { id: '2', title: 'F-Droid Free Software', url: 'https://f-droid.org' },
+    { id: '1', title: 'DuckDuckGo Home', url: DEFAULT_HOME },
+    { id: '2', title: 'Wikipedia', url: 'https://en.m.wikipedia.org' },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>('1');
   const [urlInput, setUrlInput] = useState('https://duckduckgo.com');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Array<{ title: string; desc: string; url: string }> | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
   const handleNavigate = (newUrl: string) => {
     let target = newUrl.trim();
-    if (!target.startsWith('http://') && !target.startsWith('https://')) {
-      target = `https://duckduckgo.com/?q=${encodeURIComponent(target)}`;
-      performSearch(newUrl);
-    } else {
-      setSearchResults(null);
+    if (!target) return;
+
+    if (target === DEFAULT_HOME) {
+      setUrlInput('https://duckduckgo.com');
+      setTabs((prev) =>
+        prev.map((t) => (t.id === activeTabId ? { ...t, url: DEFAULT_HOME, title: 'DuckDuckGo Home' } : t))
+      );
+      return;
     }
 
-    setUrlInput(target);
-    setTabs((prev) =>
-      prev.map((t) => (t.id === activeTabId ? { ...t, url: target, title: newUrl } : t))
-    );
-  };
+    // Check if it's a domain or a search query
+    const isDomain = /^https?:\/\//i.test(target) || 
+      (!target.includes(' ') && (target.includes('.') && !target.endsWith('.')));
 
-  const performSearch = (query: string) => {
-    setSearchResults([
-      {
-        title: `DuckDuckGo Privacy Search: Results for "${query}"`,
-        desc: `No search history tracking, no targeted advertising, no commercial profile profiling. Free and open web.`,
-        url: 'https://duckduckgo.com',
-      },
-      {
-        title: `Waydroid: Linux-based Container for Android Applications`,
-        desc: `Waydroid uses Linux namespaces (LXC) to run a complete Android system directly on standard GNU/Linux kernels with hardware GPU acceleration.`,
-        url: 'https://waydro.id',
-      },
-      {
-        title: `F-Droid: The Free and Open Source Android App Repository`,
-        desc: `F-Droid is an installable catalogue of FOSS (Free and Open Source Software) applications for the Android platform.`,
-        url: 'https://f-droid.org',
-      },
-      {
-        title: `microG Project: Free Software Clone of Google's Proprietary Core Libraries`,
-        desc: `microG is a free software re-implementation of Google's proprietary Android user space apps and libraries.`,
-        url: 'https://microg.org',
-      },
-    ]);
+    if (!isDomain) {
+      target = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(target)}`;
+    } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
+      target = `https://${target}`;
+    }
+
+    setIsLoading(true);
+    setUrlInput(target);
+
+    // Extract title from domain
+    let host = target;
+    try {
+      host = new URL(target).hostname.replace(/^www\./, '');
+    } catch {}
+
+    setTabs((prev) =>
+      prev.map((t) => (t.id === activeTabId ? { ...t, url: target, title: host || 'Web Page' } : t))
+    );
   };
 
   const addTab = () => {
@@ -77,12 +79,12 @@ export const BrowserApp: React.FC = () => {
     const newTab: Tab = {
       id: newId,
       title: 'New Tab',
-      url: 'https://duckduckgo.com',
+      url: DEFAULT_HOME,
     };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
     setUrlInput('https://duckduckgo.com');
-    setSearchResults(null);
+    setIsLoading(false);
   };
 
   const closeTab = (e: React.MouseEvent, id: string) => {
@@ -92,19 +94,35 @@ export const BrowserApp: React.FC = () => {
     setTabs(remaining);
     if (activeTabId === id) {
       setActiveTabId(remaining[0].id);
-      setUrlInput(remaining[0].url);
+      setUrlInput(remaining[0].url === DEFAULT_HOME ? 'https://duckduckgo.com' : remaining[0].url);
     }
+  };
+
+  const handleReload = () => {
+    if (activeTab.url !== DEFAULT_HOME && iframeRef.current) {
+      setIsLoading(true);
+      iframeRef.current.src = `/api/proxy/browse?url=${encodeURIComponent(activeTab.url)}&_t=${Date.now()}`;
+    }
+  };
+
+  const handleOpenExternal = async () => {
+    const target = activeTab.url === DEFAULT_HOME ? 'https://duckduckgo.com' : activeTab.url;
+    await openInNativeBrowser(target);
   };
 
   const { openKeyboard } = useVirtualKeyboard();
 
   const handleUrlBarTap = () => {
     openKeyboard({
-      value: urlInput,
+      value: urlInput === 'https://duckduckgo.com' && activeTab.url === DEFAULT_HOME ? '' : urlInput,
       onChange: (val) => setUrlInput(val),
       onEnter: () => handleNavigate(urlInput),
       placeholder: 'Search DuckDuckGo or enter URL...',
     });
+  };
+
+  const handleHomeTap = () => {
+    handleNavigate(DEFAULT_HOME);
   };
 
   return (
@@ -119,7 +137,7 @@ export const BrowserApp: React.FC = () => {
               key={tab.id}
               onClick={() => {
                 setActiveTabId(tab.id);
-                setUrlInput(tab.url);
+                setUrlInput(tab.url === DEFAULT_HOME ? 'https://duckduckgo.com' : tab.url);
               }}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-t-xl text-xs max-w-[180px] cursor-pointer transition-all ${
                 isActive
@@ -127,6 +145,7 @@ export const BrowserApp: React.FC = () => {
                   : 'bg-neutral-950 text-neutral-400 hover:bg-neutral-900/60'
               }`}
             >
+              <Globe size={12} className={isActive ? 'text-emerald-400' : 'text-neutral-500'} />
               <span className="truncate flex-1">{tab.title}</span>
               {tabs.length > 1 && (
                 <button
@@ -151,17 +170,19 @@ export const BrowserApp: React.FC = () => {
       {/* Omnibox / Navigation Header */}
       <div className="flex items-center gap-2 p-2 bg-neutral-900 border-b border-neutral-800 shrink-0">
         <div className="flex items-center gap-1 text-neutral-400">
-          <button className="p-1.5 hover:bg-neutral-800 rounded-lg hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-          </button>
-          <button className="p-1.5 hover:bg-neutral-800 rounded-lg hover:text-white transition-colors">
-            <ArrowRight size={16} />
+          <button 
+            onClick={handleHomeTap}
+            className="p-1.5 hover:bg-neutral-800 rounded-lg hover:text-white transition-colors"
+            title="Go to Home"
+          >
+            <Home size={16} />
           </button>
           <button 
-            onClick={() => handleNavigate(urlInput)}
+            onClick={handleReload}
             className="p-1.5 hover:bg-neutral-800 rounded-lg hover:text-white transition-colors"
+            title="Reload Page"
           >
-            <RotateCw size={16} />
+            <RotateCw size={16} className={isLoading ? 'animate-spin text-emerald-400' : ''} />
           </button>
         </div>
 
@@ -170,7 +191,7 @@ export const BrowserApp: React.FC = () => {
           onClick={handleUrlBarTap}
           className="flex-1 flex items-center gap-2 bg-neutral-800 rounded-full px-3 py-1.5 border border-neutral-700/60 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500/50 cursor-pointer"
         >
-          <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
+          <Lock size={13} className="text-emerald-400 shrink-0" />
           <input
             type="text"
             value={urlInput}
@@ -180,103 +201,122 @@ export const BrowserApp: React.FC = () => {
             className="w-full bg-transparent text-xs text-white focus:outline-none cursor-pointer"
             placeholder="Search DuckDuckGo or enter URL"
           />
+          {isLoading && <Loader2 size={13} className="animate-spin text-neutral-400 shrink-0" />}
         </div>
 
         <div className="flex items-center gap-1 text-neutral-400">
-          <button className="p-1.5 hover:bg-neutral-800 rounded-lg hover:text-white" title="Bookmarks">
-            <Bookmark size={16} />
-          </button>
-          <button className="p-1.5 hover:bg-neutral-800 rounded-lg hover:text-white" title="Share URL">
-            <Share2 size={16} />
+          <button 
+            onClick={handleOpenExternal}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-200 hover:text-white rounded-xl text-xs font-medium border border-neutral-700 transition-colors"
+            title="Open Current URL in Native Android Chrome"
+          >
+            <ExternalLink size={14} className="text-emerald-400" />
+            <span className="hidden sm:inline">Open in Chrome</span>
           </button>
         </div>
       </div>
 
       {/* Web Page Viewport */}
-      <div className="flex-1 overflow-y-auto bg-neutral-950 p-4 sm:p-8 flex flex-col items-center">
-        {searchResults ? (
-          /* Search Results */
-          <div className="w-full max-w-3xl space-y-4">
-            <div className="text-xs text-neutral-400 pb-2 border-b border-neutral-800 flex items-center justify-between">
-              <span>DuckDuckGo Privacy Results</span>
-              <span className="text-emerald-400 font-mono">Zero Telemetry Tracked</span>
-            </div>
-            {searchResults.map((res, i) => (
-              <div key={i} className="space-y-1 bg-neutral-900/60 p-4 rounded-2xl border border-neutral-800/80 hover:border-neutral-700 transition-colors">
-                <div className="text-xs text-neutral-400 flex items-center gap-1.5">
-                  <span className="truncate">{res.url}</span>
+      <div className="flex-1 relative w-full h-full bg-neutral-950 overflow-hidden flex flex-col">
+        {activeTab.url === DEFAULT_HOME ? (
+          /* DuckDuckGo Privacy Start Page */
+          <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col items-center justify-center my-auto">
+            <div className="w-full max-w-xl flex flex-col items-center justify-center py-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-14 h-14 rounded-3xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/40 shadow-lg">
+                  <ShieldCheck size={36} />
                 </div>
-                <h3 className="text-base font-semibold text-emerald-400 hover:underline cursor-pointer">
-                  {res.title}
-                </h3>
-                <p className="text-xs text-neutral-300 leading-relaxed">{res.desc}</p>
+                <div>
+                  <span className="text-3xl font-extrabold tracking-tight text-white">DuckDuckGo</span>
+                  <p className="text-xs text-emerald-400 font-mono">Live Private Web Search • Zero Telemetry</p>
+                </div>
               </div>
-            ))}
+
+              <div 
+                onClick={() => {
+                  openKeyboard({
+                    value: searchQuery,
+                    onChange: (val) => setSearchQuery(val),
+                    onEnter: () => handleNavigate(searchQuery),
+                    placeholder: 'Search the live web with DuckDuckGo...',
+                  });
+                }}
+                className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-700/80 hover:border-neutral-600 rounded-full px-5 py-3 shadow-lg cursor-pointer"
+              >
+                <Search size={18} className="text-neutral-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search the web without being tracked... (tap to type)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onClick={() => {
+                    openKeyboard({
+                      value: searchQuery,
+                      onChange: (val) => setSearchQuery(val),
+                      onEnter: () => handleNavigate(searchQuery),
+                      placeholder: 'Search the live web with DuckDuckGo...',
+                    });
+                  }}
+                  inputMode="none"
+                  className="w-full bg-transparent text-sm text-white focus:outline-none cursor-pointer"
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => handleNavigate(searchQuery || 'technology')}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold rounded-full shadow transition-all text-white active:scale-95"
+                >
+                  DuckDuckGo Live Search
+                </button>
+                <button
+                  onClick={() => handleNavigate('https://en.m.wikipedia.org')}
+                  className="px-5 py-2 bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold rounded-full border border-neutral-700 transition-colors text-emerald-400 active:scale-95"
+                >
+                  Wikipedia Live
+                </button>
+              </div>
+
+              {/* FOSS Quick Shortcuts */}
+              <div className="grid grid-cols-4 gap-4 mt-8 w-full max-w-md">
+                {[
+                  { name: 'Wikipedia', url: 'https://en.m.wikipedia.org', desc: 'Encyclopedia' },
+                  { name: 'DuckDuckGo', url: 'https://lite.duckduckgo.com/lite/', desc: 'Search' },
+                  { name: 'F-Droid', url: 'https://f-droid.org', desc: 'FOSS Store' },
+                  { name: 'Hacker News', url: 'https://news.ycombinator.com', desc: 'Tech News' },
+                  { name: 'OpenStreetMap', url: 'https://www.openstreetmap.org', desc: 'Maps' },
+                  { name: 'NPR News', url: 'https://text.npr.org', desc: 'Text News' },
+                  { name: 'Archive.org', url: 'https://archive.org', desc: 'Wayback' },
+                  { name: 'GitHub', url: 'https://github.com', desc: 'Code' },
+                ].map((site) => (
+                  <button
+                    key={site.name}
+                    onClick={() => handleNavigate(site.url)}
+                    className="flex flex-col items-center gap-1.5 p-3 bg-neutral-800/60 hover:bg-neutral-800 rounded-2xl border border-neutral-700/50 transition-all active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-neutral-700 border border-neutral-600 flex items-center justify-center font-bold text-xs text-emerald-400 shadow">
+                      {site.name[0]}
+                    </div>
+                    <span className="text-[11px] font-medium text-white truncate max-w-[80px]">
+                      {site.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
-          /* DuckDuckGo Privacy Start Page */
-          <div className="w-full max-w-xl flex flex-col items-center justify-center my-auto py-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-14 h-14 rounded-3xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/40 shadow-lg">
-                <ShieldCheck size={36} />
-              </div>
-              <div>
-                <span className="text-3xl font-extrabold tracking-tight text-white">DuckDuckGo</span>
-                <p className="text-xs text-emerald-400 font-mono">Privacy, simplified.</p>
-              </div>
-            </div>
-
-            <div className="w-full flex items-center gap-3 bg-neutral-900 border border-neutral-700/80 hover:border-neutral-600 rounded-full px-5 py-3 shadow-lg">
-              <Search size={18} className="text-neutral-400 shrink-0" />
-              <input
-                type="text"
-                placeholder="Search the web without being tracked..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleNavigate(searchQuery);
-                }}
-                className="w-full bg-transparent text-sm text-white focus:outline-none"
-              />
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => handleNavigate(searchQuery || 'DuckDuckGo Search')}
-                className="px-5 py-2 bg-neutral-800/90 hover:bg-neutral-700/90 text-xs font-semibold rounded-full border border-neutral-700 transition-colors text-white"
-              >
-                DuckDuckGo Search
-              </button>
-              <button
-                onClick={() => handleNavigate('https://f-droid.org')}
-                className="px-5 py-2 bg-neutral-800/90 hover:bg-neutral-700/90 text-xs font-semibold rounded-full border border-neutral-700 transition-colors text-emerald-400"
-              >
-                F-Droid Apps
-              </button>
-            </div>
-
-            {/* FOSS Quick Shortcuts */}
-            <div className="grid grid-cols-4 gap-4 mt-10">
-              {[
-                { name: 'F-Droid', url: 'https://f-droid.org' },
-                { name: 'OpenStreetMap', url: 'https://www.openstreetmap.org' },
-                { name: 'Wikipedia', url: 'https://wikipedia.org' },
-                { name: 'GitHub FOSS', url: 'https://github.com' },
-              ].map((site) => (
-                <button
-                  key={site.name}
-                  onClick={() => handleNavigate(site.url)}
-                  className="flex flex-col items-center gap-2 p-3 hover:bg-neutral-800/60 rounded-2xl transition-all"
-                >
-                  <div className="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center font-bold text-xs text-emerald-400">
-                    {site.name[0]}
-                  </div>
-                  <span className="text-[11px] text-neutral-300 truncate max-w-[80px]">
-                    {site.name}
-                  </span>
-                </button>
-              ))}
-            </div>
+          /* Live Proxied Real Web Viewport */
+          <div className="flex-1 w-full h-full relative bg-white">
+            <iframe
+              ref={iframeRef}
+              src={`/api/proxy/browse?url=${encodeURIComponent(activeTab.url)}`}
+              className="w-full h-full border-none"
+              title={activeTab.title}
+              onLoad={() => setIsLoading(false)}
+              onError={() => setIsLoading(false)}
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+            />
           </div>
         )}
       </div>

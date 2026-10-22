@@ -122,3 +122,16 @@ export async function sendSmsMessage(number: string, message: string): Promise<{
     return { success: false, error: err.message };
   }
 }
+
+export async function openInNativeBrowser(url: string): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/browser/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
