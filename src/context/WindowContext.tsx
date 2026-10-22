@@ -242,6 +242,25 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Expose system automation interface for automated testing and bridge execution
+  useEffect(() => {
+    (window as any).__libreDroid = {
+      openApp,
+      closeWindow,
+      minimizeWindow,
+      maximizeWindow,
+      focusWindow,
+      closeAll,
+      returnHome,
+      goBack,
+      getWindows: () => windows,
+      getActiveWindowId: () => activeWindowId,
+      setIsAppDrawerOpen,
+      setIsRecentsOpen,
+      addNotification,
+    };
+  }, [windows, activeWindowId, openApp, closeWindow, minimizeWindow, maximizeWindow, focusWindow, closeAll, returnHome, goBack, setIsAppDrawerOpen, setIsRecentsOpen, addNotification]);
+
   return (
     <WindowContext.Provider
       value={{

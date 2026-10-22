@@ -69,8 +69,8 @@ export const FilesApp: React.FC = () => {
   });
 
   const handleCreateFile = () => {
-    const name = prompt('Enter new file name (e.g. config.txt):');
-    if (!name) return;
+    const ts = Date.now().toString().slice(-4);
+    const name = `document-${ts}.txt`;
     const newFile: VFile = {
       id: Math.random().toString(36).substring(2, 7),
       name,

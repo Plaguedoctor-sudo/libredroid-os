@@ -253,6 +253,45 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Expose global system state for testing and system automation
+  useEffect(() => {
+    (window as any).__libreSystem = {
+      deviceMode,
+      setDeviceMode,
+      actualDevice,
+      quickSettings,
+      toggleQuickSetting,
+      setQuickSettingValue,
+      isShadeOpen,
+      setIsShadeOpen,
+      isAppDrawerOpen,
+      setIsAppDrawerOpen,
+      isRecentsOpen,
+      setIsRecentsOpen,
+      isAssistantOpen,
+      setIsAssistantOpen,
+      addNotification,
+      clearAllNotifications,
+    };
+  }, [
+    deviceMode,
+    setDeviceMode,
+    actualDevice,
+    quickSettings,
+    toggleQuickSetting,
+    setQuickSettingValue,
+    isShadeOpen,
+    setIsShadeOpen,
+    isAppDrawerOpen,
+    setIsAppDrawerOpen,
+    isRecentsOpen,
+    setIsRecentsOpen,
+    isAssistantOpen,
+    setIsAssistantOpen,
+    addNotification,
+    clearAllNotifications,
+  ]);
+
   return (
     <SystemContext.Provider
       value={{
