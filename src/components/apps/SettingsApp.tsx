@@ -15,11 +15,17 @@ import {
   HardDrive,
   Cpu,
   Key,
-  Sparkles
+  Sparkles,
+  Apple,
+  Terminal,
+  Flame,
+  Zap,
+  Lock
 } from 'lucide-react';
 import { useSystem, WALLPAPERS } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import { usePersona } from '../../context/PersonaContext';
+import { useSecurity } from '../../context/SecurityContext';
 import { DeviceMode } from '../../types/system';
 
 export const SettingsApp: React.FC = () => {
@@ -38,8 +44,15 @@ export const SettingsApp: React.FC = () => {
 
   const { openApp } = useWindow();
   const { persona, openWizard } = usePersona();
+  const { 
+    appleStack, 
+    linuxStack, 
+    toggleAppleLockdownMode, 
+    setSelinuxMode,
+    auditLogs
+  } = useSecurity();
 
-  const [activeTab, setActiveTab] = useState<'persona' | 'device' | 'wallpaper' | 'account' | 'about'>('persona');
+  const [activeTab, setActiveTab] = useState<'persona' | 'hardened_security' | 'device' | 'wallpaper' | 'account' | 'about'>('persona');
 
   return (
     <div className="flex-1 w-full h-full flex flex-col sm:flex-row bg-neutral-900 text-white select-none overflow-hidden">
@@ -51,6 +64,7 @@ export const SettingsApp: React.FC = () => {
 
         {[
           { id: 'persona', label: 'Universal Persona', icon: Sparkles },
+          { id: 'hardened_security', label: 'Hardened Security', icon: ShieldCheck },
           { id: 'device', label: 'Form Factor', icon: Layers },
           { id: 'wallpaper', label: 'Style & Wallpapers', icon: Palette },
           { id: 'account', label: 'Sovereign Identity', icon: Key },
@@ -134,6 +148,108 @@ export const SettingsApp: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'hardened_security' && (
+          <div className="space-y-6 max-w-xl">
+            <div>
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <ShieldCheck className="text-emerald-400" size={20} />
+                <span>Hardened OS Security Architecture</span>
+              </h2>
+              <p className="text-xs text-neutral-400 mt-1">
+                Unified security matrix combining Apple Hardened OS (Lockdown Mode, BlastDoor, SEP) with Linux Kernel Hardening (SELinux, KSPP, Landlock).
+              </p>
+            </div>
+
+            {/* Apple Lockdown Mode Toggle */}
+            <div className={`p-5 rounded-3xl border transition-all ${
+              appleStack.lockdownMode ? 'bg-rose-950/30 border-rose-500/50' : 'bg-neutral-950 border-neutral-800'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Apple size={16} className="text-neutral-200" />
+                    <span className="text-sm font-bold text-white">Apple Lockdown Mode</span>
+                  </div>
+                  <p className="text-xs text-neutral-400">
+                    Disables WebKit JIT compiler, engages BlastDoor zero-click sandbox, isolates USB data pins.
+                  </p>
+                </div>
+
+                <button
+                  onClick={toggleAppleLockdownMode}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    appleStack.lockdownMode
+                      ? 'bg-rose-600 text-white shadow'
+                      : 'bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-700'
+                  }`}
+                >
+                  {appleStack.lockdownMode ? 'ACTIVE' : 'TURN ON'}
+                </button>
+              </div>
+            </div>
+
+            {/* Linux SELinux Selector */}
+            <div className="p-5 rounded-3xl bg-neutral-950 border border-neutral-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Terminal size={16} className="text-cyan-400" />
+                    <span className="text-sm font-bold text-white">Linux SELinux Mandatory Access</span>
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Multi-Category Security (MCS) and unprivileged process domain confinement.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1 bg-neutral-900 p-1 rounded-xl border border-neutral-800">
+                  {(['enforcing', 'permissive'] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setSelinuxMode(m)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase transition-all ${
+                        linuxStack.selinuxMode === m
+                          ? m === 'enforcing'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-amber-600 text-white'
+                          : 'text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Security Summary Cards */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1">
+                <div className="font-bold text-cyan-300 flex items-center gap-1">
+                  <Terminal size={13} />
+                  <span>KSPP Sysctls</span>
+                </div>
+                <div className="text-neutral-400 text-[11px]">9/9 Sysctls Hardened (Yama ptrace_scope=3, kptr_restrict=2)</div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1">
+                <div className="font-bold text-emerald-300 flex items-center gap-1">
+                  <ShieldCheck size={13} />
+                  <span>Threats Neutralized</span>
+                </div>
+                <div className="text-neutral-400 text-[11px]">{auditLogs.length} Exploits Logged in Audit Trail</div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => openApp('security')}
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:brightness-110 font-bold text-xs text-white shadow-xl flex items-center justify-center gap-2 transition-all"
+            >
+              <ShieldCheck size={16} />
+              <span>Launch Security Guardrails & PenTest Lab</span>
+            </button>
           </div>
         )}
 

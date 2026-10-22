@@ -17,6 +17,7 @@ import {
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import { usePersona } from '../../context/PersonaContext';
+import { useSecurity } from '../../context/SecurityContext';
 import { DeviceMode } from '../../types/system';
 
 export const DeviceSwitcherBar: React.FC = () => {
@@ -33,6 +34,7 @@ export const DeviceSwitcherBar: React.FC = () => {
 
   const { openApp } = useWindow();
   const { persona, openWizard } = usePersona();
+  const { appleStack, linuxStack } = useSecurity();
 
   const devices: { id: DeviceMode; label: string; icon: any }[] = [
     { id: 'auto', label: 'Auto Detect', icon: RefreshCw },
@@ -65,14 +67,23 @@ export const DeviceSwitcherBar: React.FC = () => {
         <span className="md:hidden">Adapt</span>
       </button>
 
-      {/* Security Guardrails Badge */}
+      {/* Security Guardrails Badge (Apple Hardened & Linux SELinux) */}
       <button 
         onClick={() => openApp('security')}
-        className="flex items-center gap-1 px-2 py-0.5 bg-neutral-800 hover:bg-neutral-750 rounded-full text-[11px] font-mono text-emerald-300 transition-colors"
-        title="Hardened Guardrails"
+        className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono transition-all border ${
+          appleStack.lockdownMode
+            ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
+            : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30'
+        }`}
+        title={`Hardened OS: Apple ${appleStack.lockdownMode ? 'Lockdown Mode Active' : 'Hardened Runtime'} • Linux SELinux ${linuxStack.selinuxMode.toUpperCase()}`}
       >
-        <Lock size={12} className="text-emerald-400" />
-        <span className="hidden xl:inline">Hardened</span>
+        <ShieldCheck size={12} className={appleStack.lockdownMode ? 'text-rose-400' : 'text-emerald-400'} />
+        <span className="hidden xl:inline">
+          {appleStack.lockdownMode ? 'Apple Lockdown' : 'Apple/Linux Hardened'}
+        </span>
+        <span className="xl:hidden">
+          {appleStack.lockdownMode ? 'Lockdown' : 'Hardened'}
+        </span>
       </button>
 
       {/* Linux Sandbox Core Button */}

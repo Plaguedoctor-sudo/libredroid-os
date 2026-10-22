@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { OsDomainId } from '../services/multiOsHypervisor';
+import { 
+  HardenedSecurityEngine, 
+  AppleHardenedStack, 
+  LinuxHardenedStack, 
+  SecurityAuditIncident 
+} from '../services/hardenedSecurityEngine';
 import { useSystem } from './SystemContext';
 
 export interface PermissionPrompt {
@@ -43,12 +49,25 @@ interface SecurityContextType {
   blockedNetworkApps: string[];
   toggleAppNetworkAccess: (appId: string) => void;
   isAppNetworkAllowed: (appId: string) => boolean;
+
+  // Apple Hardened OS & Linux Kernel Hardening Stack
+  appleStack: AppleHardenedStack;
+  linuxStack: LinuxHardenedStack;
+  auditLogs: SecurityAuditIncident[];
+  toggleAppleLockdownMode: () => boolean;
+  updateAppleFeature: (feature: keyof AppleHardenedStack, val: boolean) => void;
+  setSelinuxMode: (mode: 'enforcing' | 'permissive' | 'disabled') => void;
+  updateLinuxFeature: (feature: keyof Omit<LinuxHardenedStack, 'sysctlParameters' | 'selinuxMode'>, val: boolean) => void;
+  toggleSysctlParameter: (key: string) => boolean;
+  executePenetrationTest: (attackId: string) => SecurityAuditIncident;
+  clearAuditLogs: () => void;
 }
 
 const SecurityContext = createContext<SecurityContextType | undefined>(undefined);
 
 export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { addNotification } = useSystem();
+  const hardenedEngine = HardenedSecurityEngine.getInstance();
 
   // Hardware Killswitches
   const [cameraKillswitch, setCameraKillswitch] = useState(false);
@@ -62,6 +81,11 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     'org.videolan.vlc',
   ]);
 
+  // Hardened OS State (Apple & Linux)
+  const [appleStack, setAppleStack] = useState<AppleHardenedStack>(hardenedEngine.getAppleStack());
+  const [linuxStack, setLinuxStack] = useState<LinuxHardenedStack>(hardenedEngine.getLinuxStack());
+  const [auditLogs, setAuditLogs] = useState<SecurityAuditIncident[]>(hardenedEngine.getAuditLogs());
+
   // Permission Prompt State
   const [activePrompt, setActivePrompt] = useState<PermissionPrompt | null>(null);
   const [promptResolver, setPromptResolver] = useState<((decision: 'allowed' | 'mocked' | 'denied') => void) | null>(null);
@@ -69,6 +93,13 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Inter-OS Clipboard State
   const [pendingTransfer, setPendingTransfer] = useState<InterDomainClipboardTransfer | null>(null);
   const [transferResolver, setTransferResolver] = useState<((allowed: boolean) => void) | null>(null);
+
+  // Keep USB Data Lock synced with Apple USB Restricted Mode
+  useEffect(() => {
+    if (appleStack.usbRestrictedMode) {
+      setUsbDataLock(true);
+    }
+  }, [appleStack.usbRestrictedMode]);
 
   const requestPermission = (prompt: Omit<PermissionPrompt, 'id'>): Promise<'allowed' | 'mocked' | 'denied'> => {
     return new Promise((resolve) => {
@@ -147,6 +178,73 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const isAppNetworkAllowed = (appId: string) => !blockedNetworkApps.includes(appId);
 
+  // Hardened Operations
+  const toggleAppleLockdownMode = (): boolean => {
+    const newVal = hardenedEngine.toggleAppleLockdownMode();
+    setAppleStack(hardenedEngine.getAppleStack());
+    addNotification({
+      appId: 'security',
+      appName: 'Apple Hardened OS',
+      title: newVal ? 'Lockdown Mode Activated' : 'Lockdown Mode Deactivated',
+      body: newVal 
+        ? 'WebKit JIT compiled code blocked, BlastDoor zero-click media sandbox engaged, USB data lines physically severed.'
+        : 'Standard Apple Hardened Runtime restored.',
+    });
+    return newVal;
+  };
+
+  const updateAppleFeature = (feature: keyof AppleHardenedStack, val: boolean) => {
+    hardenedEngine.updateAppleFeature(feature, val);
+    setAppleStack(hardenedEngine.getAppleStack());
+  };
+
+  const setSelinuxMode = (mode: 'enforcing' | 'permissive' | 'disabled') => {
+    hardenedEngine.setSelinuxMode(mode);
+    setLinuxStack(hardenedEngine.getLinuxStack());
+    addNotification({
+      appId: 'security',
+      appName: 'Linux Kernel Hardening',
+      title: `SELinux Set to ${mode.toUpperCase()}`,
+      body: mode === 'enforcing' 
+        ? 'Mandatory Access Control (MAC) strictly active. Type transitions and domain confinement active.'
+        : 'SELinux warnings logged only; policy enforcement relaxed.',
+    });
+  };
+
+  const updateLinuxFeature = (feature: keyof Omit<LinuxHardenedStack, 'sysctlParameters' | 'selinuxMode'>, val: boolean) => {
+    hardenedEngine.updateLinuxFeature(feature, val);
+    setLinuxStack(hardenedEngine.getLinuxStack());
+  };
+
+  const toggleSysctlParameter = (key: string): boolean => {
+    const res = hardenedEngine.toggleSysctlParameter(key);
+    setLinuxStack(hardenedEngine.getLinuxStack());
+    addNotification({
+      appId: 'security',
+      appName: 'Linux KSPP Sysctl',
+      title: `${key} = ${res ? 'Hardened (Strict)' : 'Standard'}`,
+      body: `Kernel runtime protection parameter adjusted.`,
+    });
+    return res;
+  };
+
+  const executePenetrationTest = (attackId: string): SecurityAuditIncident => {
+    const incident = hardenedEngine.executePenetrationTest(attackId);
+    setAuditLogs(hardenedEngine.getAuditLogs());
+    addNotification({
+      appId: 'security',
+      appName: incident.interceptedBy,
+      title: `NEUTRALIZED: ${incident.attackName}`,
+      body: incident.forensicSummary,
+    });
+    return incident;
+  };
+
+  const clearAuditLogs = () => {
+    hardenedEngine.clearAuditLogs();
+    setAuditLogs([]);
+  };
+
   return (
     <SecurityContext.Provider
       value={{
@@ -167,6 +265,16 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         blockedNetworkApps,
         toggleAppNetworkAccess,
         isAppNetworkAllowed,
+        appleStack,
+        linuxStack,
+        auditLogs,
+        toggleAppleLockdownMode,
+        updateAppleFeature,
+        setSelinuxMode,
+        updateLinuxFeature,
+        toggleSysctlParameter,
+        executePenetrationTest,
+        clearAuditLogs,
       }}
     >
       {children}
