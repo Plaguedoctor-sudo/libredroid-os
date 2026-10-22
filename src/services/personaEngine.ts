@@ -23,8 +23,8 @@ export const PERSONA_PRESETS: Record<PersonaArchetype, UserPersonaProfile> = {
     falseTelemetryEnabled: true,
     dummySensorsEnabled: false,
     burnerIdentityEnabled: true,
-    homeApps: ['store', 'browser', 'camera', 'photos', 'notes', 'files', 'calculator', 'settings'],
-    dockApps: ['browser', 'store', 'notes', 'settings'],
+    homeApps: ['phone', 'messages', 'browser', 'camera', 'photos', 'notes', 'files', 'store', 'settings'],
+    dockApps: ['phone', 'messages', 'browser', 'camera'],
     showAtAGlance: true,
     showLiveThreatStats: false,
     searchEngine: 'duckduckgo',
@@ -46,8 +46,8 @@ export const PERSONA_PRESETS: Record<PersonaArchetype, UserPersonaProfile> = {
     falseTelemetryEnabled: true,
     dummySensorsEnabled: true,
     burnerIdentityEnabled: true,
-    homeApps: ['predatory_shield', 'security', 'hypervisor', 'linux_sandbox', 'store', 'browser', 'terminal', 'files'],
-    dockApps: ['hypervisor', 'security', 'predatory_shield', 'browser'],
+    homeApps: ['phone', 'messages', 'predatory_shield', 'security', 'hypervisor', 'linux_sandbox', 'store', 'browser', 'terminal', 'files'],
+    dockApps: ['phone', 'messages', 'browser', 'security'],
     showAtAGlance: false,
     showLiveThreatStats: true,
     searchEngine: 'searxng',
@@ -69,8 +69,8 @@ export const PERSONA_PRESETS: Record<PersonaArchetype, UserPersonaProfile> = {
     falseTelemetryEnabled: true,
     dummySensorsEnabled: false,
     burnerIdentityEnabled: true,
-    homeApps: ['terminal', 'linux_sandbox', 'hardware', 'hypervisor', 'darwin_bridge', 'apk_installer', 'files', 'notes'],
-    dockApps: ['terminal', 'linux_sandbox', 'hypervisor', 'apk_installer'],
+    homeApps: ['phone', 'messages', 'terminal', 'linux_sandbox', 'hardware', 'hypervisor', 'darwin_bridge', 'apk_installer', 'files', 'notes'],
+    dockApps: ['phone', 'messages', 'terminal', 'browser'],
     showAtAGlance: true,
     showLiveThreatStats: true,
     searchEngine: 'duckduckgo',
@@ -92,8 +92,8 @@ export const PERSONA_PRESETS: Record<PersonaArchetype, UserPersonaProfile> = {
     falseTelemetryEnabled: true,
     dummySensorsEnabled: false,
     burnerIdentityEnabled: true,
-    homeApps: ['camera', 'photos', 'clock', 'calculator', 'browser', 'notes', 'predatory_shield', 'settings'],
-    dockApps: ['camera', 'browser', 'clock', 'settings'],
+    homeApps: ['phone', 'messages', 'camera', 'photos', 'clock', 'calculator', 'browser', 'notes', 'predatory_shield', 'settings'],
+    dockApps: ['phone', 'messages', 'camera', 'browser'],
     showAtAGlance: true,
     showLiveThreatStats: false,
     searchEngine: 'duckduckgo',
@@ -221,7 +221,21 @@ export class PersonaEngine {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          return { ...PERSONA_PRESETS.everyday, ...parsed, isSetupComplete: true };
+          const homeApps = Array.isArray(parsed.homeApps) ? [...parsed.homeApps] : [...PERSONA_PRESETS.everyday.homeApps];
+          if (!homeApps.includes('phone')) homeApps.unshift('phone');
+          if (!homeApps.includes('messages')) homeApps.splice(1, 0, 'messages');
+
+          const dockApps = Array.isArray(parsed.dockApps) ? [...parsed.dockApps] : [...PERSONA_PRESETS.everyday.dockApps];
+          if (!dockApps.includes('phone')) dockApps.unshift('phone');
+          if (!dockApps.includes('messages')) dockApps.splice(1, 0, 'messages');
+
+          return { 
+            ...PERSONA_PRESETS.everyday, 
+            ...parsed, 
+            homeApps, 
+            dockApps, 
+            isSetupComplete: true 
+          };
         }
       } catch (err) {
         console.warn('Failed to parse saved persona profile:', err);

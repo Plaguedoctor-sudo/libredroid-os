@@ -25,6 +25,7 @@ import {
   Apple,
   Gamepad2,
   Sparkles,
+  Phone,
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -96,6 +97,16 @@ const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> 
   calculator: {
     icon: Calculator,
     bg: 'bg-gradient-to-tr from-cyan-600 to-teal-600',
+    color: 'text-white',
+  },
+  phone: {
+    icon: Phone,
+    bg: 'bg-gradient-to-tr from-emerald-500 via-green-600 to-teal-700',
+    color: 'text-white',
+  },
+  messages: {
+    icon: MessageSquare,
+    bg: 'bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600',
     color: 'text-white',
   },
   store: {

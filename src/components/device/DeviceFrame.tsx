@@ -15,8 +15,16 @@ export const DeviceFrame: React.FC = () => {
   const { deviceMode, actualDevice, isFolded, wallpaper } = useSystem();
   const { windows } = useWindow();
 
+  // Detect if running on a physical Android/touch device or in full launcher mode
+  const isPhysicalAndroid = typeof navigator !== 'undefined' && 
+    (navigator.maxTouchPoints > 0 || /Android|Tablet|Mobile/i.test(navigator.userAgent));
+
   // Determine physical frame wrapper style based on explicit simulator mode
   const getDeviceFrameClass = () => {
+    // If running on a real Android device or in full screen / auto mode: cover the entire screen edge-to-edge!
+    if (isPhysicalAndroid || deviceMode === 'auto' || deviceMode === 'desktop') {
+      return 'w-full h-full rounded-none border-none shadow-none';
+    }
     if (deviceMode === 'phone') {
       return 'w-[380px] h-[780px] max-h-[92vh] rounded-[48px] border-[10px] border-neutral-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] ring-1 ring-neutral-750';
     }
@@ -28,11 +36,10 @@ export const DeviceFrame: React.FC = () => {
         ? 'w-[320px] h-[760px] max-h-[90vh] rounded-[40px] border-[10px] border-neutral-800 shadow-2xl'
         : 'w-[880px] h-[700px] max-w-[96vw] max-h-[90vh] rounded-[36px] border-[10px] border-neutral-800 shadow-2xl';
     }
-    // Desktop or Auto: fills the container
-    return 'w-full h-full';
+    return 'w-full h-full rounded-none border-none shadow-none';
   };
 
-  const isSimulatedFrame = deviceMode === 'phone' || deviceMode === 'tablet' || deviceMode === 'foldable';
+  const isSimulatedFrame = !isPhysicalAndroid && (deviceMode === 'phone' || deviceMode === 'tablet' || deviceMode === 'foldable');
 
   return (
     <div className={`w-full h-screen bg-[#0d0d11] flex items-center justify-center p-0 overflow-hidden relative ${isSimulatedFrame ? 'pt-12 sm:pt-14 pb-2' : ''}`}>
@@ -50,14 +57,14 @@ export const DeviceFrame: React.FC = () => {
         style={{ backgroundImage: `url(${wallpaper.url})` }}
       >
         {/* Punch Hole Camera Bezels for Phone/Tablet */}
-        {deviceMode === 'phone' && (
+        {isSimulatedFrame && deviceMode === 'phone' && (
           <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-black z-40 ring-1 ring-neutral-800 flex items-center justify-center pointer-events-none">
             <div className="w-1.5 h-1.5 rounded-full bg-[#0a192f] opacity-80" />
           </div>
         )}
 
         {/* Foldable Hinge Crease Simulator */}
-        {deviceMode === 'foldable' && !isFolded && (
+        {isSimulatedFrame && deviceMode === 'foldable' && !isFolded && (
           <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-black/30 backdrop-blur-[1px] z-20 pointer-events-none border-x border-white/5" />
         )}
 

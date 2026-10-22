@@ -43,6 +43,8 @@ const APP_TITLES: Record<string, string> = {
   apk_installer: 'Universal Package Hub',
   darwin_bridge: 'Apple Darwin Bridge',
   system_installer: 'Hardware OS Installer',
+  phone: 'Phone Dialer',
+  messages: 'Messages & SMS',
 };
 
 const DEFAULT_APP_DOMAINS: Record<string, OsDomainId> = {

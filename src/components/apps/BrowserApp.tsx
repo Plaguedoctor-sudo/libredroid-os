@@ -113,18 +113,8 @@ export const BrowserApp: React.FC = () => {
       <div className="flex items-center bg-neutral-950 px-2 pt-2 gap-1 overflow-x-auto border-b border-neutral-800 shrink-0">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;
-          const { openKeyboard } = useVirtualKeyboard();
 
-  const handleUrlBarTap = () => {
-    openKeyboard({
-      value: urlInput,
-      onChange: (val) => setUrlInput(val),
-      onEnter: () => handleNavigate(urlInput),
-      placeholder: 'Search DuckDuckGo or enter URL...',
-    });
-  };
-
-  return (
+          return (
             <div
               key={tab.id}
               onClick={() => {

@@ -161,6 +161,22 @@ export const SYSTEM_APPS: AppMetadata[] = [
     category: 'utility',
   },
   {
+    id: 'phone',
+    name: 'Phone Dialer',
+    icon: 'Phone',
+    color: 'from-emerald-500 to-green-600',
+    category: 'utility',
+    author: 'LibreDroid Telephony Core',
+  },
+  {
+    id: 'messages',
+    name: 'Messages & SMS',
+    icon: 'MessageSquare',
+    color: 'from-blue-500 to-indigo-600',
+    category: 'utility',
+    author: 'LibreDroid Messaging Hub',
+  },
+  {
     id: 'settings',
     name: 'System Settings',
     icon: 'Settings',

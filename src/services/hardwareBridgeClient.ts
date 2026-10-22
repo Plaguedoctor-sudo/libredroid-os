@@ -84,16 +84,38 @@ export async function fetchPhysicalStorage(path: string = '/storage/emulated/0')
   }
 }
 
-export async function createPhysicalFile(
-  folderPath: string,
-  name: string,
-  content?: string
-): Promise<{ success: boolean; path?: string; error?: string }> {
+export async function createPhysicalFile(folderPath: string, name: string, content?: string): Promise<{ success: boolean; path?: string; error?: string }> {
   try {
     const res = await fetch('/api/storage/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ folderPath, name, content }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function dialPhoneNumber(number: string): Promise<{ success: boolean; dialed?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/telephony/call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ number }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function sendSmsMessage(number: string, message: string): Promise<{ success: boolean; sent?: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/telephony/sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ number, message }),
     });
     return await res.json();
   } catch (err: any) {

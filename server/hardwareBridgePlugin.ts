@@ -160,6 +160,53 @@ export function hardwareBridgePlugin(): Plugin {
         }
 
         // ---------------------------------------------------------------------
+        // 2b. POST /api/telephony/call
+        // ---------------------------------------------------------------------
+        if (pathname === '/api/telephony/call' && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          let body = '';
+          req.on('data', chunk => body += chunk);
+          req.on('end', () => {
+            try {
+              const { number } = JSON.parse(body || '{}');
+              const sanitizedNum = (number || '').replace(/[^0-9+*#]/g, '');
+              execSync(`adb shell am start -a android.intent.action.DIAL -d "tel:${sanitizedNum}"`, { timeout: 3000 });
+              res.end(JSON.stringify({ success: true, dialed: sanitizedNum }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // ---------------------------------------------------------------------
+        // 2c. POST /api/telephony/sms
+        // ---------------------------------------------------------------------
+        if (pathname === '/api/telephony/sms' && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          let body = '';
+          req.on('data', chunk => body += chunk);
+          req.on('end', () => {
+            try {
+              const { number, message } = JSON.parse(body || '{}');
+              const sanitizedNum = (number || '').replace(/[^0-9+*#]/g, '');
+              const sanitizedMsg = (message || '').replace(/["$`;&|\\]/g, ' ');
+              execSync(`adb shell am start -a android.intent.action.SENDTO -d "sms:${sanitizedNum}" --es sms_body "${sanitizedMsg}"`, { timeout: 3000 });
+              res.end(JSON.stringify({ success: true, number: sanitizedNum, sent: true }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // ---------------------------------------------------------------------
         // 3. GET /api/storage/list?path=...
         // ---------------------------------------------------------------------
         if (pathname === '/api/storage/list' && req.method === 'GET') {

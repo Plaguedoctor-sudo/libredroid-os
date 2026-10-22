@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Smartphone, 
   Tablet, 
@@ -12,7 +12,9 @@ import {
   Cpu, 
   Lock,
   Layers,
-  Sparkles
+  Sparkles,
+  ChevronUp,
+  X
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
@@ -36,6 +38,10 @@ export const DeviceSwitcherBar: React.FC = () => {
   const { persona, openWizard } = usePersona();
   const { appleStack, linuxStack } = useSecurity();
 
+  const isTouchDevice = typeof navigator !== 'undefined' && 
+    (navigator.maxTouchPoints > 0 || /Android|Tablet|Mobile/i.test(navigator.userAgent));
+  const [isCollapsed, setIsCollapsed] = useState(isTouchDevice);
+
   const devices: { id: DeviceMode; label: string; icon: any }[] = [
     { id: 'auto', label: 'Auto Detect', icon: RefreshCw },
     { id: 'phone', label: 'Phone', icon: Smartphone },
@@ -44,8 +50,28 @@ export const DeviceSwitcherBar: React.FC = () => {
     { id: 'desktop', label: 'DeX Desktop', icon: Laptop },
   ];
 
+  if (isCollapsed) {
+    return (
+      <button
+        onClick={() => setIsCollapsed(false)}
+        className="fixed top-2 right-3 z-50 bg-black/40 hover:bg-black/80 backdrop-blur-md border border-white/10 rounded-full px-2.5 py-1 text-[11px] text-white/70 hover:text-white flex items-center gap-1.5 shadow-lg active:scale-95 transition-all"
+        title="Show System Cockpit"
+      >
+        <Sparkles size={11} className="text-amber-400" />
+        <span>Cockpit</span>
+      </button>
+    );
+  }
+
   return (
     <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-1 sm:gap-2 select-none text-xs text-white max-w-[96vw] overflow-x-auto scrollbar-none touch-manipulation">
+      <button
+        onClick={() => setIsCollapsed(true)}
+        className="p-1 hover:bg-neutral-800 rounded-full text-neutral-400 hover:text-white mr-1"
+        title="Collapse to edge-to-edge Launcher"
+      >
+        <ChevronUp size={14} />
+      </button>
       {/* Multi-OS Qubes Hypervisor Direct Status Badge */}
       <button 
         onClick={() => {
