@@ -223,7 +223,7 @@ export const AppIcon: React.FC<AppIconProps> = ({
   };
 
   return (
-    <div className={`relative flex items-center justify-center shrink-0 shadow-lg ${sizeClasses[size]} ${iconConfig.bg} ${className} transition-transform active:scale-95 duration-150`}>
+    <div className={`relative flex items-center justify-center shrink-0 shadow-lg ${sizeClasses[size]} ${iconConfig.bg} ${className} transition-transform active:scale-95 duration-150 pointer-events-none select-none`}>
       <Icon size={iconSizes[size]} className={iconConfig.color} />
       {badge && badge > 0 ? (
         <span className="absolute -top-1 -right-1 bg-red-500 text-white font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#1c1b1f] shadow">

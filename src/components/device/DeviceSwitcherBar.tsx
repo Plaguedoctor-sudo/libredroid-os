@@ -45,39 +45,48 @@ export const DeviceSwitcherBar: React.FC = () => {
   ];
 
   return (
-    <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-1 sm:gap-2 select-none text-xs text-white max-w-[96vw] overflow-x-auto scrollbar-none">
+    <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-1 sm:gap-2 select-none text-xs text-white max-w-[96vw] overflow-x-auto scrollbar-none touch-manipulation">
       {/* Multi-OS Qubes Hypervisor Direct Status Badge */}
       <button 
-        onClick={() => openApp('hypervisor')}
-        className="flex items-center gap-1.5 px-2 border-r border-neutral-700 font-semibold text-purple-400 hover:text-purple-300 transition-colors"
+        onClick={() => {
+          if (navigator.vibrate) navigator.vibrate(12);
+          openApp('hypervisor');
+        }}
+        className="flex items-center gap-1.5 px-2.5 py-1 border-r border-neutral-700 font-semibold text-purple-400 hover:text-purple-300 active:scale-95 transition-all touch-manipulation min-h-[36px]"
         title="Multi-OS Hypervisor Matrix: 5 Specialized OS Domains (seL4 Vault, Whonix Tor, GrapheneOS Android, Disposable Alpine, Debian Work)."
       >
-        <Layers size={13} className="text-purple-400" />
+        <Layers size={14} className="text-purple-400" />
         <span className="hidden md:inline">Multi-OS Matrix</span>
       </button>
 
       {/* Universal Adapt OS Persona Launcher Badge */}
       <button 
-        onClick={() => openApp('persona_engine')}
-        className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow-sm transition-all bg-gradient-to-r from-amber-500/80 via-rose-500/80 to-purple-600/80 hover:brightness-110 active:scale-95 border border-white/20"
+        onClick={() => {
+          if (navigator.vibrate) navigator.vibrate(12);
+          openApp('persona_engine');
+        }}
+        className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold text-white shadow-sm transition-all bg-gradient-to-r from-amber-500/80 via-rose-500/80 to-purple-600/80 hover:brightness-110 active:scale-95 border border-white/20 touch-manipulation min-h-[36px]"
         title={`Active Persona: ${persona.name}. Click to tune or re-morph OS.`}
       >
-        <Sparkles size={11} className="text-amber-200" />
+        <Sparkles size={12} className="text-amber-200" />
         <span className="hidden md:inline truncate max-w-[110px]">{persona.name}</span>
         <span className="md:hidden">Adapt</span>
       </button>
 
       {/* Security Guardrails Badge (Apple Hardened & Linux SELinux) */}
       <button 
-        onClick={() => openApp('security')}
-        className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono transition-all border ${
+        onClick={() => {
+          if (navigator.vibrate) navigator.vibrate(12);
+          openApp('security');
+        }}
+        className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-mono transition-all border active:scale-95 touch-manipulation min-h-[36px] ${
           appleStack.lockdownMode
             ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
             : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30'
         }`}
         title={`Hardened OS: Apple ${appleStack.lockdownMode ? 'Lockdown Mode Active' : 'Hardened Runtime'} • Linux SELinux ${linuxStack.selinuxMode.toUpperCase()}`}
       >
-        <ShieldCheck size={12} className={appleStack.lockdownMode ? 'text-rose-400' : 'text-emerald-400'} />
+        <ShieldCheck size={13} className={appleStack.lockdownMode ? 'text-rose-400' : 'text-emerald-400'} />
         <span className="hidden xl:inline">
           {appleStack.lockdownMode ? 'Apple Lockdown' : 'Apple/Linux Hardened'}
         </span>
@@ -88,11 +97,14 @@ export const DeviceSwitcherBar: React.FC = () => {
 
       {/* Linux Sandbox Core Button */}
       <button
-        onClick={() => openApp('linux_sandbox')}
-        className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 rounded-full text-[11px] font-mono text-cyan-300 transition-colors"
+        onClick={() => {
+          if (navigator.vibrate) navigator.vibrate(12);
+          openApp('linux_sandbox');
+        }}
+        className="flex items-center gap-1.5 px-3 py-1 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 rounded-full text-[11px] font-mono text-cyan-300 transition-all active:scale-95 touch-manipulation min-h-[36px]"
         title="Linux Namespaces, cgroups v2, Seccomp-BPF & XDG Portals"
       >
-        <Box size={12} className="text-cyan-400" />
+        <Box size={13} className="text-cyan-400" />
         <span>Sandbox</span>
       </button>
 
@@ -104,15 +116,18 @@ export const DeviceSwitcherBar: React.FC = () => {
           return (
             <button
               key={d.id}
-              onClick={() => setDeviceMode(d.id)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+              onClick={() => {
+                if (navigator.vibrate) navigator.vibrate(12);
+                setDeviceMode(d.id);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all active:scale-95 touch-manipulation min-h-[36px] ${
                 isActive
                   ? 'bg-purple-600 text-white shadow'
                   : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
               }`}
               title={`Switch to ${d.label} mode`}
             >
-              <Icon size={13} />
+              <Icon size={14} />
               <span className="hidden sm:inline">{d.label}</span>
             </button>
           );

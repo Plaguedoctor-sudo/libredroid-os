@@ -30,8 +30,11 @@ export const StatusBar: React.FC = () => {
 
   return (
     <header 
-      onClick={() => setIsShadeOpen(true)}
-      className="w-full h-8 px-4 flex items-center justify-between text-white text-xs select-none cursor-pointer hover:bg-white/5 transition-colors z-30 shrink-0 font-medium"
+      onClick={() => {
+        if (navigator.vibrate) navigator.vibrate(12);
+        setIsShadeOpen(true);
+      }}
+      className="w-full h-9 px-4 flex items-center justify-between text-white text-xs select-none cursor-pointer hover:bg-white/10 active:bg-white/15 transition-colors z-30 shrink-0 font-medium touch-manipulation"
       title="Click or pull to expand Quick Settings & Notifications"
     >
       {/* Left: Live Time & App notification indicator & Active Security Domain */}
