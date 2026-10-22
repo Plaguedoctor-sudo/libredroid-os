@@ -48,12 +48,12 @@ export const SYSTEM_APPS: AppMetadata[] = [
   },
   {
     id: 'store',
-    name: 'F-Droid Store',
+    name: 'Sovereign Store',
     icon: 'ShoppingBag',
     color: 'from-blue-600 via-teal-500 to-emerald-500',
     category: 'system',
-    badge: 5,
-    author: 'F-Droid Community',
+    badge: 7,
+    author: 'Multi-Source FOSS Hub',
   },
   {
     id: 'hardware',

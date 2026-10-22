@@ -92,6 +92,46 @@ export const CORE_GUARDRAILS: SecurityGuardrail[] = [
     enforcementLevel: 'Sandboxed',
     description: 'Caps accelerometer and gyroscope sampling rates to 50Hz to block acoustic keystroke eavesdropping attacks.',
   },
+  {
+    id: 'sensor_dummy_streams',
+    name: 'Zero-Trust Sensor Dummy Streams',
+    category: 'hardware',
+    status: 'active',
+    enforcementLevel: 'Hardware Enforced',
+    description: 'Feeds synthetic white noise PCM to mic, pitch-black YUV frames to camera, and coarse coordinate jitter to GPS when access is ungranted or coerced.',
+  },
+  {
+    id: 'storage_scrambling',
+    name: 'Storage Scrambling & Inode Obfuscation',
+    category: 'storage',
+    status: 'active',
+    enforcementLevel: 'Strict Enforcing',
+    description: 'Randomizes inode IDs, spoofs /proc/cpuinfo, and masks hardware serials to block cross-app filesystem fingerprinting.',
+  },
+  {
+    id: 'ephemeral_clipboard',
+    name: 'Ephemeral Clipboard Auto-Shredder',
+    category: 'memory',
+    status: 'active',
+    enforcementLevel: 'Strict Enforcing',
+    description: 'Cryptographically zeroes clipboard buffers after 30 seconds or upon app context switch, blocking commercial clipboard scrapers.',
+  },
+  {
+    id: 'ebpf_syscall_guard',
+    name: 'eBPF Kernel Anomaly Detector',
+    category: 'kernel',
+    status: 'active',
+    enforcementLevel: 'Hardware Enforced',
+    description: 'Dynamic eBPF bytecode hooks monitoring and dropping anomalous ptrace, process_vm_readv, and memory tampering in real-time.',
+  },
+  {
+    id: 'mac_bssid_randomizer',
+    name: 'Per-Probe MAC & BSSID Randomization',
+    category: 'network',
+    status: 'active',
+    enforcementLevel: 'Hardware Enforced',
+    description: 'Generates a fresh cryptographic MAC address on every Wi-Fi probe request, defeating physical location profiling.',
+  },
 ];
 
 export const DEFAULT_APP_RULES: AppPermissionRule[] = [

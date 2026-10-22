@@ -37,25 +37,59 @@ Every application window features a dynamic **Domain Migration Badge** allowing 
 
 ---
 
-## 🔒 35-Year Linux Evolution Safety Stack
+## 🔒 Comprehensive OS Hardening & Defense Stack
 
-LibreDroid activates every modern Linux security primitive at the kernel and userland boundary:
+LibreDroid activates a defense-in-depth security architecture inspired by GrapheneOS and hardened Linux:
 
 - **Linux Namespaces (7-layer separation)**: Mount (`mnt`), Process ID (`pid`), Network (`net`), IPC (`ipc`), UTS hostname (`uts`), User ID (`user`), and Control Groups (`cgroup`).
-- **cgroups v2 Resource Hierarchy**: Dynamic enforcement of strict memory ceilings, CPU shares, I/O burst throttling, and PID limit controls to stop fork bombs and crypto-jacking.
-- **Seccomp-BPF System Call Filtering**: Whitelist-based BPF bytecode filtering that denies high-risk syscalls (`ptrace`, `kexec_load`, `process_vm_writev`) while auditing standard execution.
-- **Landlock LSM (Linux Security Module)**: Unprivileged filesystem sandboxing that restricts applications to read-only access for core libraries and read-write strictly to sandboxed application paths.
-- **XDG Desktop Portals**: Eliminates unrestricted device access; audio, camera, screen-cast, and file access require explicit portal broker handshakes.
+- **cgroups v2 Resource Hierarchy**: Strict memory ceilings, CPU shares, I/O burst throttling, and PID limit controls to stop fork bombs and crypto-jacking.
+- **Seccomp-BPF & eBPF Syscall Guard**: Real-time bytecode hooks monitoring and dropping hazardous syscalls (`ptrace`, `process_vm_readv`, `kexec_load`).
+- **Landlock LSM & Storage Scrambling**: Unprivileged filesystem sandboxing with randomized inode IDs and spoofed `/proc/cpuinfo` to neutralize cross-app fingerprinting.
+- **Zero-Trust Sensor Dummy Streams**: When an app is denied camera, microphone, or GPS access (or attempts to force permissions), LibreDroid feeds synthetic white noise to the microphone, pure pitch-black frames to the camera, and coarse coordinate jitter to GPS instead of crashing.
+- **Ephemeral Clipboard Auto-Shredder**: Automatically cryptographically zeroes clipboard buffers after 30 seconds or on app context switch, blocking commercial clipboard scrapers.
+- **Per-Probe MAC & BSSID Randomization**: Generates fresh cryptographic MAC addresses on every Wi-Fi scan and association.
 
 ---
 
-## 🛑 OS-Level Anti-Predatory Shield & Dark Pattern Interceptor
+## 🎭 False Telemetry Feeder & Poisoning Engine
 
-LibreDroid protects users from deceptive application designs, hidden costs, and predatory monetization:
+When commercial apps enforce coercive tracking consent or refuse to operate without analytics SDKs:
 
-- **Dark Pattern Interceptor**: Real-time heuristic scanning of app views to detect disguised ads, countdown timers, forced continuity traps, and bait-and-switch consent prompts.
-- **1-Click Subscription Killer**: Instant revocation and blocking of deceptive recurring payment authorizations directly at the OS kernel boundary.
-- **Recurring Fee Tracker**: Audits all active background subscriptions, calculates annualized costs, and alerts users before free trials convert into recurring charges.
+- **Synthetic Telemetry Interception**: Intercepts tracking beacons directed at Google Firebase/Analytics (`app-measurement.com`), Meta Graph SDK (`graph.facebook.com`), Adjust Attribution, AppsFlyer, and Kochava.
+- **High-Entropy Noise Injection**: Replaces real user activity with synthetic randomized dummy journeys and returns `HTTP 200 OK` to the application, deceiving the app into believing tracking succeeded while sending pure garbage data to surveillance servers.
+- **Synthetic Device Fingerprints**:
+  - **Spoofed AAID / IDFA**: Rotates fresh dummy UUIDs (`00000000-0000-0000-0000-000000000000` or random cold-boot tokens).
+  - **Constant 83% Battery Level**: Prevents battery drain profiling.
+  - **Sovereign Mesh Carrier Telecom**: Neutralizes cell carrier tracking.
+  - **Null Island Coordinates**: Coarse coordinate jittering.
+
+---
+
+## 🛑 Complete Countermeasures Against Predatory Industry Practices
+
+LibreDroid neutralizes manipulative monetization and coercive UI designs at the operating system level:
+
+- **Dark Pattern & Fake Urgency Interceptor**: Detects artificial countdown timers ("Deal expires in 04:59!"), false virus alert modals, and microscopic close "X" buttons.
+- **Disposable Burner Identity Generator**: Generates disposable instant aliases (`anon_userXXXX@libredroid.mesh`) and tokens with 1-click to bypass forced registrations and paywalls without exposing real personal information.
+- **Coercive Rating & Review Defuser**: Traps in-app 5-star review demands, auto-submits dummy acknowledgments, and blocks persistent review nagging.
+- **Anti-Loot Box & Gacha Gamble Shield**: Detects variable-ratio psychological reinforcement hooks, flags in-game virtual currency gambling, and locks unauthorized microtransactions.
+- **1-Click Irrevocable Subscription Killer**: Terminates recurring payment authorizations directly at the OS kernel boundary, eliminating "Roach Motel" multi-step cancellation traps.
+
+---
+
+## 📦 Multiple Safe Sources for App Installation
+
+LibreDroid features a decentralized Sovereign App Store connecting to multiple verified repositories:
+
+| Repository Source | Type | Integrity Guarantee | Description |
+| :--- | :--- | :--- | :--- |
+| **F-Droid Main Archive** | FOSS APK | GPG SHA-512 Signed | Official catalog of free open-source Android apps built from source. |
+| **IzzyOnDroid FOSS Repo** | Rapid APK | Zero-Telemetry Audited | Direct developer release tags with verified open-source licenses. |
+| **The Guardian Project** | Security APK | Cryptographically Verified | Tor, Orbot, Briar, and decentralized anti-surveillance tools. |
+| **Flathub Sandboxed Linux Store** | Flatpak | Reproducible OSTree | Containerized desktop & mobile Linux applications sandboxed via Bubblewrap. |
+| **AltStore Sovereign Apple Index** | Apple IPA | Mach-O 64-bit Verified | Verified open-source iOS/macOS apps running on the Darwin CocoaTouch bridge. |
+| **Alpine & Debian Mirrors** | POSIX DEB/APK | GPG Signed 2026 | Cryptographically signed system packages built with stack-protector-strong. |
+| **Reproducible Git Builder** | Source Code | Bit-for-Bit Verified | Compiles applications directly from signed Git commit hashes with 0 proprietary blobs. |
 
 ---
 

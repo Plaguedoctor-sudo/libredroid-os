@@ -93,7 +93,7 @@ export const SecurityGuardrailsApp: React.FC = () => {
         </div>
 
         {[
-          { id: 'guardrails', label: 'Hardened Guardrails', icon: ShieldCheck, badge: `${activeCount}/8` },
+          { id: 'guardrails', label: 'Hardened Guardrails', icon: ShieldCheck, badge: `${activeCount}/${guardrails.length}` },
           { id: 'killswitches', label: 'Hardware Killswitches', icon: Power },
           { id: 'firewall', label: 'App Network Firewall', icon: Wifi },
           { id: 'incidents', label: 'Trapped Threats', icon: ShieldAlert, badge: incidents.length },

@@ -1,275 +1,429 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Download, Check, Search, ShieldCheck, Code, ExternalLink, Star } from 'lucide-react';
+import { 
+  ShoppingBag, 
+  Download, 
+  Check, 
+  Search, 
+  ShieldCheck, 
+  Code, 
+  ExternalLink, 
+  Star, 
+  Layers, 
+  Plus, 
+  CheckCircle2, 
+  RefreshCw, 
+  Lock, 
+  Globe, 
+  Apple, 
+  Cpu, 
+  Zap,
+  Tag
+} from 'lucide-react';
 import { useWindow } from '../../context/WindowContext';
 import { useSystem } from '../../context/SystemContext';
 import { AppIcon } from '../common/AppIcon';
-import { saveInstalledApk, SideloadedApk } from '../../services/apkManager';
-
-interface FDroidPackage {
-  id: string;
-  name: string;
-  packageName: string;
-  version: string;
-  category: string;
-  license: string;
-  size: string;
-  description: string;
-  installed: boolean;
-  sourceUrl: string;
-}
+import { saveInstalledApk } from '../../services/apkManager';
+import { saveInstalledAppleApp } from '../../services/appleAppManager';
+import { 
+  getAppRepositories, 
+  toggleRepository, 
+  addCustomRepository, 
+  MULTI_SOURCE_PACKAGES, 
+  StorePackage, 
+  AppRepository 
+} from '../../services/appRepositoryManager';
 
 export const FDroidApp: React.FC = () => {
   const { openApp } = useWindow();
   const { addNotification } = useSystem();
+  const [activeTab, setActiveTab] = useState<'packages' | 'sources'>('packages');
+  const [selectedRepoId, setSelectedRepoId] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [repositories, setRepositories] = useState<AppRepository[]>(getAppRepositories());
+  const [packages, setPackages] = useState<StorePackage[]>(MULTI_SOURCE_PACKAGES);
+  const [selectedPackage, setSelectedPackage] = useState<StorePackage | null>(null);
 
-  const [apps, setApps] = useState<FDroidPackage[]>([
-    {
-      id: 'org.videolan.vlc',
-      name: 'VLC Media Player',
-      packageName: 'org.videolan.vlc',
-      version: '3.5.4',
-      category: 'Multimedia',
-      license: 'GPLv3',
-      size: '34 MB',
-      description: 'Plays all video/audio formats, network streams, and local shares with zero trackers.',
-      installed: true,
-      sourceUrl: 'https://code.videolan.org/videolan/vlc-android',
-    },
-    {
-      id: 'org.schabi.newpipe',
-      name: 'NewPipe',
-      packageName: 'org.schabi.newpipe',
-      version: '0.27.0',
-      category: 'Internet',
-      license: 'GPLv3',
-      size: '14 MB',
-      description: 'Privacy-focused lightweight streaming client without proprietary Google Services.',
-      installed: true,
-      sourceUrl: 'https://github.com/TeamNewPipe/NewPipe',
-    },
-    {
-      id: 'net.osmand.plus',
-      name: 'OsmAnd',
-      packageName: 'net.osmand.plus',
-      version: '4.7.2',
-      category: 'Navigation',
-      license: 'GPLv3',
-      size: '58 MB',
-      description: 'Comprehensive global offline maps and turn-by-turn navigation based on OpenStreetMap.',
-      installed: true,
-      sourceUrl: 'https://github.com/osmandapp/Osmand',
-    },
-    {
-      id: 'im.vector.app',
-      name: 'Element Messenger',
-      packageName: 'im.vector.app',
-      version: '1.6.8',
-      category: 'Communication',
-      license: 'Apache-2.0',
-      size: '42 MB',
-      description: 'Decentralized, end-to-end encrypted chat powered by the open Matrix protocol.',
-      installed: true,
-      sourceUrl: 'https://github.com/vector-im/element-android',
-    },
-    {
-      id: 'com.fsck.k9',
-      name: 'K-9 Mail (Thunderbird)',
-      packageName: 'com.fsck.k9',
-      version: '6.800',
-      category: 'Productivity',
-      license: 'Apache-2.0',
-      size: '18 MB',
-      description: 'Independent open-source email client with PGP end-to-end encryption support.',
-      installed: true,
-      sourceUrl: 'https://github.com/thunderbird/thunderbird-android',
-    },
-    {
-      id: 'org.signal.android',
-      name: 'Molly (Signal FOSS)',
-      packageName: 'im.molly.app',
-      version: '7.1.0',
-      category: 'Security',
-      license: 'GPLv3',
-      size: '39 MB',
-      description: 'Hardened, de-googled Signal fork with passphrase database encryption and unified push.',
-      installed: false,
-      sourceUrl: 'https://github.com/mollyim/mollyim-android',
-    },
-    {
-      id: 'org.fossify.gallery',
-      name: 'Fossify Gallery',
-      packageName: 'org.fossify.gallery',
-      version: '1.1.2',
-      category: 'Multimedia',
-      license: 'GPLv3',
-      size: '8 MB',
-      description: 'Lightweight offline photo & video gallery with no internet permissions requested.',
-      installed: false,
-      sourceUrl: 'https://github.com/FossifyOrg/Gallery',
-    },
-    {
-      id: 'org.kde.kdeconnect_tp',
-      name: 'KDE Connect',
-      packageName: 'org.kde.kdeconnect_tp',
-      version: '1.29.0',
-      category: 'System',
-      license: 'GPLv2',
-      size: '12 MB',
-      description: 'Seamless wireless clipboard sharing, notification sync, and file transfer across devices.',
-      installed: false,
-      sourceUrl: 'https://invent.kde.org/network/kdeconnect-android',
-    },
-  ]);
+  // Custom Repo Modal State
+  const [showAddRepoModal, setShowAddRepoModal] = useState(false);
+  const [newRepoName, setNewRepoName] = useState('');
+  const [newRepoUrl, setNewRepoUrl] = useState('');
+  const [newRepoType, setNewRepoType] = useState<AppRepository['type']>('f-droid');
 
-  const handleInstall = (app: FDroidPackage) => {
-    if (app.installed) {
-      openApp(app.id, app.name);
-      return;
-    }
+  const enabledRepoIds = repositories.filter(r => r.enabled).map(r => r.id);
 
-    setInstallingId(app.id);
-    setTimeout(() => {
-      setApps((prev) =>
-        prev.map((a) => (a.id === app.id ? { ...a, installed: true } : a))
-      );
-      setInstallingId(null);
+  const filteredApps = packages.filter((app) => {
+    const isRepoEnabled = enabledRepoIds.includes(app.repositoryId);
+    if (!isRepoEnabled) return false;
 
-      // Register into installed APKs
-      saveInstalledApk({
-        id: app.id,
-        name: app.name,
-        packageName: app.packageName,
-        version: app.version,
-        size: app.size,
-        iconBg: 'bg-gradient-to-tr from-blue-600 to-indigo-700',
-        iconName: 'Box',
-        permissions: ['NETWORK', 'STORAGE'],
-        installedAt: 'Just now',
-        category: 'foss',
-        description: app.description,
-      });
+    const matchesRepo = selectedRepoId === 'all' || app.repositoryId === selectedRepoId;
+    const matchesSearch = 
+      app.name.toLowerCase().includes(search.toLowerCase()) ||
+      app.category.toLowerCase().includes(search.toLowerCase()) ||
+      app.description.toLowerCase().includes(search.toLowerCase()) ||
+      app.packageName.toLowerCase().includes(search.toLowerCase());
+    return matchesRepo && matchesSearch;
+  });
 
-      addNotification({
-        appId: 'store',
-        appName: 'F-Droid',
-        title: `${app.name} Installed`,
-        body: `Free & Open Source APK ${app.packageName} successfully installed.`,
-      });
-    }, 1200);
+  const handleToggleRepo = (id: string) => {
+    const updated = toggleRepository(id);
+    setRepositories(updated);
   };
 
-  const filtered = apps.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase()) ||
-    a.category.toLowerCase().includes(search.toLowerCase()) ||
-    a.description.toLowerCase().includes(search.toLowerCase())
-  );
+  const handleAddRepo = () => {
+    if (!newRepoName || !newRepoUrl) return;
+    const updated = addCustomRepository(newRepoName, newRepoUrl, newRepoType);
+    setRepositories(updated);
+    setShowAddRepoModal(false);
+    setNewRepoName('');
+    setNewRepoUrl('');
+    addNotification({
+      appId: 'store',
+      appName: 'Sovereign Store',
+      title: 'Repository Mirror Added',
+      body: `Cryptographically verified repository ${newRepoName} initialized.`,
+    });
+  };
+
+  const handleInstall = (pkg: StorePackage) => {
+    setInstallingId(pkg.id);
+    setTimeout(() => {
+      setPackages((prev) =>
+        prev.map((a) => (a.id === pkg.id ? { ...a, installed: true } : a))
+      );
+
+      // Register into corresponding runtime manager
+      if (pkg.platform === 'apple') {
+        saveInstalledAppleApp({
+          id: pkg.packageName,
+          name: pkg.name,
+          bundleId: pkg.packageName,
+          version: pkg.version,
+          size: pkg.size,
+          iconBg: 'bg-gradient-to-tr from-rose-500 to-pink-600',
+          iconName: 'Apple',
+          minimumIosVersion: 'iOS 15.0+',
+          architecture: 'arm64',
+          framework: 'UIKit',
+          entitlements: ['com.apple.security.network.client'],
+          installedAt: 'Installed from Sovereign Store',
+          category: 'media',
+          description: pkg.description,
+          binaryType: 'Mach-O 64-bit',
+          codeSignature: 'Ad-Hoc (Bypassed)',
+        });
+      } else {
+        saveInstalledApk({
+          id: pkg.packageName,
+          name: pkg.name,
+          packageName: pkg.packageName,
+          version: pkg.version,
+          size: pkg.size,
+          iconBg: 'bg-gradient-to-tr from-emerald-600 to-teal-700',
+          iconName: 'Box',
+          permissions: ['NETWORK', 'STORAGE'],
+          installedAt: 'Installed from Sovereign Store',
+          category: 'utility',
+          description: pkg.description,
+        });
+      }
+
+      setInstallingId(null);
+      addNotification({
+        appId: 'store',
+        appName: 'Sovereign Store',
+        title: `${pkg.name} Installed`,
+        body: `Verified bit-for-bit against ${pkg.sha256.substring(0, 16)}...`,
+      });
+    }, 900);
+  };
 
   return (
-    <div className="flex-1 w-full h-full flex flex-col bg-neutral-900 text-white select-none overflow-hidden">
-      {/* Header */}
-      <div className="p-3 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-blue-500/20 text-blue-400 rounded-xl">
-            <ShoppingBag size={18} />
+    <div className="flex-1 w-full h-full flex flex-col bg-neutral-900 text-white select-none overflow-hidden font-sans">
+      {/* Top Header */}
+      <div className="p-3.5 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-tr from-blue-600 via-teal-500 to-emerald-500 text-white rounded-2xl shadow-lg">
+            <ShoppingBag size={20} />
           </div>
           <div>
             <div className="text-sm font-bold flex items-center gap-2">
-              F-Droid Repository
-              <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-mono">
-                100% Free Software
+              Sovereign App Store
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">
+                {repositories.filter(r => r.enabled).length} Repos Active
               </span>
             </div>
             <div className="text-[11px] text-neutral-400">
-              Verified Open Source Android APKs • No Trackers • No Ads
+              Multiple safe verified sources: F-Droid, IzzyOnDroid, Guardian Project, Flathub & AltStore
             </div>
           </div>
         </div>
 
-        <div className="flex-1 max-w-sm flex items-center gap-2 bg-neutral-800 rounded-full px-3 py-1.5 border border-neutral-700">
-          <Search size={14} className="text-neutral-400" />
-          <input
-            type="text"
-            placeholder="Search FOSS apps..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent text-xs text-white focus:outline-none"
-          />
-        </div>
-      </div>
-
-      {/* Repository Stats Strip */}
-      <div className="bg-neutral-950/80 px-4 py-2 border-b border-neutral-800 flex items-center justify-between text-xs text-neutral-400 shrink-0">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
-            <ShieldCheck size={14} />
-            <span>Anti-Features Audit: Clean</span>
-          </span>
-          <span className="hidden sm:inline">•</span>
-          <span className="hidden sm:inline">Repo: f-droid.org main</span>
-        </div>
-        <span className="text-[11px] font-mono text-blue-300">microG Verified</span>
-      </div>
-
-      {/* App List */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-3">
-        {filtered.map((app) => (
-          <div
-            key={app.id}
-            className="bg-neutral-800/50 hover:bg-neutral-800 border border-neutral-700/60 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
+        {/* Tab Switcher */}
+        <div className="flex items-center gap-1.5 bg-neutral-900 p-1 rounded-xl border border-neutral-800 text-xs">
+          <button
+            onClick={() => setActiveTab('packages')}
+            className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+              activeTab === 'packages' ? 'bg-emerald-600 text-white shadow' : 'text-neutral-400 hover:text-white'
+            }`}
           >
-            <div className="flex items-start gap-3">
-              <AppIcon appId={app.id} size="md" />
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white">{app.name}</span>
-                  <span className="text-[10px] bg-neutral-700 text-neutral-300 px-2 py-0.5 rounded font-mono">
-                    {app.license}
-                  </span>
+            Applications
+          </button>
+          <button
+            onClick={() => setActiveTab('sources')}
+            className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+              activeTab === 'sources' ? 'bg-emerald-600 text-white shadow' : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            Safe Sources ({repositories.length})
+          </button>
+        </div>
+      </div>
+
+      {/* TAB 1: APPLICATIONS BROWSER */}
+      {activeTab === 'packages' && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Search & Repository Filter Chips */}
+          <div className="p-3 bg-neutral-950/80 border-b border-neutral-800 flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between shrink-0">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search verified packages across all safe sources..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500/60"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto text-[11px]">
+              <button
+                onClick={() => setSelectedRepoId('all')}
+                className={`px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  selectedRepoId === 'all' ? 'bg-neutral-800 text-white font-bold' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                All Sources
+              </button>
+              {repositories.filter(r => r.enabled).map((repo) => (
+                <button
+                  key={repo.id}
+                  onClick={() => setSelectedRepoId(repo.id)}
+                  className={`px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                    selectedRepoId === repo.id ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 font-bold' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  {repo.name.split(' ')[0]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Package Grid */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filteredApps.map((pkg) => {
+                const repo = repositories.find(r => r.id === pkg.repositoryId);
+                return (
+                  <div
+                    key={pkg.id}
+                    onClick={() => setSelectedPackage(pkg)}
+                    className="p-3.5 bg-neutral-850 hover:bg-neutral-800 border border-neutral-800 rounded-2xl flex flex-col justify-between transition-all cursor-pointer space-y-3 group"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <AppIcon appId={pkg.id} size="md" />
+                          <div>
+                            <div className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
+                              {pkg.name}
+                            </div>
+                            <div className="text-[10px] text-neutral-400 font-mono truncate max-w-[140px]">
+                              {pkg.packageName}
+                            </div>
+                          </div>
+                        </div>
+
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                          pkg.platform === 'apple' 
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
+                            : pkg.platform === 'linux'
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        }`}>
+                          {pkg.platform === 'apple' ? '🍎 iOS IPA' : pkg.platform === 'linux' ? '🐧 Flatpak' : '🤖 AOSP APK'}
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-neutral-400 line-clamp-2 mt-2 leading-relaxed">
+                        {pkg.description}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1.5 text-neutral-400">
+                        <ShieldCheck size={12} className="text-emerald-400" />
+                        <span className="text-[10px] truncate max-w-[100px]">{repo?.name.split(' ')[0]}</span>
+                      </div>
+
+                      {pkg.installed ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openApp(pkg.id, pkg.name);
+                          }}
+                          className="px-3 py-1 bg-neutral-800 hover:bg-emerald-600/40 text-emerald-300 rounded-xl font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <Check size={12} />
+                          <span>Open</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleInstall(pkg);
+                          }}
+                          disabled={installingId === pkg.id}
+                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold flex items-center gap-1 shadow transition-colors"
+                        >
+                          <Download size={12} className={installingId === pkg.id ? 'animate-bounce' : ''} />
+                          <span>{installingId === pkg.id ? 'Verifying...' : 'Install'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: SAFE SOURCES & REPOSITORIES MANAGER */}
+      {activeTab === 'sources' && (
+        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-white">Verified Decentralized Repositories</h2>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                LibreDroid fetches exclusively from cryptographically signed, zero-telemetry repositories.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowAddRepoModal(true)}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow"
+            >
+              <Plus size={14} />
+              <span>Add Custom Mirror</span>
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {repositories.map((repo) => (
+              <div
+                key={repo.id}
+                className="p-4 bg-neutral-850 border border-neutral-800 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">{repo.name}</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono border border-emerald-500/30">
+                      {repo.verificationBadge}
+                    </span>
+                  </div>
+                  <div className="text-xs text-neutral-400 font-mono">{repo.url}</div>
+                  <p className="text-[11px] text-neutral-400 leading-relaxed max-w-xl">
+                    {repo.description}
+                  </p>
+                  <div className="text-[10px] text-neutral-500 font-mono pt-1">
+                    GPG Fingerprint: {repo.gpgFingerprint.substring(0, 32)}... • Packages: {repo.totalPackages}
+                  </div>
                 </div>
-                <div className="text-xs text-neutral-400 font-mono mt-0.5">{app.packageName} • v{app.version}</div>
-                <div className="text-xs text-neutral-300 mt-1 leading-relaxed max-w-xl">{app.description}</div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={() => handleToggleRepo(repo.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                      repo.enabled
+                        ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    <CheckCircle2 size={13} className={repo.enabled ? 'text-emerald-400' : 'text-neutral-500'} />
+                    <span>{repo.enabled ? 'Enabled' : 'Disabled'}</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add Custom Repo Modal */}
+      {showAddRepoModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-5 space-y-4 shadow-2xl">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Plus size={16} className="text-emerald-400" />
+              <span>Add Verified Repository Mirror</span>
+            </h3>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-neutral-400 block mb-1">Repository Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. My Trusted FOSS Hub"
+                  value={newRepoName}
+                  onChange={(e) => setNewRepoName(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-neutral-400 block mb-1">Repository URL (HTTPS / Onion)</label>
+                <input
+                  type="text"
+                  placeholder="https://example.org/fdroid/repo"
+                  value={newRepoUrl}
+                  onChange={(e) => setNewRepoUrl(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-neutral-400 block mb-1">Repository Protocol Type</label>
+                <select
+                  value={newRepoType}
+                  onChange={(e) => setNewRepoType(e.target.value as any)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="f-droid">F-Droid Compatible Index (index-v1.json / GPG)</option>
+                  <option value="flathub">Flathub / Flatpak OSTree Remote</option>
+                  <option value="altstore">AltStore / Delta iOS Source (source.json)</option>
+                  <option value="reproducible-git">Direct Reproducible Git Source Repository</option>
+                </select>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              <a
-                href={app.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-xl transition-colors"
-                title="View Source Code Repository"
-              >
-                <Code size={16} />
-              </a>
-
+            <div className="flex gap-2 pt-2">
               <button
-                onClick={() => handleInstall(app)}
-                disabled={installingId === app.id}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                  installingId === app.id
-                    ? 'bg-neutral-700 text-neutral-400'
-                    : app.installed
-                    ? 'bg-neutral-700 hover:bg-neutral-600 text-white'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow'
-                }`}
+                onClick={() => setShowAddRepoModal(false)}
+                className="flex-1 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-semibold"
               >
-                {installingId === app.id ? (
-                  'Installing...'
-                ) : app.installed ? (
-                  'Launch'
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <Download size={13} />
-                    <span>Install APK</span>
-                  </div>
-                )}
+                Cancel
+              </button>
+              <button
+                onClick={handleAddRepo}
+                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow"
+              >
+                Verify & Add Mirror
               </button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

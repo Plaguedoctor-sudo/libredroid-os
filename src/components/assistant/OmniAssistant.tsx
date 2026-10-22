@@ -66,6 +66,12 @@ export const OmniAssistant: React.FC = () => {
         reply = "Launching Termux bash environment.";
       } else if (lower.includes('battery')) {
         reply = `Battery level is ${batteryLevel}%. Running under power governor 'conservative' with zero background tracking analytics.`;
+      } else if (lower.includes('telemetry') || lower.includes('false') || lower.includes('poison') || lower.includes('spyware') || lower.includes('tracking')) {
+        openApp('predatory_shield');
+        reply = "Opening Anti-Predatory Shield & False Telemetry Feeder. When apps demand tracking consent, LibreDroid feeds synthetic randomized noise to analytics beacons and returns HTTP 200 OK.";
+      } else if (lower.includes('source') || lower.includes('repository') || lower.includes('repo') || lower.includes('store') || lower.includes('market') || lower.includes('f-droid')) {
+        openApp('store');
+        reply = "Opening Sovereign App Store. You can install verified applications across multiple safe sources: F-Droid, IzzyOnDroid, Guardian Project, Flathub, and AltStore.";
       } else if (lower.includes('apple') || lower.includes('ios') || lower.includes('ipa') || lower.includes('darwin') || lower.includes('cocoa') || lower.includes('iphone') || lower.includes('mac')) {
         openApp('darwin_bridge');
         reply = "Opening Apple Darwin & CocoaTouch Bridge. LibreDroid can natively execute Apple iOS (.ipa) and macOS (.app) binaries using Darling XNU emulation and touchHLE UIKit translation.";

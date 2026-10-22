@@ -5,7 +5,19 @@ export type PredatoryTacticType =
   | 'parasitic_background' 
   | 'clipboard_snooping' 
   | 'permission_hostage' 
-  | 'fake_countdown';
+  | 'fake_countdown'
+  | 'forced_telemetry'
+  | 'forced_review_nag'
+  | 'loot_box_gamble'
+  | 'coerced_login';
+
+export interface BurnerIdentity {
+  aliasEmail: string;
+  fullName: string;
+  token: string;
+  createdAt: string;
+  purpose: string;
+}
 
 export interface NeutralizedAction {
   id: string;
@@ -55,6 +67,24 @@ export const PREDATORY_KEYWORDS = [
 ];
 
 export const INITIAL_NEUTRALIZED_ACTIONS: NeutralizedAction[] = [
+  {
+    id: 'na-0',
+    app: 'Social Video Network',
+    tactic: 'forced_telemetry',
+    title: 'Forced Telemetry Intercepted & Poisoned',
+    detail: 'App refused to boot without mandatory telemetry consent: Fed high-entropy synthetic dummy data; returned HTTP 200.',
+    timestamp: 'Just now',
+    neutralizedBy: 'Synthetic Telemetry Feeder',
+  },
+  {
+    id: 'na-00',
+    app: 'Commercial Note Editor',
+    tactic: 'forced_review_nag',
+    title: 'Coercive 5-Star Rating Nag Defused',
+    detail: 'Trapped modal review prompt blocking document saving: Emulated fake 5-star submit token without touching store.',
+    timestamp: '2 mins ago',
+    neutralizedBy: 'Anti-Coercion Review Proxy',
+  },
   {
     id: 'na-1',
     app: 'Sideloaded Free Game',
@@ -179,3 +209,20 @@ export const DEFAULT_MANAGED_SUBSCRIPTIONS: ManagedSubscription[] = [
     cancelMethod: 'instant-1-click',
   },
 ];
+
+export function generateBurnerIdentity(purpose: string = 'Forced Registration Bypass'): BurnerIdentity {
+  const randNum = Math.floor(1000 + Math.random() * 9000);
+  const aliasEmail = `anon_user${randNum}@libredroid.mesh`;
+  const firstNames = ['Alex', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Sam', 'Robin'];
+  const lastNames = ['Smith', 'Vance', 'Sovereign', 'Miller', 'Hayes', 'North'];
+  const fullName = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+  const token = `LIBRE_AUTH_${Math.random().toString(36).substring(2, 12).toUpperCase()}`;
+
+  return {
+    aliasEmail,
+    fullName,
+    token,
+    createdAt: 'Just now',
+    purpose,
+  };
+}
