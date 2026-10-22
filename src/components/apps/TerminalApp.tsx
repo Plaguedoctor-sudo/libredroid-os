@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Terminal, Send, CornerDownLeft } from 'lucide-react';
+import { Terminal, Send, CornerDownLeft, Keyboard } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { useVirtualKeyboard } from '../../context/KeyboardContext';
 
 interface TerminalLine {
   text: string;
@@ -9,12 +10,22 @@ interface TerminalLine {
 
 export const TerminalApp: React.FC = () => {
   const { actualDevice, deviceMode, setDeviceMode, batteryLevel, account } = useSystem();
+  const { openKeyboard } = useVirtualKeyboard();
   const [history, setHistory] = useState<TerminalLine[]>([
     { text: 'OmniOS Universal Linux Shell [v1.0.4-aosp-x86_64]', type: 'system' },
     { text: 'Type "help" or "neofetch" to begin exploring system services.', type: 'system' },
   ]);
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const handleInputTap = () => {
+    openKeyboard({
+      value: input,
+      onChange: (val) => setInput(val),
+      onEnter: () => handleCommand(input),
+      placeholder: 'Enter shell command...',
+    });
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -167,19 +178,26 @@ export const TerminalApp: React.FC = () => {
         <div ref={bottomRef} />
       </div>
 
-      {/* Command Input Row */}
-      <div className="pt-2 border-t border-neutral-800 flex items-center gap-2 select-none">
+      {/* Command Input Row with LibreDroid Virtual Keyboard */}
+      <div 
+        onClick={handleInputTap}
+        className="pt-2 border-t border-neutral-800 flex items-center gap-2 select-none cursor-pointer"
+      >
         <span className="text-purple-400 font-bold select-none">user@omni:~$</span>
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleCommand(input)}
-          autoFocus
-          className="flex-1 bg-transparent text-white font-mono text-xs sm:text-sm focus:outline-none"
+          onClick={handleInputTap}
+          inputMode="none"
+          placeholder="Tap to type command..."
+          className="flex-1 bg-transparent text-white placeholder-neutral-600 font-mono text-xs sm:text-sm focus:outline-none cursor-pointer"
         />
         <button
-          onClick={() => handleCommand(input)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCommand(input);
+          }}
           className="p-1 hover:text-white text-neutral-500 transition-colors"
         >
           <CornerDownLeft size={16} />

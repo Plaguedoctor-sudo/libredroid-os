@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, Send, X, ShieldCheck, Box, HardDrive } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
+import { useVirtualKeyboard } from '../../context/KeyboardContext';
 
 export const OmniAssistant: React.FC = () => {
   const { 
@@ -13,6 +14,7 @@ export const OmniAssistant: React.FC = () => {
     account 
   } = useSystem();
   const { openApp } = useWindow();
+  const { openKeyboard, closeKeyboard } = useVirtualKeyboard();
 
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Array<{ sender: 'user' | 'assistant'; text: string }>>([
@@ -23,6 +25,20 @@ export const OmniAssistant: React.FC = () => {
   ]);
 
   if (!isAssistantOpen) return null;
+
+  const handleInputTap = () => {
+    openKeyboard({
+      value: input,
+      onChange: (val) => setInput(val),
+      onEnter: () => handleSend(),
+      placeholder: "Ask local model or give system command...",
+    });
+  };
+
+  const handleClose = () => {
+    closeKeyboard();
+    setIsAssistantOpen(false);
+  };
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -105,7 +121,7 @@ export const OmniAssistant: React.FC = () => {
   return (
     <div 
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex flex-col justify-end items-center p-3 sm:p-6 animate-fade-in select-none"
-      onClick={() => setIsAssistantOpen(false)}
+      onClick={handleClose}
     >
       <div 
         className="w-full max-w-lg bg-neutral-900/95 border border-emerald-500/30 rounded-3xl p-5 shadow-2xl flex flex-col gap-4 text-white"
@@ -175,19 +191,25 @@ export const OmniAssistant: React.FC = () => {
           ))}
         </div>
 
-        {/* Input Bar */}
-        <div className="flex items-center gap-2 bg-neutral-800/90 border border-neutral-700 rounded-2xl px-3 py-2">
+        {/* Input Bar with LibreDroid Virtual Keyboard Integration */}
+        <div 
+          onClick={handleInputTap}
+          className="flex items-center gap-2 bg-neutral-800/90 hover:bg-neutral-800 border border-neutral-700 hover:border-emerald-500/50 rounded-2xl px-3 py-2 cursor-pointer transition-all"
+        >
           <input
             type="text"
             placeholder="Ask local model or give system command..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            autoFocus
-            className="w-full bg-transparent text-white placeholder-neutral-500 text-xs sm:text-sm focus:outline-none"
+            onClick={handleInputTap}
+            inputMode="none"
+            className="w-full bg-transparent text-white placeholder-neutral-500 text-xs sm:text-sm focus:outline-none cursor-pointer"
           />
           <button 
-            onClick={handleSend}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSend();
+            }}
             disabled={!input.trim()}
             className="p-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl transition-all"
           >

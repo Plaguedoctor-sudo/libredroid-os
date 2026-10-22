@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, X, Box, Upload } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
+import { useVirtualKeyboard } from '../../context/KeyboardContext';
 import { SYSTEM_APPS } from '../../constants/apps';
 import { getInstalledApks } from '../../services/apkManager';
 import { getInstalledAppleApps } from '../../services/appleAppManager';
@@ -10,6 +11,7 @@ import { AppIcon } from '../common/AppIcon';
 export const AppDrawer: React.FC = () => {
   const { isAppDrawerOpen, setIsAppDrawerOpen, actualDevice } = useSystem();
   const { openApp } = useWindow();
+  const { openKeyboard, closeKeyboard, isKeyboardOpen } = useVirtualKeyboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -49,30 +51,52 @@ export const AppDrawer: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const handleSearchTap = (e?: React.MouseEvent | React.FocusEvent) => {
+    e?.stopPropagation();
+    openKeyboard({
+      value: searchQuery,
+      onChange: (val) => setSearchQuery(val),
+      onEnter: () => closeKeyboard(),
+      placeholder: 'Search FOSS apps, APK packages, system tools...',
+    });
+  };
+
+  const handleCloseDrawer = () => {
+    closeKeyboard();
+    setIsAppDrawerOpen(false);
+  };
+
   return (
     <div 
       className="fixed inset-0 z-40 bg-black/80 backdrop-blur-xl flex flex-col items-center justify-end sm:justify-center p-3 sm:p-6 animate-fade-in select-none"
-      onClick={() => setIsAppDrawerOpen(false)}
+      onClick={handleCloseDrawer}
     >
       <div 
         className="w-full max-w-2xl bg-neutral-900/95 border border-neutral-800 rounded-3xl p-5 sm:p-6 flex flex-col gap-4 max-h-[85vh] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drawer Header & Search Bar */}
-        <div className="flex items-center gap-3 bg-neutral-800/80 border border-neutral-700 rounded-2xl px-3.5 py-2.5">
+        {/* Drawer Header & Search Column */}
+        <div 
+          onClick={handleSearchTap}
+          className="flex items-center gap-3 bg-neutral-800/80 hover:bg-neutral-800 border border-neutral-700 hover:border-emerald-500/50 rounded-2xl px-3.5 py-2.5 cursor-pointer transition-all"
+        >
           <Search size={18} className="text-neutral-400 shrink-0" />
           <input
             type="text"
             placeholder="Search FOSS apps, APK packages, system tools..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            autoFocus
-            className="w-full bg-transparent text-white placeholder-neutral-500 text-sm focus:outline-none"
+            onClick={handleSearchTap}
+            inputMode="none"
+            className="w-full bg-transparent text-white placeholder-neutral-500 text-sm focus:outline-none cursor-pointer"
           />
           {searchQuery && (
             <button 
-              onClick={() => setSearchQuery('')}
-              className="text-neutral-400 hover:text-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSearchQuery('');
+              }}
+              className="text-neutral-400 hover:text-white p-1"
             >
               <X size={16} />
             </button>

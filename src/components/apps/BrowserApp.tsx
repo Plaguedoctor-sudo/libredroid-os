@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   ShieldAlert
 } from 'lucide-react';
+import { useVirtualKeyboard } from '../../context/KeyboardContext';
 
 interface Tab {
   id: string;
@@ -95,13 +96,35 @@ export const BrowserApp: React.FC = () => {
     }
   };
 
+  const { openKeyboard } = useVirtualKeyboard();
+
+  const handleUrlBarTap = () => {
+    openKeyboard({
+      value: urlInput,
+      onChange: (val) => setUrlInput(val),
+      onEnter: () => handleNavigate(urlInput),
+      placeholder: 'Search DuckDuckGo or enter URL...',
+    });
+  };
+
   return (
     <div className="flex-1 w-full h-full flex flex-col bg-neutral-900 text-white overflow-hidden select-none">
       {/* Tabs Bar */}
       <div className="flex items-center bg-neutral-950 px-2 pt-2 gap-1 overflow-x-auto border-b border-neutral-800 shrink-0">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;
-          return (
+          const { openKeyboard } = useVirtualKeyboard();
+
+  const handleUrlBarTap = () => {
+    openKeyboard({
+      value: urlInput,
+      onChange: (val) => setUrlInput(val),
+      onEnter: () => handleNavigate(urlInput),
+      placeholder: 'Search DuckDuckGo or enter URL...',
+    });
+  };
+
+  return (
             <div
               key={tab.id}
               onClick={() => {
@@ -153,14 +176,18 @@ export const BrowserApp: React.FC = () => {
         </div>
 
         {/* URL Bar */}
-        <div className="flex-1 flex items-center gap-2 bg-neutral-800 rounded-full px-3 py-1.5 border border-neutral-700/60 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500/50">
+        <div 
+          onClick={handleUrlBarTap}
+          className="flex-1 flex items-center gap-2 bg-neutral-800 rounded-full px-3 py-1.5 border border-neutral-700/60 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500/50 cursor-pointer"
+        >
           <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
           <input
             type="text"
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleNavigate(urlInput)}
-            className="w-full bg-transparent text-xs text-white focus:outline-none"
+            onClick={handleUrlBarTap}
+            inputMode="none"
+            className="w-full bg-transparent text-xs text-white focus:outline-none cursor-pointer"
             placeholder="Search DuckDuckGo or enter URL"
           />
         </div>
