@@ -19,6 +19,7 @@ export type AppId =
   | 'linux_sandbox'
   | 'hypervisor'
   | 'apk_installer'
+  | 'darwin_bridge'
   | 'system_installer'
   | string; // Dynamic sideloaded APKs
 

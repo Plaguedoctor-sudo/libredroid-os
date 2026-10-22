@@ -4,6 +4,7 @@ import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import { SYSTEM_APPS } from '../../constants/apps';
 import { getInstalledApks } from '../../services/apkManager';
+import { getInstalledAppleApps } from '../../services/appleAppManager';
 import { AppIcon } from '../common/AppIcon';
 
 export const AppDrawer: React.FC = () => {
@@ -21,13 +22,30 @@ export const AppDrawer: React.FC = () => {
     color: 'from-blue-600 to-indigo-700',
     category: apk.category as any,
     isApk: true,
+    isApple: false,
+    platform: 'Android',
   }));
 
-  const allApps = [...SYSTEM_APPS, ...sideloadedApks];
+  const sideloadedAppleApps = getInstalledAppleApps().map((apple) => ({
+    id: apple.id,
+    name: apple.name,
+    icon: apple.iconName,
+    color: 'from-rose-500 to-pink-600',
+    category: apple.category as any,
+    isApk: false,
+    isApple: true,
+    platform: 'Apple iOS',
+  }));
+
+  const allApps = [...SYSTEM_APPS, ...sideloadedApks, ...sideloadedAppleApps];
 
   const filteredApps = allApps.filter((app) => {
     const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || app.category === selectedCategory;
+    const matchesCategory = 
+      selectedCategory === 'all' || 
+      app.category === selectedCategory ||
+      (selectedCategory === 'apple' && ('isApple' in app && app.isApple)) ||
+      (selectedCategory === 'android' && ('isApk' in app && app.isApk));
     return matchesSearch && matchesCategory;
   });
 
@@ -63,18 +81,18 @@ export const AppDrawer: React.FC = () => {
 
         {/* Categories Tabs */}
         <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 text-xs">
-          <div className="flex items-center gap-1.5">
-            {['all', 'foss', 'system', 'productivity', 'media', 'utility'].map((cat) => (
+          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+            {['all', 'android', 'apple', 'foss', 'system', 'productivity', 'media', 'utility'].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-full capitalize transition-all ${
+                className={`px-3 py-1.5 rounded-full capitalize text-xs font-medium whitespace-nowrap transition-all ${
                   selectedCategory === cat
-                    ? 'bg-emerald-600 text-white font-medium shadow-sm'
+                    ? 'bg-emerald-600 text-white shadow-sm'
                     : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white'
                 }`}
               >
-                {cat}
+                {cat === 'android' ? '🤖 Android' : cat === 'apple' ? '🍎 Apple OS' : cat}
               </button>
             ))}
           </div>
@@ -84,10 +102,10 @@ export const AppDrawer: React.FC = () => {
               setIsAppDrawerOpen(false);
               openApp('apk_installer');
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/30 rounded-full font-medium shrink-0 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600/30 to-rose-600/30 hover:from-emerald-600/50 hover:to-rose-600/50 text-white border border-neutral-700 rounded-full font-medium shrink-0 transition-colors text-xs"
           >
-            <Box size={13} />
-            <span>Sideload APK</span>
+            <Upload size={13} />
+            <span>Sideload App</span>
           </button>
         </div>
 

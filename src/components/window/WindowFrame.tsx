@@ -26,6 +26,9 @@ import { MultiOsHypervisorApp } from '../apps/MultiOsHypervisorApp';
 import { ApkInstallerApp } from '../apps/ApkInstallerApp';
 import { SystemInstallerApp } from '../apps/SystemInstallerApp';
 import { WaydroidAppRunner } from '../apps/WaydroidAppRunner';
+import { AppleDarwinBridgeApp } from '../apps/AppleDarwinBridgeApp';
+import { AppleAppRunner } from '../apps/AppleAppRunner';
+import { getInstalledAppleApps } from '../../services/appleAppManager';
 
 interface WindowFrameProps {
   window: WindowInstance;
@@ -76,10 +79,22 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       case 'linux_sandbox': return <LinuxSandboxApp />;
       case 'hypervisor': return <MultiOsHypervisorApp />;
       case 'apk_installer': return <ApkInstallerApp />;
+      case 'darwin_bridge': return <AppleDarwinBridgeApp />;
       case 'system_installer': return <SystemInstallerApp />;
-      default:
+      default: {
+        // Check if the app is an Apple iOS/macOS bundle
+        const isAppleApp = win.osDomain === 'darwin-apple' || 
+          getInstalledAppleApps().some((a) => a.id === win.appId || a.bundleId === win.appId) ||
+          win.appId.startsWith('com.apple.') ||
+          win.appId.includes('.ios');
+
+        if (isAppleApp) {
+          return <AppleAppRunner appId={win.appId} title={win.title} />;
+        }
+
         // Handle all sideloaded Android APKs inside Waydroid Container
         return <WaydroidAppRunner appId={win.appId} title={win.title} />;
+      }
     }
   };
 

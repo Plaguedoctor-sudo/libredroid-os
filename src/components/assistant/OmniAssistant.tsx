@@ -66,6 +66,12 @@ export const OmniAssistant: React.FC = () => {
         reply = "Launching Termux bash environment.";
       } else if (lower.includes('battery')) {
         reply = `Battery level is ${batteryLevel}%. Running under power governor 'conservative' with zero background tracking analytics.`;
+      } else if (lower.includes('apple') || lower.includes('ios') || lower.includes('ipa') || lower.includes('darwin') || lower.includes('cocoa') || lower.includes('iphone') || lower.includes('mac')) {
+        openApp('darwin_bridge');
+        reply = "Opening Apple Darwin & CocoaTouch Bridge. LibreDroid can natively execute Apple iOS (.ipa) and macOS (.app) binaries using Darling XNU emulation and touchHLE UIKit translation.";
+      } else if (lower.includes('apk') || lower.includes('android') || lower.includes('waydroid') || lower.includes('sideload')) {
+        openApp('apk_installer');
+        reply = "Opening Universal Package Hub. You can sideload and run both Android APKs (via Waydroid AOSP) and Apple IPAs (via Darwin CocoaTouch) without proprietary app stores.";
       } else if (lower.includes('hypervisor') || lower.includes('qubes') || lower.includes('whonix') || lower.includes('vault') || lower.includes('domain')) {
         openApp('hypervisor');
         reply = "Opening Multi-OS Hypervisor Matrix. You can inspect or operate inside the 5 specialized OS domains: seL4 Vault, Whonix Tor, GrapheneOS Android, Disposable Alpine, and Debian Workstation.";

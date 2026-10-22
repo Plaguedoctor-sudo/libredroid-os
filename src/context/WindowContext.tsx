@@ -40,7 +40,8 @@ const APP_TITLES: Record<string, string> = {
   security: 'Security Guardrails',
   linux_sandbox: 'Linux Sandboxing',
   hypervisor: 'Multi-OS Hypervisor Matrix',
-  apk_installer: 'APK Package Installer',
+  apk_installer: 'Universal Package Hub',
+  darwin_bridge: 'Apple Darwin Bridge',
   system_installer: 'Hardware OS Installer',
 };
 
@@ -59,7 +60,14 @@ const DEFAULT_APP_DOMAINS: Record<string, OsDomainId> = {
   linux_sandbox: 'workstation-debian',
   hypervisor: 'vault-airgap',
   apk_installer: 'hardened-android',
+  darwin_bridge: 'darwin-apple',
   system_installer: 'vault-airgap',
+  'com.christianselig.apollo': 'darwin-apple',
+  'com.rileytestut.delta': 'darwin-apple',
+  'com.firecore.infuse': 'darwin-apple',
+  'org.cryptomator.ios': 'darwin-apple',
+  'io.ente.photos.ios': 'darwin-apple',
+  'com.utmapp.UTM': 'darwin-apple',
 };
 
 export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -76,7 +84,8 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsAppDrawerOpen(false);
 
     // Resolve security domain
-    const targetDomain: OsDomainId = domain || DEFAULT_APP_DOMAINS[appId] || (appId.startsWith('org.') || appId.startsWith('com.') ? 'hardened-android' : 'workstation-debian');
+    const isAppleApp = appId.includes('apple') || appId.includes('darwin') || appId.includes('apollo') || appId.includes('delta') || appId.includes('infuse') || appId.includes('cryptomator') || appId.includes('ente') || appId.includes('utmapp');
+    const targetDomain: OsDomainId = domain || DEFAULT_APP_DOMAINS[appId] || (isAppleApp ? 'darwin-apple' : (appId.startsWith('org.') || appId.startsWith('com.') ? 'hardened-android' : 'workstation-debian'));
 
     // Check if an instance already exists
     const existing = windows.find((w) => w.appId === appId);

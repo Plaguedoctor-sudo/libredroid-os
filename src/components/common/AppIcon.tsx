@@ -22,6 +22,8 @@ import {
   MapPin, 
   MessageSquare, 
   Mail, 
+  Apple,
+  Gamepad2,
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -123,6 +125,41 @@ const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> 
   system_installer: {
     icon: HardDrive,
     bg: 'bg-gradient-to-tr from-purple-600 to-indigo-800',
+    color: 'text-white',
+  },
+  darwin_bridge: {
+    icon: Apple,
+    bg: 'bg-gradient-to-tr from-rose-500 via-pink-600 to-red-600',
+    color: 'text-white',
+  },
+  'com.christianselig.apollo': {
+    icon: MessageSquare,
+    bg: 'bg-gradient-to-tr from-orange-500 via-amber-500 to-rose-600',
+    color: 'text-white',
+  },
+  'com.rileytestut.delta': {
+    icon: Gamepad2,
+    bg: 'bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500',
+    color: 'text-white',
+  },
+  'com.firecore.infuse': {
+    icon: Film,
+    bg: 'bg-gradient-to-tr from-rose-600 via-red-600 to-orange-600',
+    color: 'text-white',
+  },
+  'org.cryptomator.ios': {
+    icon: Lock,
+    bg: 'bg-gradient-to-tr from-teal-600 via-emerald-600 to-cyan-700',
+    color: 'text-white',
+  },
+  'io.ente.photos.ios': {
+    icon: Image,
+    bg: 'bg-gradient-to-tr from-blue-600 via-cyan-600 to-teal-500',
+    color: 'text-white',
+  },
+  'com.utmapp.UTM': {
+    icon: Cpu,
+    bg: 'bg-gradient-to-tr from-slate-700 via-neutral-800 to-zinc-900',
     color: 'text-white',
   },
   'org.videolan.vlc': {

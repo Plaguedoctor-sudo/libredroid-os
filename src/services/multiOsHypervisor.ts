@@ -3,7 +3,8 @@ export type OsDomainId =
   | 'anonymity-whonix' 
   | 'hardened-android' 
   | 'disposable-alpine' 
-  | 'workstation-debian';
+  | 'workstation-debian'
+  | 'darwin-apple';
 
 export interface TorCircuitNode {
   type: 'guard' | 'middle' | 'exit';
@@ -63,6 +64,13 @@ export interface OsDomainConfig {
     nextcloudSyncStatus?: 'connected' | 'syncing' | 'idle';
     nextcloudStorageQuota?: string;
     aptRepoSigning?: string;
+
+    // Darwin / Apple iOS & macOS specific
+    darlingVersion?: string;
+    machOTranslationRate?: string;
+    touchHleActive?: boolean;
+    metalToVulkanTranslation?: string;
+    activeCocoaDylibs?: number;
   };
 }
 
@@ -197,6 +205,30 @@ export const MULTI_OS_DOMAINS: OsDomainConfig[] = [
       nextcloudSyncStatus: 'connected',
       nextcloudStorageQuota: '14.8 GB / 100 GB (E2EE Synced)',
       aptRepoSigning: 'Debian Archive GPG 2026 Key Verified',
+    },
+  },
+  {
+    id: 'darwin-apple',
+    name: 'Apple Darwin / CocoaTouch Bridge',
+    baseOs: 'Darwin 23.4 (XNU) / Darling Mach-O / touchHLE',
+    securityRole: 'iOS & macOS Application Binary Translation & Cocoa Sandbox',
+    colorBorder: 'border-rose-500 shadow-rose-500/20',
+    colorHex: '#f43f5e',
+    badgeLabel: 'Apple Darwin (Cocoa)',
+    networkMode: 'firewalled-bridge',
+    persistence: 'sandboxed-storage',
+    vCpuCores: 4,
+    memoryAllocatedMb: 1024,
+    status: 'running',
+    runningApps: ['com.christianselig.apollo', 'com.rileytestut.delta', 'com.firecore.infuse'],
+    description: 'Hardware-accelerated Darwin/Mach-O binary execution environment. Allows running native iOS (.ipa) and macOS (.app) binaries using Darling, touchHLE, and Metal-to-Vulkan translation without Apple hardware.',
+    technicalGuarantee: 'Darwin 23.4 XNU syscall emulation, Mach-O ARM64 dynamic linking (dyld), UIKit/CoreGraphics translation to Wayland, Metal shading language compiled to SPIR-V/Vulkan.',
+    details: {
+      darlingVersion: 'Darling 0.2.2026 (XNU 23.4 / macOS Sonoma)',
+      machOTranslationRate: '99.4% Native ARM64 Instruction Passthrough',
+      touchHleActive: true,
+      metalToVulkanTranslation: 'MoltenVK / ANGLE SPIR-V Active',
+      activeCocoaDylibs: 48,
     },
   },
 ];

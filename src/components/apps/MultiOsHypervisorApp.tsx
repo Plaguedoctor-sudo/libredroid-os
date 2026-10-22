@@ -30,7 +30,8 @@ import {
   Cloud,
   Check,
   Copy,
-  QrCode
+  QrCode,
+  Apple
 } from 'lucide-react';
 import { 
   OsDomainConfig, 
@@ -891,6 +892,77 @@ export const MultiOsHypervisorApp: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* DOMAIN 6: 🍎 APPLE DARWIN / COCOATOUCH BRIDGE */}
+            {selectedDomainId === 'darwin-apple' && (
+              <div className="space-y-5 bg-neutral-850 border border-rose-500/40 rounded-3xl p-5 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-neutral-700/80 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center">
+                      <Apple size={22} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <span>Apple Darwin / CocoaTouch Bridge</span>
+                        <span className="text-xs bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded font-mono border border-rose-500/30">
+                          Darwin 23.4 (XNU) + touchHLE
+                        </span>
+                      </h2>
+                      <p className="text-xs text-neutral-400">iOS & macOS Application Binary Translation & Cocoa Sandbox</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleLaunch('darwin_bridge', 'darwin-apple')}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow"
+                  >
+                    <Play size={13} />
+                    <span>Open Darwin Bridge</span>
+                  </button>
+                </div>
+
+                {/* Darwin Emulation Metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3.5 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-1.5">
+                    <div className="text-[11px] font-mono text-rose-400 font-bold flex items-center gap-1.5">
+                      <Cpu size={14} />
+                      <span>Mach-O Binary Translation</span>
+                    </div>
+                    <div className="text-xs text-white font-medium">99.4% Native ARM64 Passthrough</div>
+                    <p className="text-[11px] text-neutral-400 leading-relaxed">
+                      Zero-overhead ARM64 execution on compatible hardware; JIT translation dynamic linking for x86_64 host kernels.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-1.5">
+                    <div className="text-[11px] font-mono text-amber-400 font-bold flex items-center gap-1.5">
+                      <Zap size={14} />
+                      <span>Metal-to-Vulkan Shader Pipeline</span>
+                    </div>
+                    <div className="text-xs text-white font-medium">MoltenVK / ANGLE SPIR-V Active</div>
+                    <p className="text-[11px] text-neutral-400 leading-relaxed">
+                      Compiles Apple Metal MSL shaders into Vulkan SPIR-V with hardware desktop GPU acceleration.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Sideloaded Apple Apps Status */}
+                <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-white">Active Cocoa Dylibs & Frameworks</span>
+                    <span className="text-rose-400 font-mono">48 Frameworks Loaded</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+                    {['UIKit.framework', 'Foundation.framework', 'Metal.framework', 'CoreGraphics.framework', 'AVFoundation.framework', 'Security.framework'].map((fw) => (
+                      <div key={fw} className="p-2 bg-neutral-950 rounded-lg border border-neutral-800 text-neutral-300 flex items-center justify-between">
+                        <span className="truncate">{fw}</span>
+                        <span className="text-emerald-400 text-[10px]">OK</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -945,6 +1017,14 @@ export const MultiOsHypervisorApp: React.FC = () => {
                   domainName: 'Debian Workstation OS',
                   color: 'border-emerald-500 text-emerald-300',
                   desc: 'Persistent encrypted storage for everyday office and document work.',
+                },
+                {
+                  appId: 'darwin_bridge' as AppId,
+                  appName: 'Apple Darwin CocoaTouch Bridge',
+                  domainId: 'darwin-apple' as OsDomainId,
+                  domainName: 'Apple Darwin (Cocoa)',
+                  color: 'border-rose-500 text-rose-300',
+                  desc: 'Run native iOS (.ipa) and macOS (.app) binaries using Mach-O translation.',
                 },
               ].map((item) => (
                 <div
