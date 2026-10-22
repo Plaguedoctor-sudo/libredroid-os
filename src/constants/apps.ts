@@ -2,6 +2,14 @@ import { AppMetadata } from '../types/apps';
 
 export const SYSTEM_APPS: AppMetadata[] = [
   {
+    id: 'persona_engine',
+    name: 'Adapt OS',
+    icon: 'Sparkles',
+    color: 'from-amber-500 via-rose-500 to-purple-600',
+    category: 'system',
+    author: 'Universal Persona Engine',
+  },
+  {
     id: 'hypervisor',
     name: 'Multi-OS Matrix',
     icon: 'Layers',

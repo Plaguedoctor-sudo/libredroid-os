@@ -21,6 +21,7 @@ export type AppId =
   | 'apk_installer'
   | 'darwin_bridge'
   | 'system_installer'
+  | 'persona_engine'
   | string; // Dynamic sideloaded APKs
 
 export interface AppMetadata {

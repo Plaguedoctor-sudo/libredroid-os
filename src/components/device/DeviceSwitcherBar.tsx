@@ -11,10 +11,12 @@ import {
   Box, 
   Cpu, 
   Lock,
-  Layers
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
+import { usePersona } from '../../context/PersonaContext';
 import { DeviceMode } from '../../types/system';
 
 export const DeviceSwitcherBar: React.FC = () => {
@@ -30,6 +32,7 @@ export const DeviceSwitcherBar: React.FC = () => {
   } = useSystem();
 
   const { openApp } = useWindow();
+  const { persona, openWizard } = usePersona();
 
   const devices: { id: DeviceMode; label: string; icon: any }[] = [
     { id: 'auto', label: 'Auto Detect', icon: RefreshCw },
@@ -49,6 +52,17 @@ export const DeviceSwitcherBar: React.FC = () => {
       >
         <Layers size={13} className="text-purple-400" />
         <span className="hidden md:inline">Multi-OS Matrix</span>
+      </button>
+
+      {/* Universal Adapt OS Persona Launcher Badge */}
+      <button 
+        onClick={() => openApp('persona_engine')}
+        className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow-sm transition-all bg-gradient-to-r from-amber-500/80 via-rose-500/80 to-purple-600/80 hover:brightness-110 active:scale-95 border border-white/20"
+        title={`Active Persona: ${persona.name}. Click to tune or re-morph OS.`}
+      >
+        <Sparkles size={11} className="text-amber-200" />
+        <span className="hidden md:inline truncate max-w-[110px]">{persona.name}</span>
+        <span className="md:hidden">Adapt</span>
       </button>
 
       {/* Security Guardrails Badge */}

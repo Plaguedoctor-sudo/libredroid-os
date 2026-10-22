@@ -28,6 +28,7 @@ import { SystemInstallerApp } from '../apps/SystemInstallerApp';
 import { WaydroidAppRunner } from '../apps/WaydroidAppRunner';
 import { AppleDarwinBridgeApp } from '../apps/AppleDarwinBridgeApp';
 import { AppleAppRunner } from '../apps/AppleAppRunner';
+import { UniversalPersonaApp } from '../apps/UniversalPersonaApp';
 import { getInstalledAppleApps } from '../../services/appleAppManager';
 
 interface WindowFrameProps {
@@ -81,6 +82,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       case 'apk_installer': return <ApkInstallerApp />;
       case 'darwin_bridge': return <AppleDarwinBridgeApp />;
       case 'system_installer': return <SystemInstallerApp />;
+      case 'persona_engine': return <UniversalPersonaApp />;
       default: {
         // Check if the app is an Apple iOS/macOS bundle
         const isAppleApp = win.osDomain === 'darwin-apple' || 

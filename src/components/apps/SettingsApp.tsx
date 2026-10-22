@@ -14,10 +14,12 @@ import {
   Layers, 
   HardDrive,
   Cpu,
-  Key
+  Key,
+  Sparkles
 } from 'lucide-react';
 import { useSystem, WALLPAPERS } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
+import { usePersona } from '../../context/PersonaContext';
 import { DeviceMode } from '../../types/system';
 
 export const SettingsApp: React.FC = () => {
@@ -35,8 +37,9 @@ export const SettingsApp: React.FC = () => {
   } = useSystem();
 
   const { openApp } = useWindow();
+  const { persona, openWizard } = usePersona();
 
-  const [activeTab, setActiveTab] = useState<'device' | 'wallpaper' | 'account' | 'about'>('device');
+  const [activeTab, setActiveTab] = useState<'persona' | 'device' | 'wallpaper' | 'account' | 'about'>('persona');
 
   return (
     <div className="flex-1 w-full h-full flex flex-col sm:flex-row bg-neutral-900 text-white select-none overflow-hidden">
@@ -47,6 +50,7 @@ export const SettingsApp: React.FC = () => {
         </div>
 
         {[
+          { id: 'persona', label: 'Universal Persona', icon: Sparkles },
           { id: 'device', label: 'Form Factor', icon: Layers },
           { id: 'wallpaper', label: 'Style & Wallpapers', icon: Palette },
           { id: 'account', label: 'Sovereign Identity', icon: Key },
@@ -83,6 +87,56 @@ export const SettingsApp: React.FC = () => {
 
       {/* Main Settings Content */}
       <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
+        {activeTab === 'persona' && (
+          <div className="space-y-6 max-w-xl">
+            <div>
+              <h2 className="text-lg font-bold">Universal User Persona</h2>
+              <p className="text-xs text-neutral-400 mt-1">
+                Adapts LibreDroid's behavior, navigation, security armor, and layout to the specific human installing the OS.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-3xl bg-neutral-950 border border-neutral-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Active Profile</div>
+                  <div className="text-base font-bold text-white mt-0.5">{persona.name}</div>
+                </div>
+                <span className="text-xs font-mono px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {persona.archetype.toUpperCase()}
+                </span>
+              </div>
+              <p className="text-xs text-neutral-300 leading-relaxed">{persona.tagline}</p>
+
+              <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
+                <div className="p-3 rounded-2xl bg-neutral-900 border border-neutral-800">
+                  <div className="text-neutral-400">Navigation Style</div>
+                  <div className="font-bold text-white mt-0.5 capitalize">{persona.navigationStyle.replace('_', ' ')}</div>
+                </div>
+                <div className="p-3 rounded-2xl bg-neutral-900 border border-neutral-800">
+                  <div className="text-neutral-400">Defense Stance</div>
+                  <div className="font-bold text-white mt-0.5 capitalize">{persona.securityLevel.replace('_', ' ')}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-3 border-t border-neutral-850">
+                <button
+                  onClick={openWizard}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 font-bold text-xs text-white shadow-lg transition-all"
+                >
+                  Launch Adaptation Wizard
+                </button>
+                <button
+                  onClick={() => openApp('persona_engine')}
+                  className="py-2.5 px-4 rounded-xl bg-neutral-800 hover:bg-neutral-750 font-semibold text-xs text-neutral-200 transition-colors"
+                >
+                  Fine-Tune Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'device' && (
           <div className="space-y-6 max-w-xl">
             <div>

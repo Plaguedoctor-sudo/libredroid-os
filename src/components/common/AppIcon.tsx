@@ -24,6 +24,7 @@ import {
   Mail, 
   Apple,
   Gamepad2,
+  Sparkles,
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -37,6 +38,11 @@ interface AppIconProps {
 }
 
 const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> = {
+  persona_engine: {
+    icon: Sparkles,
+    bg: 'bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600',
+    color: 'text-white',
+  },
   hypervisor: {
     icon: Layers,
     bg: 'bg-gradient-to-tr from-purple-600 via-indigo-700 to-blue-800',
