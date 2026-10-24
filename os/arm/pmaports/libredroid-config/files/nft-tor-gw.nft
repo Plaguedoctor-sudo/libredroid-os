@@ -1,0 +1,23 @@
+#!/usr/sbin/nft -f
+# Applied INSIDE the tor-gw namespace on ARM.
+
+table ip lrd_gw {
+  chain prerouting {
+    type nat hook prerouting priority dstnat; policy accept;
+    iifname "v-tgw" udp dport 53      redirect to :53     comment "force tor DNSPort"
+    iifname "v-tgw" tcp dport 1-65535 redirect to :9040   comment "force tor TransPort"
+  }
+
+  chain input {
+    type filter hook input priority filter; policy accept;
+    iifname "v-tgw" tcp dport { 53, 9050, 9040, 9051 } accept
+    iifname "v-tgw" udp dport 53 accept
+    iifname "v-tgw" drop
+  }
+
+  chain forward {
+    type filter hook forward priority filter; policy drop;
+    iifname "v-tgw" accept
+    oifname "v-tgw" ct state established,related accept
+  }
+}

@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+
+name="LibreDroid system bridge"
+description="Hardware bridge server providing REST and WebSocket APIs"
+
+depend() {
+	need lrd-netns
+	after net
+}
+
+start() {
+	ebegin "Starting LibreDroid bridge"
+	start-stop-daemon --start --quiet --background \
+		--make-pidfile --pidfile /run/libredroid-bridge.pid \
+		--env NODE_ENV=production --env PORT=3001 --env SHELL_DIR=/opt/libredroid/shell \
+		--exec /usr/bin/node -- /opt/libredroid/bridge/server.js
+	eend $?
+}
+
+stop() {
+	ebegin "Stopping LibreDroid bridge"
+	start-stop-daemon --stop --quiet --pidfile /run/libredroid-bridge.pid
+	eend $?
+}

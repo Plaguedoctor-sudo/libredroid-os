@@ -1,0 +1,48 @@
+#!/bin/sh
+set -e
+
+# Runs in the target rootfs at install time (OpenRC or systemd).
+
+install -d -m0755 /var/lib/libredroid/domains
+install -d -m0755 /run/libredroid
+
+# The shell user must own the seat.
+for g in video render audio input plugdev netdev; do
+	addgroup libredroid "$g" 2>/dev/null || true
+done
+
+# ── systemd ──
+if [ -d /etc/systemd/system ]; then
+	systemctl enable libredroid-netns.service   2>/dev/null || true
+	systemctl enable libredroid-bridge.service  2>/dev/null || true
+	systemctl enable libredroid-boot.service    2>/dev/null || true
+	systemctl enable getty@tty1.service         2>/dev/null || true
+	# pmOS ships its own display manager / session — disable it
+	systemctl disable greetd.service 2>/dev/null || true
+	systemctl disable phosh.service  2>/dev/null || true
+fi
+
+# ── OpenRC ──
+if [ -d /etc/runlevels ]; then
+	rc-update add lrd-netns  default 2>/dev/null || true
+	rc-update add lrd-bridge default 2>/dev/null || true
+	rc-update add lrd-domain.vault default 2>/dev/null || true
+	rc-update add lrd-domain.tor-gw default 2>/dev/null || true
+	rc-update add lrd-domain.anon-ws default 2>/dev/null || true
+fi
+
+# Waydroid needs binderfs mounted before the container starts.
+grep -q binder /etc/fstab 2>/dev/null || \
+	echo 'binder /dev/binderfs binder defaults 0 0' >> /etc/fstab
+
+cat <<'EOF'
+────────────────────────────────────────────────────────────
+ LibreDroid shell installed.
+
+ The session starts from tty1 via /home/libredroid/.bash_profile
+ → dbus-run-session -- cage -- chromium --kiosk http://127.0.0.1:3001
+
+ If you get a black screen: switch to tty2 (Ctrl+Alt+F2), log in
+ as root, and run `lrd-doctor`.
+────────────────────────────────────────────────────────────
+EOF

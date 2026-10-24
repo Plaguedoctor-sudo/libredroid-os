@@ -1,0 +1,26 @@
+[Unit]
+Description=LibreDroid streamed surface for domain '%i'
+After=libredroid-netns.service
+Requires=libredroid-netns.service
+Before=libredroid-domain@%i.service
+
+[Service]
+Type=simple
+# headless wlroots compositor, one per domain, inside the domain's netns
+Environment=WLR_BACKENDS=headless
+Environment=WLR_HEADLESS_OUTPUTS=1
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+Environment=XDG_RUNTIME_DIR=/run/libredroid/%i
+Environment=WAYLAND_DISPLAY=wayland-lrd-%i
+Environment=LABWC_CONFIG=/etc/libredroid/labwc-headless.conf
+
+ExecStart=/bin/sh -c 'exec ip netns exec lrd-%i \
+  /usr/bin/labwc & \
+  sleep 1.5; \
+  /usr/bin/websockify 127.0.0.1:$((5910 + ${STREAM_IDX})) 127.0.0.1:$((5900 + ${STREAM_IDX})) & \
+  exec /usr/bin/wayvnc -o HEADLESS-1 -r 60 127.0.0.1 $((5900 + ${STREAM_IDX}))'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+# LibreDroid OS (omni-android-system)
+
+> LibreDroid OS is an independent, non-monopolistic universal operating environment for phones, foldables, tablets, and desktops. It runs a React 18 + TypeScript compositor with Qubes-style multi-OS hypervisor domain isolation, hardened Linux sandboxing, telemetry poisoning, adaptive persona engine, and native Waydroid/host Linux hardware integration.
+
+## Full AI Codebase Export
+- [APPLICATION_CODE_FOR_AI.md](APPLICATION_CODE_FOR_AI.md): Complete unabridged source code for all 88 files across React/TypeScript, Vite server plugin, native installers, test suites, and configuration files, preceded by full architecture diagrams and inventory tables.
+
+## Core Documentation & Guides
+- [README.md](README.md): High-level manifesto, feature matrices, anti-monopoly replacements, and quick-start instructions.
+
+## Key Subsystems
+- **Hypervisor Matrix**: `src/services/multiOsHypervisor.ts`, `src/components/apps/MultiOsHypervisorApp.tsx` (seL4 Vault, Whonix Gateway, GrapheneOS AOSP, Disposable Alpine, Debian Workstation, Apple Darwin Bridge).
+- **Hardened Security & Sandboxing**: `src/services/hardenedSecurityEngine.ts`, `src/services/securityGuardrailsEngine.ts`, `src/context/SecurityContext.tsx`, `src/components/apps/SecurityGuardrailsApp.tsx` (cgroups v2, Seccomp-BPF, Landlock, synthetic dummy sensor streams).
+- **Telemetry Poisoning & Anti-Predatory Shields**: `src/services/telemetryPoisoningEngine.ts`, `src/services/antiPredatoryEngine.ts`, `src/components/apps/AntiPredatoryShieldApp.tsx` (dummy noise injection, spoofed AAID, dark pattern defuser, 1-click subscription killer).
+- **Universal Form Factor & Window Compositor**: `src/context/SystemContext.tsx`, `src/context/WindowContext.tsx`, `src/components/device/DeviceFrame.tsx`, `src/components/window/WindowFrame.tsx` (supports phone, foldable, tablet, desktop modes with window snapping).
+- **Universal Persona Engine**: `src/services/personaEngine.ts`, `src/context/PersonaContext.tsx`, `src/components/persona/UniversalAdaptationWizard.tsx` (Standard, Power User, Minimalist, Elderly Accessible, Child Safe).
+- **Hardware HAL & Host Bridge**: `server/hardwareBridgePlugin.ts`, `src/services/hardwareBridgeClient.ts`, `src/services/hardwareDetector.ts` (WebSocket / REST IPC with native Linux host and Waydroid).
+- **App Management & Stores**: `src/services/apkManager.ts`, `src/services/appRepositoryManager.ts`, `src/services/appleAppManager.ts`, `src/components/apps/FDroidApp.tsx`, `src/components/apps/ApkInstallerApp.tsx`.
+
+## Regeneration
+To regenerate the full AI codebase export at any time:
+```bash
+python3 scripts/generate_ai_codebase.py
+```

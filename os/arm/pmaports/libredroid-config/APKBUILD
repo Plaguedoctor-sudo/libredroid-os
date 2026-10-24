@@ -1,0 +1,42 @@
+# Maintainer: LibreDroid <dev@libredroid.example.org>
+pkgname=libredroid-config
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="LibreDroid OS system config: netns fabric, nftables, units"
+url="https://libredroid.example.org"
+arch="all"
+license="AGPL-3.0-or-later"
+depends="nftables systemd-container"
+depends="$depends libredroid-shell"
+install="$pkgname.post-install"
+options="!check"
+source=""
+
+package() {
+	cd "$srcdir"
+
+	# ── netns fabric + nft rulesets ──
+	install -Dm755 files/netns.sh "$pkgdir/opt/libredroid/bridge/netns.sh"
+	install -Dm644 files/nft-nat.nft    "$pkgdir/etc/nftables.d/lrd-nat.nft"
+	install -Dm644 files/nft-tor-gw.nft "$pkgdir/etc/nftables.d/lrd-tor-gw.nft"
+	install -Dm644 files/labwc-headless.conf "$pkgdir/etc/libredroid/labwc-headless.conf"
+
+	# ── systemd units (only meaningful on a systemd build) ──
+	if [ -d "$srcdir/systemd" ]; then
+		install -Dm644 systemd/*.service "$pkgdir/usr/lib/systemd/system/"
+		install -Dm644 systemd/libredroid-boot.service \
+			"$pkgdir/usr/lib/systemd/system/libredroid-boot.service"
+	fi
+
+	# ── OpenRC units ──
+	if [ -d "$srcdir/openrc" ]; then
+		install -Dm755 openrc/* "$pkgdir/etc/init.d/"
+	fi
+
+	# ── tmpfiles / modules / sysctl ──
+	install -Dm644 files/libredroid.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/libredroid.conf"
+	install -Dm644 files/libredroid.modules  "$pkgdir/etc/modules-load.d/libredroid.conf"
+	install -Dm644 files/90-libredroid.conf  "$pkgdir/etc/sysctl.d/90-libredroid.conf"
+}
+
+sha512sums="SKIP"

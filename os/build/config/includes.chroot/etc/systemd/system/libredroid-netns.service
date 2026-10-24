@@ -1,0 +1,16 @@
+[Unit]
+Description=LibreDroid isolation network fabric
+DefaultDependencies=no
+Before=network-pre.target libredroid-domain@.service libredroid-stream@.service
+After=systemd-sysctl.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/libredroid/bridge/netns.sh up
+ExecStop=/opt/libredroid/bridge/netns.sh down
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+lb config noauto \
+    --mode debian --system live --initsystem systemd \
+    --architectures amd64 \
+    --distribution trixie --parent-distribution trixie \
+    --archive-areas "main contrib non-free non-free-firmware" \
+    --parent-archive-areas "main contrib non-free non-free-firmware" \
+    --linux-flavours amd64 --linux-packages linux-image \
+    --bootloader "grub-efi grub-pc" \
+    --binary-images iso-hybrid \
+    --uefi-secure-boot auto \
+    --debian-installer false --memtest none \
+    --apt-recommends false \
+    --apt-options "--yes --no-install-recommends" \
+    --debootstrap-options "--variant=minbase --include=apt-utils,ca-certificates" \
+    --firmware-binary true --firmware-chroot true \
+    --updates true --security true --backports false \
+    --source false --checksums sha512 \
+    --cache-packages true --cache-indices true \
+    --iso-application "LibreDroid OS" \
+    --iso-publisher "LibreDroid Project" \
+    --iso-volume "LIBREDROID_OS" \
+    --bootappend-live "boot=live components quiet splash loglevel=3 \
+apparmor=1 security=apparmor \
+systemd.unified_cgroup_hierarchy=1 cgroup_enable=memory swapaccount=1 \
+libredroid.handover=1"

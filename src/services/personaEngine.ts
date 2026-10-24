@@ -23,8 +23,8 @@ export const PERSONA_PRESETS: Record<PersonaArchetype, UserPersonaProfile> = {
     falseTelemetryEnabled: true,
     dummySensorsEnabled: false,
     burnerIdentityEnabled: true,
-    homeApps: ['phone', 'messages', 'browser', 'camera', 'photos', 'notes', 'files', 'store', 'settings'],
-    dockApps: ['phone', 'messages', 'browser', 'camera'],
+    homeApps: ['universal_ai', 'chats', 'phone', 'messages', 'browser', 'camera', 'photos', 'notes', 'files', 'store', 'settings'],
+    dockApps: ['phone', 'chats', 'universal_ai', 'browser', 'camera'],
     showAtAGlance: true,
     showLiveThreatStats: false,
     searchEngine: 'duckduckgo',
@@ -222,12 +222,14 @@ export class PersonaEngine {
         if (raw) {
           const parsed = JSON.parse(raw);
           const homeApps = Array.isArray(parsed.homeApps) ? [...parsed.homeApps] : [...PERSONA_PRESETS.everyday.homeApps];
-          if (!homeApps.includes('phone')) homeApps.unshift('phone');
-          if (!homeApps.includes('messages')) homeApps.splice(1, 0, 'messages');
+          if (!homeApps.includes('universal_ai')) homeApps.unshift('universal_ai');
+          if (!homeApps.includes('chats')) homeApps.splice(1, 0, 'chats');
+          if (!homeApps.includes('phone')) homeApps.splice(2, 0, 'phone');
+          if (!homeApps.includes('messages')) homeApps.splice(3, 0, 'messages');
 
           const dockApps = Array.isArray(parsed.dockApps) ? [...parsed.dockApps] : [...PERSONA_PRESETS.everyday.dockApps];
-          if (!dockApps.includes('phone')) dockApps.unshift('phone');
-          if (!dockApps.includes('messages')) dockApps.splice(1, 0, 'messages');
+          if (!dockApps.includes('chats') && dockApps.length < 5) dockApps.splice(1, 0, 'chats');
+          if (!dockApps.includes('universal_ai') && dockApps.length < 5) dockApps.splice(2, 0, 'universal_ai');
 
           return { 
             ...PERSONA_PRESETS.everyday, 

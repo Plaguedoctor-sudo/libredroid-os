@@ -24,6 +24,8 @@ export type AppId =
   | 'persona_engine'
   | 'phone'
   | 'messages'
+  | 'universal_ai'
+  | 'chats'
   | string; // Dynamic sideloaded APKs
 
 export interface AppMetadata {
@@ -53,4 +55,5 @@ export interface WindowInstance {
   position: { x: number; y: number };
   size: { width: number; height: number };
   osDomain?: OsDomainId;
+  isStreamingDomain?: boolean;
 }

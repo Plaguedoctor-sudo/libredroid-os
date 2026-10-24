@@ -77,6 +77,12 @@ export const OmniAssistant: React.FC = () => {
       } else if (lower.includes('settings')) {
         openApp('settings');
         reply = "Opening System Settings.";
+      } else if (lower.includes('ai') || lower.includes('universal') || lower.includes('gemini') || lower.includes('assistant')) {
+        openApp('universal_ai');
+        reply = "Opening Universal AI — your sovereign on-device intelligence platform.";
+      } else if (lower.includes('chat') || lower.includes('matrix') || lower.includes('briar')) {
+        openApp('chats');
+        reply = "Opening Sovereign Chats with Matrix & Briar E2EE protocol.";
       } else if (lower.includes('terminal')) {
         openApp('terminal');
         reply = "Launching Termux bash environment.";
@@ -143,12 +149,23 @@ export const OmniAssistant: React.FC = () => {
               <div className="text-xs text-neutral-400">Zero Cloud Dependency • Private</div>
             </div>
           </div>
-          <button 
-            onClick={() => setIsAssistantOpen(false)}
-            className="p-1.5 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-full transition-colors"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                openApp('universal_ai');
+                setIsAssistantOpen(false);
+              }}
+              className="text-[11px] px-2.5 py-1 bg-violet-600/30 hover:bg-violet-600/50 text-violet-300 border border-violet-500/40 rounded-xl transition-all"
+            >
+              Open Universal AI
+            </button>
+            <button
+              onClick={() => setIsAssistantOpen(false)}
+              className="p-1.5 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-full transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Conversation View */}

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronUp, Download, HardDrive, Sparkles, ShieldCheck, HeartPulse, Terminal } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronUp, Download, HardDrive, Sparkles, ShieldCheck, HeartPulse, Terminal, FolderPlus, Folder } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import { usePersona } from '../../context/PersonaContext';
@@ -8,19 +8,59 @@ import { AppIcon } from '../common/AppIcon';
 import { AtAGlanceWidget } from './AtAGlanceWidget';
 import { GoogleSearchPill } from './GoogleSearchPill';
 import { getAccentColorClasses } from '../../services/personaEngine';
+import { AppFolderModal, HomeAppFolder } from './AppFolderModal';
+
+const DEFAULT_HOME_FOLDERS: HomeAppFolder[] = [
+  {
+    id: 'folder-privacy',
+    name: 'Privacy & Vault',
+    color: 'from-emerald-600/30 to-teal-700/30',
+    appIds: ['predatory_shield', 'security', 'hypervisor', 'guardian'],
+  },
+  {
+    id: 'folder-tools',
+    name: 'Tools & Dev',
+    color: 'from-cyan-600/30 to-blue-700/30',
+    appIds: ['terminal', 'linux_sandbox', 'system_installer', 'apk_installer'],
+  },
+];
 
 export const HomeScreen: React.FC = () => {
-  const { actualDevice, setIsAppDrawerOpen, setIsShadeOpen } = useSystem();
+  const { actualDevice, setIsAppDrawerOpen, setIsShadeOpen, addNotification } = useSystem();
   const { openApp } = useWindow();
   const { persona, openWizard } = usePersona();
 
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
+  // Home Folders state with persistence
+  const [folders, setFolders] = useState<HomeAppFolder[]>(() => {
+    try {
+      const stored = localStorage.getItem('libredroid_home_folders_v2');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_HOME_FOLDERS;
+  });
+
+  const [activeFolderModal, setActiveFolderModal] = useState<HomeAppFolder | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('libredroid_home_folders_v2', JSON.stringify(folders));
+    } catch {}
+  }, [folders]);
+
   const accent = getAccentColorClasses(persona.accentTheme);
 
+  // Apps inside any folder are grouped; loose apps are rendered directly
+  const folderAppIds = new Set(folders.flatMap(f => f.appIds));
+
   // Map user persona app IDs to actual AppMetadata
-  const homeApps = persona.homeApps
-    .map((id) => SYSTEM_APPS.find((app) => app.id === id))
+  const standaloneHomeApps = persona.homeApps
+    .filter(id => !folderAppIds.has(id))
+    .map(id => SYSTEM_APPS.find(app => app.id === id))
     .filter(Boolean) as typeof SYSTEM_APPS;
 
   const dockApps = persona.dockApps
@@ -36,7 +76,7 @@ export const HomeScreen: React.FC = () => {
       ? 'sm'
       : (actualDevice === 'phone' ? 'md' : 'lg');
 
-  // Touch Swipe Gesture Detection (Swipe Up = App Drawer, Swipe Down = Quick Settings Shade)
+  // Touch Swipe Gesture Detection
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStartY(e.touches[0].clientY);
   };
@@ -45,12 +85,12 @@ export const HomeScreen: React.FC = () => {
     if (touchStartY === null) return;
     const deltaY = touchStartY - e.changedTouches[0].clientY;
     
-    // Swipe Up (positive delta > 45px)
+    // Swipe Up
     if (deltaY > 45) {
       if (navigator.vibrate) navigator.vibrate(15);
       setIsAppDrawerOpen(true);
     } 
-    // Swipe Down (negative delta < -55px)
+    // Swipe Down
     else if (deltaY < -55) {
       if (navigator.vibrate) navigator.vibrate(15);
       setIsShadeOpen(true);
@@ -63,11 +103,43 @@ export const HomeScreen: React.FC = () => {
     openApp(appId);
   };
 
+  const handleOpenFolder = (folder: HomeAppFolder) => {
+    if (navigator.vibrate) navigator.vibrate(12);
+    setActiveFolderModal(folder);
+  };
+
+  const handleUpdateFolder = (updated: HomeAppFolder) => {
+    setFolders(prev => prev.map(f => f.id === updated.id ? updated : f));
+    setActiveFolderModal(updated);
+  };
+
+  const handleDeleteFolder = (folderId: string) => {
+    setFolders(prev => prev.filter(f => f.id !== folderId));
+    setActiveFolderModal(null);
+    addNotification({
+      appId: 'system',
+      appName: 'Home Screen',
+      title: 'Folder Dissolved',
+      body: 'All applications restored to standalone home screen icons.',
+    });
+  };
+
+  const handleCreateNewFolder = () => {
+    const newFolder: HomeAppFolder = {
+      id: `folder-${Date.now()}`,
+      name: 'New Folder',
+      color: 'from-violet-600/30 to-indigo-700/30',
+      appIds: ['notes', 'files'],
+    };
+    setFolders(prev => [...prev, newFolder]);
+    setActiveFolderModal(newFolder);
+  };
+
   return (
     <div 
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="flex-1 w-full flex flex-col justify-between p-3 sm:p-6 overflow-hidden select-none touch-manipulation"
+      className="flex-1 w-full flex flex-col justify-between p-3 sm:p-6 overflow-hidden select-none touch-manipulation font-sans"
     >
       {/* Top: At A Glance Widget or Live Defense Banner */}
       <div className="w-full max-w-xl mx-auto space-y-2">
@@ -112,7 +184,7 @@ export const HomeScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Middle: Grid of App Shortcuts Adapted to Persona */}
+      {/* Middle: Grid of App Shortcuts and Interactive Folders */}
       <div className="flex-1 flex items-center justify-center py-2 sm:py-4">
         <div className={`grid justify-items-center max-w-xl w-full ${
           isAccessible
@@ -121,7 +193,8 @@ export const HomeScreen: React.FC = () => {
               ? 'grid-cols-4 gap-5' 
               : 'grid-cols-4 sm:grid-cols-4 gap-6 sm:gap-8'
         }`}>
-          {homeApps.map((app) => (
+          {/* 1. Standalone Apps */}
+          {standaloneHomeApps.map((app) => (
             <button
               key={app.id}
               onClick={(e) => {
@@ -146,6 +219,57 @@ export const HomeScreen: React.FC = () => {
               </span>
             </button>
           ))}
+
+          {/* 2. Interactive Folders on Home Screen */}
+          {folders.map((folder) => {
+            const previewApps = folder.appIds
+              .slice(0, 4)
+              .map(id => SYSTEM_APPS.find(a => a.id === id))
+              .filter(Boolean) as typeof SYSTEM_APPS;
+
+            return (
+              <button
+                key={folder.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenFolder(folder);
+                }}
+                className="flex flex-col items-center justify-center gap-1.5 group transition-transform active:scale-90 touch-manipulation cursor-pointer p-1 min-w-[64px] min-h-[64px]"
+              >
+                {/* 2x2 Mini Preview Inside Translucent Chassis */}
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-neutral-900/75 border border-white/20 backdrop-blur-xl p-2 flex items-center justify-center shadow-lg group-hover:scale-105 group-active:scale-95 group-hover:border-emerald-500/50 transition-all pointer-events-none">
+                  <div className="grid grid-cols-2 gap-1 w-full h-full place-items-center">
+                    {previewApps.map(app => (
+                      <div key={app.id} className="w-4 h-4 sm:w-5 sm:h-5 rounded-lg flex items-center justify-center overflow-hidden">
+                        <AppIcon appId={app.id} size="sm" className="scale-75 origin-center" />
+                      </div>
+                    ))}
+                    {previewApps.length < 4 && (
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-lg bg-neutral-800/40" />
+                    )}
+                  </div>
+                </div>
+
+                <span className="text-xs font-medium text-white group-hover:text-emerald-300 text-center max-w-[85px] truncate drop-shadow-md pointer-events-none">
+                  {folder.name}
+                </span>
+              </button>
+            );
+          })}
+
+          {/* "+ New Folder" action button on Home screen */}
+          <button
+            onClick={handleCreateNewFolder}
+            className="flex flex-col items-center justify-center gap-1.5 group transition-transform active:scale-90 touch-manipulation cursor-pointer p-1 min-w-[64px] min-h-[64px]"
+            title="Create Home Screen Folder"
+          >
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl border-2 border-dashed border-neutral-700 group-hover:border-emerald-500/80 bg-neutral-900/40 backdrop-blur-md flex items-center justify-center text-neutral-400 group-hover:text-emerald-400 transition-all pointer-events-none">
+              <FolderPlus size={22} />
+            </div>
+            <span className="text-xs font-medium text-neutral-400 group-hover:text-white text-center max-w-[80px] truncate pointer-events-none">
+              + Folder
+            </span>
+          </button>
         </div>
       </div>
 
@@ -168,7 +292,7 @@ export const HomeScreen: React.FC = () => {
               <span>Swipe up for all apps & adapt settings</span>
             </button>
 
-            {/* Dock with previous OS styling (iOS glassmorphism vs Android dock) */}
+            {/* Dock */}
             <div className={`w-full p-3 flex items-center justify-around shadow-2xl transition-all ${
               persona.navigationStyle === 'ios_homebar'
                 ? 'bg-white/10 backdrop-blur-3xl border border-white/20 rounded-3xl'
@@ -205,6 +329,18 @@ export const HomeScreen: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* App Folder Modal Popup */}
+      {activeFolderModal && (
+        <AppFolderModal
+          folder={activeFolderModal}
+          isOpen={!!activeFolderModal}
+          onClose={() => setActiveFolderModal(null)}
+          onLaunchApp={handleAppLaunch}
+          onUpdateFolder={handleUpdateFolder}
+          onDeleteFolder={handleDeleteFolder}
+        />
+      )}
     </div>
   );
 };

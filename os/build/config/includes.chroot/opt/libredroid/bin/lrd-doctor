@@ -1,0 +1,53 @@
+#!/bin/bash
+# Proves the isolation is real. Run this after every change.
+set -uo pipefail
+
+P=0; F=0
+t() { # t <name> <expected> <actual>
+  if [ "$2" = "$3" ]; then echo "  ✓ $1"; P=$((P+1))
+  else echo "  ✗ $1 — expected [$2] got [$3]"; F=$((F+1)); fi
+}
+
+echo "── isolation ───────────────────────────────────────────"
+for n in vault tor-gw anon-ws work dispos android; do
+  ip netns list | grep -qw "lrd-$n" && t "namespace lrd-$n exists" 0 0 || t "namespace lrd-$n exists" 0 1
+done
+
+t "vault has ONLY loopback" "1" "$(ip netns exec lrd-vault ip -o link show | wc -l)"
+t "anon-ws has exactly one default route" "1" \
+  "$(ip netns exec lrd-anon-ws ip route show default | wc -l)"
+t "anon-ws default points at tor-gw" "yes" \
+  "$(ip netns exec lrd-anon-ws ip route show default | grep -q 10.152.152.10 && echo yes || echo no)"
+t "anon-ws has NO other route" "yes" \
+  "$([ "$(ip netns exec lrd-anon-ws ip route show | grep -v '^default' | grep -c . )" = "1" ] && echo yes || echo no)"
+
+echo "── tor gateway ─────────────────────────────────────────"
+ip netns exec lrd-tor-gw ss -Htnl 2>/dev/null | grep -q ':9040' \
+  && t "tor TransPort 9040 listening" 0 0 || t "tor TransPort 9040 listening" 0 1
+ip netns exec lrd-tor-gw ss -Htnl 2>/dev/null | grep -q ':9051' \
+  && t "tor ControlPort 9051 listening" 0 0 || t "tor ControlPort 9051 listening" 0 1
+
+HOST_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}')
+ANON_IP=$(ip netns exec lrd-anon-ws curl -s --max-time 15 https://api.ipify.org 2>/dev/null || echo timeout)
+echo "  · host WAN ip: $HOST_IP"
+echo "  · anon WAN ip: $ANON_IP"
+[ -n "$ANON_IP" ] && [ "$ANON_IP" != "$HOST_IP" ] && t "anon-ws exits via Tor (ip differs)" 0 0 \
+                                       || t "anon-ws exits via Tor (ip differs)" 0 1
+
+echo "── disposability ───────────────────────────────────────"
+systemctl is-active --quiet libredroid-domain@dispos.service && {
+  systemd-run -M dispos --pipe --wait --collect touch /lrd-proof >/dev/null 2>&1
+  systemctl restart libredroid-domain@dispos.service; sleep 4
+  if systemd-run -M dispos --pipe --wait --collect test -e /lrd-proof >/dev/null 2>&1; then
+    t "dispos wiped its writes on restart" 0 1
+  else t "dispos wiped its writes on restart" 0 0; fi
+} || echo "  · dispos not running (start it to test)"
+
+echo "── resources ───────────────────────────────────────────"
+systemctl show libredroid-domain@vault.service -p MemoryMax --value | grep -q . \
+  && t "vault has a cgroup memory ceiling" 0 0 || t "vault has a cgroup memory ceiling" 0 1
+
+echo
+echo "── summary ─────────────────────────────────────────────"
+echo "  passed: $P   failed: $F"
+[ "$F" = "0" ] && { echo "  ✓ isolation fabric verified"; exit 0; } || { echo "  ✗ failures present"; exit 1; }

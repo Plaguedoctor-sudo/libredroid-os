@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+for m in proc sys dev dev/pts; do
+  mountpoint -q "/$m" || mount --bind "/$m" "/$m" 2>/dev/null || true
+done
+
+ARCH=$(dpkg --print-architecture)
+MIRROR="http://deb.debian.org/debian"
+COMMON="systemd systemd-sysv dbus dbus-user-session ca-certificates tzdata \
+locales iproute2 iputils-ping curl nano less procps"
+
+build() {
+  name="$1"; shift
+  tgt="/var/lib/libredroid/domains/$name"
+  [ -x "$tgt/usr/bin/env" ] && { echo "   ✓ $name staged"; return; }
+
+  echo "   → debootstrapping $name"
+  mmdebstrap --variant=minbase --architectures="$ARCH" \
+    --components=main \
+    --include="$COMMON $*" \
+    trixie "$tgt" "$MIRROR"
+
+  # per-domain resolver. anon-ws points at the Tor gateway and NOTHING else —
+  # a secondary resolver here is what causes DNS leaks.
+  case "$name" in
+    anon-ws) printf 'nameserver 10.152.152.10\n' >"$tgt/etc/resolv.conf" ;;
+    vault)   printf 'nameserver 10.152.152.10\n' >"$tgt/etc/resolv.conf" ;;
+    *)       printf 'nameserver 1.1.1.1\nnameserver 9.9.9.9\n' >"$tgt/etc/resolv.conf" ;;
+  esac
+
+  # machine-id must differ per domain or journald/machinectl collide
+  rm -f "$tgt/etc/machine-id"
+  systemd-machine-id-setup --root="$tgt" >/dev/null
+}
+
+build vault   apparmor
+build tor-gw  tor nftables
+build anon-ws nftables
+build work    nftables flatpak
+build dispos  nftables
+
+echo "0200-provision: ok"

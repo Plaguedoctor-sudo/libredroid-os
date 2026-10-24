@@ -1,0 +1,29 @@
+{{- $architecture := or .architecture "arm64" -}}
+{{- $device := or .device "onepad" -}}
+
+architecture: {{ $architecture }}
+
+actions:
+  - action: unpack
+    file: rootfs-{{ $architecture }}.tar.gz
+
+  - action: run
+    chroot: true
+    command: |
+      set -e
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends \
+        halium-9.0-mtk6983 \
+        droidian-adaptation-onepad \
+        cage labwc wayvnc websockify novnc chromium nodejs \
+        waydroid nftables tor flatpak
+      # replace the stock Droidian shell with ours
+      systemctl disable phosh.service 2>/dev/null || true
+      systemctl enable libredroid-bridge.service libredroid-netns.service
+
+  - action: overlay
+    source: rootfs-overlay
+
+  - action: pack
+    file: rootfs-{{ $architecture }}.tar.gz

@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+# Post-install script for libredroid-config
+mkdir -p /run/libredroid /var/lib/libredroid/domains /etc/nftables.d
+
+# Enable sysctl settings
+if [ -x /sbin/sysctl ] || [ -x /usr/sbin/sysctl ]; then
+	sysctl -p /etc/sysctl.d/90-libredroid.conf 2>/dev/null || true
+fi
+
+# Ensure network fabric script is executable
+chmod +x /opt/libredroid/bridge/netns.sh 2>/dev/null || true
+
+exit 0

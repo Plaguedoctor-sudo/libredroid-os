@@ -1,0 +1,12 @@
+#!/usr/sbin/nft -f
+# Egress NAT for LibreDroid ARM. Excludes 10.152.152.0/24 (anon-ws).
+
+table ip lrd_nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+    oifname != "lo" ip saddr 10.152.151.0/24 masquerade comment "tor-gw uplink"
+    oifname != "lo" ip saddr 10.201.0.0/24   masquerade comment "work"
+    oifname != "lo" ip saddr 10.202.0.0/24   masquerade comment "dispos"
+    oifname != "lo" ip saddr 10.203.0.0/24   masquerade comment "android"
+  }
+}

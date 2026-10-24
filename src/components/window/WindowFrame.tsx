@@ -1,10 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Minus, Square, Copy, X, Layers, ShieldCheck, Radio, AlertTriangle } from 'lucide-react';
+import { Minus, Square, Copy, X, Layers, ShieldCheck, Radio, AlertTriangle, Tv } from 'lucide-react';
 import { WindowInstance } from '../../types/apps';
 import { useWindow } from '../../context/WindowContext';
 import { useSystem } from '../../context/SystemContext';
 import { AppIcon } from '../common/AppIcon';
 import { MULTI_OS_DOMAINS } from '../../services/multiOsHypervisor';
+import { DomainStream } from '../common/DomainStream';
 
 // Apps registry map
 import { BrowserApp } from '../apps/BrowserApp';
@@ -31,6 +32,8 @@ import { AppleAppRunner } from '../apps/AppleAppRunner';
 import { UniversalPersonaApp } from '../apps/UniversalPersonaApp';
 import { PhoneApp } from '../apps/PhoneApp';
 import { MessagesApp } from '../apps/MessagesApp';
+import { UniversalAiApp } from '../apps/UniversalAiApp';
+import { ChatsApp } from '../apps/ChatsApp';
 import { getInstalledAppleApps } from '../../services/appleAppManager';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 
@@ -47,7 +50,8 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
     activeWindowId,
     updateWindowPosition,
     updateWindowSize,
-    updateWindowDomain
+    updateWindowDomain,
+    toggleWindowStream
   } = useWindow();
 
   const { actualDevice } = useSystem();
@@ -65,6 +69,16 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
 
   // Render the appropriate inner application component
   const renderAppContent = () => {
+    // If domain streaming mode is active or app is a dedicated domain stream
+    if (win.isStreamingDomain || win.appId.startsWith('domain_stream_')) {
+      return (
+        <DomainStream
+          domainId={win.osDomain || 'workstation-debian'}
+          onClose={() => toggleWindowStream(win.id)}
+        />
+      );
+    }
+
     switch (win.appId) {
       case 'browser': return <BrowserApp />;
       case 'files': return <FilesApp />;
@@ -88,6 +102,8 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       case 'persona_engine': return <UniversalPersonaApp />;
       case 'phone': return <PhoneApp />;
       case 'messages': return <MessagesApp />;
+      case 'universal_ai': return <UniversalAiApp />;
+      case 'chats': return <ChatsApp />;
       default: {
         // Check if the app is an Apple iOS/macOS bundle
         const isAppleApp = win.osDomain === 'darwin-apple' || 
@@ -228,6 +244,24 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => toggleWindowStream(win.id)}
+              className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                win.isStreamingDomain
+                  ? 'bg-neutral-800 text-emerald-400 border border-emerald-500/40'
+                  : 'hover:bg-neutral-800 text-neutral-400 hover:text-white'
+              }`}
+              title={
+                win.isStreamingDomain
+                  ? 'Surface Stream Active (Click to switch to React Native App)'
+                  : 'Stream Domain Surface (wayvnc / labwc)'
+              }
+            >
+              <Tv size={13} className={win.isStreamingDomain ? 'animate-pulse text-emerald-400' : ''} />
+              {win.isStreamingDomain && (
+                <span className="text-[10px] font-mono font-bold text-emerald-400">STREAM</span>
+              )}
+            </button>
             <button 
               onClick={() => minimizeWindow(win.id)}
               className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors"
@@ -335,6 +369,27 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
 
         {/* Window controls */}
         <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleWindowStream(win.id);
+            }}
+            className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+              win.isStreamingDomain
+                ? 'bg-neutral-800 text-emerald-400 border border-emerald-500/40'
+                : 'hover:bg-neutral-800 text-neutral-400 hover:text-white'
+            }`}
+            title={
+              win.isStreamingDomain
+                ? 'Surface Stream Active (Click to switch to React Native App)'
+                : 'Stream Domain Surface (wayvnc / labwc)'
+            }
+          >
+            <Tv size={12} className={win.isStreamingDomain ? 'animate-pulse text-emerald-400' : ''} />
+            {win.isStreamingDomain && (
+              <span className="text-[10px] font-mono font-bold text-emerald-400">STREAM</span>
+            )}
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();

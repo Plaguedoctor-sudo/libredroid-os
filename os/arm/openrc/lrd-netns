@@ -1,0 +1,21 @@
+#!/sbin/openrc-run
+
+name="LibreDroid isolation fabric"
+description="Sets up isolated network namespaces and routing"
+
+depend() {
+	after sysctl modules
+	before net
+}
+
+start() {
+	ebegin "Bringing up LibreDroid network namespaces"
+	/opt/libredroid/bridge/netns.sh up
+	eend $?
+}
+
+stop() {
+	ebegin "Tearing down LibreDroid network namespaces"
+	/opt/libredroid/bridge/netns.sh down
+	eend $?
+}

@@ -1,0 +1,20 @@
+#!/bin/bash
+set -e
+
+systemctl enable libredroid-netns.service
+systemctl enable libredroid-bridge.service
+systemctl enable libredroid-boot.service
+systemctl enable getty@tty1.service
+systemctl set-default multi-user.target
+
+systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
+
+# AppArmor profiles ship in COMPLAIN mode so a bad profile can never
+# blank-screen the ISO. Flip to enforce once you've watched the logs.
+install -d /etc/apparmor.d/force-complain
+for p in /etc/apparmor.d/libredroid.*; do
+  [ -e "$p" ] || continue
+  ln -sf "$(basename "$p")" "/etc/apparmor.d/force-complain/$(basename "$p")"
+done
+
+echo "0300-enable: ok"

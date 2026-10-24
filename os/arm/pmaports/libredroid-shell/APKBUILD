@@ -1,0 +1,40 @@
+# Maintainer: LibreDroid <dev@libredroid.example.org>
+pkgname=libredroid-shell
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="LibreDroid OS sovereign Wayland shell and system bridge"
+url="https://libredroid.example.org"
+arch="all"
+license="AGPL-3.0-or-later"
+depends="chromium nodejs cage labwc wayvnc websockify novnc"
+depends="$depends waydroid nftables tor flatpak systemd-container"
+depends="$depends dbus dbus-openrc networkmanager"
+makedepends="nodejs npm"
+install="$pkgname.post-install"
+options="net !check"
+source="libredroid-shell-$pkgver.tar.gz"
+
+build() {
+	cd "$builddir"
+	npm ci --no-audit --no-fund
+	npm run build
+}
+
+package() {
+	cd "$builddir"
+
+	install -dm755 "$pkgdir/opt/libredroid/shell"
+	cp -a dist/. "$pkgdir/opt/libredroid/shell/"
+
+	install -Dm755 os/build/config/includes.chroot/opt/libredroid/bridge/server.js \
+		"$pkgdir/opt/libredroid/bridge/server.js"
+	install -Dm755 os/build/config/includes.chroot/opt/libredroid/bin/lrd-domain \
+		"$pkgdir/opt/libredroid/bin/lrd-domain"
+	install -Dm755 os/build/config/includes.chroot/opt/libredroid/bin/lrd-doctor \
+		"$pkgdir/opt/libredroid/bin/lrd-doctor"
+
+	install -Dm644 "$srcdir"/LICENSE \
+		"$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+sha512sums="SKIP"

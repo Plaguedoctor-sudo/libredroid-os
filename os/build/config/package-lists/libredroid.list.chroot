@@ -1,0 +1,24 @@
+# ── session: compositor + browser engine ──
+cage labwc wayvnc websockify novnc
+wlr-randr wl-clipboard grim slurp
+chromium nodejs
+
+# ── isolation (this is where the fake claims become real) ──
+systemd-container bubblewrap flatpak apparmor apparmor-utils
+
+# ── network + anonymity ──
+tor torsocks nftables network-manager
+
+# ── android ──
+waydroid
+
+# ── hardware ──
+upower brightnessctl pipewire wireplumber libcamera-tools
+iio-sensor-proxy geoclue-2.0 bluez rfkill alsa-utils
+
+# ── storage ──
+cryptsetup lvm2
+
+# ── base plumbing ──
+dbus dbus-user-session curl ca-certificates sudo
+fonts-inter fonts-noto-color-emoji

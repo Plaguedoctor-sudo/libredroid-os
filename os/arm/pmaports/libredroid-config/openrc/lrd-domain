@@ -1,0 +1,42 @@
+#!/sbin/openrc-run
+
+name="LibreDroid domain ${RC_SVCNAME#lrd-domain.}"
+DOMAIN="${RC_SVCNAME#lrd-domain.}"
+ROOT="/var/lib/libredroid/domains/${DOMAIN}"
+
+description="LibreDroid isolated OS domain: ${DOMAIN}"
+
+depend() {
+	need lrd-netns
+	after lrd-bridge
+}
+
+start_pre() {
+	[ -x "${ROOT}/usr/bin/env" ] || {
+		eerror "domain rootfs missing: ${ROOT}"
+		eerror "run: lrd-provision"
+		return 1
+	}
+	install -d -m0755 "/run/libredroid/${DOMAIN}"
+}
+
+start() {
+	ebegin "Starting LibreDroid domain ${DOMAIN}"
+	start-stop-daemon --start --quiet --background \
+		--make-pidfile --pidfile "/run/libredroid-${DOMAIN}.pid" \
+		--exec /usr/bin/systemd-nspawn -- \
+		--quiet --machine="${DOMAIN}" --directory="${ROOT}" \
+		--network-namespace-path="/run/netns/lrd-${DOMAIN}" \
+		--hostname="${DOMAIN}" --resolv-conf=off \
+		--bind="/run/libredroid/${DOMAIN}:/run/libredroid/${DOMAIN}" \
+		--setenv=XDG_RUNTIME_DIR="/run/libredroid/${DOMAIN}" \
+		--setenv=WAYLAND_DISPLAY="wayland-lrd-${DOMAIN}"
+	eend $?
+}
+
+stop() {
+	ebegin "Stopping LibreDroid domain ${DOMAIN}"
+	machinectl terminate "${DOMAIN}" 2>/dev/null || true
+	rm -f "/run/libredroid-${DOMAIN}.pid"
+	eend $?
+}

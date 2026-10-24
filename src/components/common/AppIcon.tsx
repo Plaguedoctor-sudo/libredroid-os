@@ -26,6 +26,7 @@ import {
   Gamepad2,
   Sparkles,
   Phone,
+  Bot,
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -39,6 +40,16 @@ interface AppIconProps {
 }
 
 const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> = {
+  universal_ai: {
+    icon: Bot,
+    bg: 'bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500',
+    color: 'text-white',
+  },
+  chats: {
+    icon: MessageSquare,
+    bg: 'bg-gradient-to-tr from-emerald-600 via-teal-600 to-cyan-700',
+    color: 'text-white',
+  },
   persona_engine: {
     icon: Sparkles,
     bg: 'bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600',

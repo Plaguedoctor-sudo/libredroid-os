@@ -2,6 +2,26 @@ import { AppMetadata } from '../types/apps';
 
 export const SYSTEM_APPS: AppMetadata[] = [
   {
+    id: 'universal_ai',
+    name: 'Universal AI',
+    icon: 'Bot',
+    color: 'from-violet-600 via-indigo-600 to-cyan-500',
+    category: 'productivity',
+    badge: 1,
+    author: 'LibreDroid Sovereign AI Core',
+    defaultDomain: 'vault-airgap',
+  },
+  {
+    id: 'chats',
+    name: 'Sovereign Chats',
+    icon: 'MessageSquare',
+    color: 'from-emerald-600 via-teal-600 to-cyan-700',
+    category: 'utility',
+    badge: 2,
+    author: 'Matrix & Briar P2P',
+    defaultDomain: 'anonymity-whonix',
+  },
+  {
     id: 'persona_engine',
     name: 'Adapt OS',
     icon: 'Sparkles',

@@ -1,0 +1,8 @@
+#!/bin/bash
+# lrd-stream <start|stop|restart|status> <domain>
+set -euo pipefail
+
+cmd="${1:?usage: lrd-stream <start|stop|restart|status> <domain>}"
+name="${2:?domain required}"
+
+exec systemctl "$cmd" "libredroid-stream@$name.service"

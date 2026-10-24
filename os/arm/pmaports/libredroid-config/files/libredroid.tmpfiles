@@ -1,0 +1,3 @@
+d /run/libredroid           0755 root root -
+d /var/lib/libredroid       0755 root root -
+d /var/lib/libredroid/domains 0755 root root -

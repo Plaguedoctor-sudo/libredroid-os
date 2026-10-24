@@ -1,0 +1,22 @@
+#!/bin/bash
+# lrd-domain <start|stop|restart|status|shell|exec|list|stream> <domain> [args...]
+set -euo pipefail
+
+DOMAINS="vault tor-gw anon-ws work dispos android"
+cmd="${1:?usage: lrd-domain <cmd> <domain>}"
+name="${2:-}"
+
+if [ "$cmd" = "list" ]; then
+  systemctl list-units --plain --no-legend 'libredroid-domain@*'; exit 0
+fi
+
+case " $DOMAINS " in *" $name "*) ;; *) echo "unknown domain: $name" >&2; exit 1 ;; esac
+
+case "$cmd" in
+  start|stop|restart|status) systemctl "$cmd" "libredroid-domain@$name.service" ;;
+  stream)  systemctl "$cmd" "libredroid-stream@$name.service" ;;
+  shell)   exec systemd-run -M "$name" --pipe --wait --collect /bin/bash ;;
+  exec)    shift 2; exec systemd-run -M "$name" --pipe --wait --collect "$@" ;;
+  netns)   exec ip netns exec "lrd-$name" "${@:3}" ;;
+  *) echo "unknown cmd: $cmd" >&2; exit 1 ;;
+esac

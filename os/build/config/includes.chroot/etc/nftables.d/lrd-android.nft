@@ -1,0 +1,23 @@
+#!/usr/sbin/nft -f
+# Applied INSIDE the android namespace. Default-allow, but tracker
+# destinations can be killed by adding to the set (see lrd-doctor --trackers).
+
+table ip lrd_android {
+  set trackers {
+    type ipv4_addr
+    flags interval
+    elements = {
+      142.250.0.0/15,    # google
+      172.217.0.0/16,
+      216.58.192.0/19,
+      31.13.24.0/21,     # meta
+      157.240.0.0/16,
+      104.18.0.0/15      # cloudflare-fronted sdks
+    }
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+    ip daddr @trackers counter comment "tracker reachable — poisoning happens at mitmproxy"
+  }
+}

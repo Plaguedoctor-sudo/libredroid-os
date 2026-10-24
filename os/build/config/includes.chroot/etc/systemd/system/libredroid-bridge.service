@@ -1,0 +1,19 @@
+[Unit]
+Description=LibreDroid system bridge (REST + WebSocket)
+After=network.target libredroid-netns.service
+Wants=libredroid-netns.service
+Before=libredroid-boot.service
+
+[Service]
+Type=simple
+Environment=NODE_ENV=production PORT=3001 SHELL_DIR=/opt/libredroid/shell
+ExecStart=/usr/bin/node /opt/libredroid/bridge/server.js
+Restart=always
+RestartSec=2
+# runs as root: it drives systemctl, reads /sys, and proxies unix sockets
+AmbientCapabilities=
+ProtectSystem=full
+ReadWritePaths=/var/lib/libredroid /run/libredroid /etc/nftables.d
+
+[Install]
+WantedBy=multi-user.target

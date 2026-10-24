@@ -1,0 +1,60 @@
+#!/bin/bash
+set -e
+
+groupadd -f libredroid
+id -u libredroid >/dev/null 2>&1 || \
+  useradd --create-home --shell /bin/bash \
+    --groups video,render,audio,input,plugdev,netdev,libredroid libredroid
+passwd -d libredroid
+
+install -d -m0755 /var/lib/libredroid/domains /opt/libredroid /etc/nftables.d
+
+# ── autologin on tty1 → the session lives in .bash_profile ──
+install -d /etc/systemd/system/getty@tty1.service.d
+cat >/etc/systemd/system/getty@tty1.service.d/autologin.conf <<'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin libredroid --noclear %I $TERM
+Type=simple
+EOF
+
+# ── let the shell user drive systemd / NM / UPower without a password ──
+install -d /etc/polkit-1/rules.d
+cat >/etc/polkit-1/rules.d/49-libredroid.rules <<'EOF'
+polkit.addRule(function (action, subject) {
+  var allow = [
+    "org.freedesktop.systemd1.manage-units",
+    "org.freedesktop.systemd1.manage-unit-files",
+    "org.freedesktop.login1.power-off",
+    "org.freedesktop.login1.reboot",
+    "org.freedesktop.login1.suspend",
+    "org.freedesktop.NetworkManager.network-control",
+    "org.freedesktop.UPower.",
+    "org.freedesktop.locale1."
+  ];
+  for (var i = 0; i < allow.length; i++) {
+    if (action.id.indexOf(allow[i]) === 0 && subject.isInGroup("libredroid")) {
+      return polkit.Result.YES;
+    }
+  }
+});
+EOF
+
+# ── kernel modules Waydroid needs ──
+cat >/etc/modules-load.d/libredroid.conf <<'EOF'
+binder_linux
+ashmem_linux
+EOF
+
+# ── cgroup v2 delegation for the user manager ──
+install -d /etc/systemd/system/user@.service.d
+cat >/etc/systemd/system/user@.service.d/delegate.conf <<'EOF'
+[Service]
+Delegate=cpu cpuset io memory pids
+EOF
+
+# ── NetworkManager owns the interfaces (live-boot's ifupdown steps aside) ──
+systemctl disable networking.service 2>/dev/null || true
+systemctl enable NetworkManager.service
+
+echo "0100-users: ok"

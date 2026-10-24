@@ -8,4 +8,12 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3001,
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'esnext',
+    },
+  },
+  build: {
+    target: 'esnext',
+  },
 });

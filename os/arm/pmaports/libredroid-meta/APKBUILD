@@ -1,0 +1,19 @@
+# Maintainer: LibreDroid <dev@libredroid.example.org>
+pkgname=libredroid-meta
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="LibreDroid OS metapackage — pulls the full sovereign stack"
+url="https://libredroid.example.org"
+arch="all"
+license="AGPL-3.0-or-later"
+depends="libredroid-shell libredroid-config"
+depends="$depends cage labwc wayvnc chromium nodejs"
+depends="$depends waydroid nftables tor flatpak"
+depends="$depends mesa-dri-gallium mesa-egl mesa-gbm"
+depends="$depends font-inter font-noto-emoji"
+options="!check"
+source=""
+
+package() { :; }
+
+sha512sums="SKIP"

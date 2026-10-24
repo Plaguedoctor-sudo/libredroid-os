@@ -29,6 +29,8 @@ export const FilesApp: React.FC = () => {
   const [currentFolder, setCurrentFolder] = useState<string>('root');
   const [search, setSearch] = useState('');
   const [previewFile, setPreviewFile] = useState<VFile | PhysicalStorageItem | null>(null);
+  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const [newFolderNameInput, setNewFolderNameInput] = useState('');
 
   // Physical Android Storage state
   const [physicalPath, setPhysicalPath] = useState<string>('/storage/emulated/0');
@@ -145,6 +147,27 @@ export const FilesApp: React.FC = () => {
     }
   };
 
+  const handleCreateFolder = () => {
+    if (!newFolderNameInput.trim()) return;
+    const name = newFolderNameInput.trim();
+    const newFolder: VFile = {
+      id: Math.random().toString(36).substring(2, 7),
+      name,
+      isFolder: true,
+      parentId: currentFolder,
+      modified: 'Just now',
+    };
+    setFiles((prev) => [...prev, newFolder]);
+    setNewFolderNameInput('');
+    setShowNewFolderModal(false);
+    addNotification({
+      appId: 'files',
+      appName: 'Files Hub',
+      title: 'Folder Created',
+      body: `Created folder "${name}" in ${currentFolder === 'root' ? 'root directory' : 'current folder'}.`,
+    });
+  };
+
   const handleNavigateUp = () => {
     if (sourceMode === 'physical') {
       if (physicalPath === '/storage/emulated/0' || physicalPath === '/sdcard') return;
@@ -210,14 +233,24 @@ export const FilesApp: React.FC = () => {
           />
         </div>
 
-        {/* Add File */}
-        <button
-          onClick={handleCreateFile}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium transition-colors shadow"
-        >
-          <Plus size={14} />
-          <span className="hidden sm:inline">New File</span>
-        </button>
+        {/* Actions: New Folder & New File */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowNewFolderModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-amber-300 border border-neutral-700 rounded-xl text-xs font-medium transition-colors shadow"
+          >
+            <Folder size={14} />
+            <span className="hidden sm:inline">New Folder</span>
+          </button>
+
+          <button
+            onClick={handleCreateFile}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium transition-colors shadow"
+          >
+            <Plus size={14} />
+            <span className="hidden sm:inline">New File</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -405,6 +438,56 @@ export const FilesApp: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* New Folder Modal */}
+      {showNewFolderModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setShowNewFolderModal(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-neutral-900 border border-neutral-700 rounded-3xl p-5 shadow-2xl flex flex-col gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+              <span className="text-sm font-semibold text-white flex items-center gap-2">
+                <Folder size={16} className="text-amber-400" />
+                <span>Create New Folder</span>
+              </span>
+              <button
+                onClick={() => setShowNewFolderModal(false)}
+                className="p-1 hover:bg-neutral-800 rounded-full text-neutral-400 hover:text-white"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Folder name (e.g. Invoices, Projects)"
+              value={newFolderNameInput}
+              onChange={(e) => setNewFolderNameInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+              autoFocus
+              className="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+            />
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setShowNewFolderModal(false)}
+                className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateFolder}
+                disabled={!newFolderNameInput.trim()}
+                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-bold text-xs rounded-xl transition-colors"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* File Preview Modal */}
       {previewFile && (

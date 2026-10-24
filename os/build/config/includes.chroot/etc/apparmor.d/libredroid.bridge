@@ -1,0 +1,29 @@
+#include <tunables/global>
+
+profile libredroid.bridge /usr/bin/node {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+
+  /opt/libredroid/**        r,
+  /usr/share/novnc/**       r,
+  /var/lib/libredroid/**    rw,
+  /run/libredroid/**        rw,
+  /run/netns/*              r,
+  /sys/class/power_supply/** r,
+  /sys/class/backlight/**   rw,
+  /proc/meminfo             r,
+  /proc/uptime              r,
+
+  /usr/bin/systemctl        ix,
+  /usr/bin/systemd-run      ix,
+  /usr/bin/ip               ix,
+  /usr/bin/machinectl       ix,
+  /usr/bin/brightnessctl    ix,
+  /usr/bin/nmcli            ix,
+  /usr/bin/uname            ix,
+  /opt/libredroid/bin/**    ix,
+
+  network inet stream,
+  network inet dgram,
+  network unix stream,
+}

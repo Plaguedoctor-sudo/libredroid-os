@@ -31,7 +31,8 @@ import {
   Check,
   Copy,
   QrCode,
-  Apple
+  Apple,
+  Tv
 } from 'lucide-react';
 import { 
   OsDomainConfig, 
@@ -320,9 +321,20 @@ export const MultiOsHypervisorApp: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 sm:text-right text-xs font-mono">
+                    <div className="flex items-center gap-2 sm:text-right text-xs font-mono flex-wrap">
                       <span className="text-emerald-400 font-semibold">{dom.status.toUpperCase()}</span>
-                      <span className="text-neutral-500">{dom.memoryAllocatedMb} MB RAM</span>
+                      <span className="text-neutral-500">{dom.memoryAllocatedMb} MB</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openApp(`domain_stream_${dom.id}` as any, `${dom.name} Stream (WayVNC)`, dom.id);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-neutral-700/80 hover:bg-neutral-700 text-white text-[11px] font-sans font-medium flex items-center gap-1.5 border border-neutral-600 transition-colors shadow-sm"
+                        title="Stream domain desktop surface over WayVNC inside a React window"
+                      >
+                        <Tv size={12} className="text-emerald-400" />
+                        <span>Stream</span>
+                      </button>
                       <span className="text-purple-400 text-[11px] underline sm:no-underline">Inspect &rarr;</span>
                     </div>
                   </div>

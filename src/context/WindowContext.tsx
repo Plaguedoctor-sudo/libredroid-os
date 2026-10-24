@@ -19,6 +19,8 @@ interface WindowContextType {
   goBack: () => void;
   purgeDisposableWindows: () => void;
   updateWindowDomain: (id: string, domain: OsDomainId) => void;
+  toggleWindowStream: (id: string) => void;
+  setWindowStream: (id: string, isStreaming: boolean) => void;
 }
 
 const WindowContext = createContext<WindowContextType | undefined>(undefined);
@@ -45,9 +47,13 @@ const APP_TITLES: Record<string, string> = {
   system_installer: 'Hardware OS Installer',
   phone: 'Phone Dialer',
   messages: 'Messages & SMS',
+  universal_ai: 'Universal AI Sovereign Assistant',
+  chats: 'Sovereign Chats (Matrix / Briar E2EE)',
 };
 
 const DEFAULT_APP_DOMAINS: Record<string, OsDomainId> = {
+  universal_ai: 'vault-airgap',
+  chats: 'anonymity-whonix',
   browser: 'anonymity-whonix',
   notes: 'vault-airgap',
   settings: 'vault-airgap',
@@ -113,16 +119,18 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const initialX = isDesktop ? 60 + offset : 0;
     const initialY = isDesktop ? 40 + offset : 0;
 
+    const isStreamApp = appId.startsWith('domain_stream_');
     const newWindow: WindowInstance = {
       id: Math.random().toString(36).substring(2, 9),
       appId,
-      title: customTitle || APP_TITLES[appId] || 'App',
+      title: customTitle || APP_TITLES[appId] || (isStreamApp ? 'Domain Surface Stream' : 'App'),
       isMinimized: false,
       isMaximized: !isDesktop,
       zIndex: nextZ + 1,
       position: { x: initialX, y: initialY },
       size: { width: initialWidth, height: initialHeight },
       osDomain: targetDomain,
+      isStreamingDomain: isStreamApp,
     };
 
     setNextZ((z) => z + 1);
@@ -173,6 +181,18 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       title: 'Domain Switched',
       body: `Window migrated to security domain: ${domain}.`,
     });
+  };
+
+  const toggleWindowStream = (id: string) => {
+    setWindows((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, isStreamingDomain: !w.isStreamingDomain } : w))
+    );
+  };
+
+  const setWindowStream = (id: string, isStreaming: boolean) => {
+    setWindows((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, isStreamingDomain: isStreaming } : w))
+    );
   };
 
   const minimizeWindow = (id: string) => {
@@ -279,6 +299,8 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         goBack,
         purgeDisposableWindows,
         updateWindowDomain,
+        toggleWindowStream,
+        setWindowStream,
       }}
     >
       {children}

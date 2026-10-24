@@ -1,0 +1,17 @@
+[Unit]
+Description=LibreDroid base domain set
+After=libredroid-netns.service libredroid-bridge.service
+Wants=libredroid-netns.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# streams first (the compositor socket must exist before the container boots),
+# then the containers.
+ExecStart=/opt/libredroid/bin/lrd-domain start tor-gw
+ExecStart=-/opt/libredroid/bin/lrd-domain start anon-ws
+ExecStart=-/opt/libredroid/bin/lrd-domain start vault
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target
