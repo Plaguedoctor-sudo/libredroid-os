@@ -1,0 +1,8 @@
+# Sane starting values. The device package overrides what it can measure.
+# Anything left as "unset" is reported as such rather than guessed at.
+VENDOR_PATH=/vendor
+ODM_PATH=/odm
+EGL_PLATFORM=default
+BINDER_DEVICE=/dev/binderfs
+AUDIO_CARD=primary
+RIL_SLOTS=/dev/rmnet+

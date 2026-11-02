@@ -26,17 +26,24 @@ export const DeviceSwitcherBar: React.FC = () => {
   const { 
     deviceMode, 
     setDeviceMode, 
+    interfaceMode,
+    setInterfaceMode,
     actualDevice, 
     isFolded, 
     setIsFolded,
     setIsShadeOpen,
     hardwareSpecs,
-    adaptivePolicy
+    adaptivePolicy,
+    isKiosk
   } = useSystem();
 
   const { openApp } = useWindow();
   const { persona, openWizard } = usePersona();
   const { appleStack, linuxStack } = useSecurity();
+
+  if (isKiosk) {
+    return null;
+  }
 
   const isTouchDevice = typeof navigator !== 'undefined' && 
     (navigator.maxTouchPoints > 0 || /Android|Tablet|Mobile/i.test(navigator.userAgent));
@@ -72,6 +79,24 @@ export const DeviceSwitcherBar: React.FC = () => {
       >
         <ChevronUp size={14} />
       </button>
+
+      {/* Interface Mode Switcher: Standard Android vs Qubes Matrix */}
+      <button 
+        onClick={() => {
+          if (navigator.vibrate) navigator.vibrate(15);
+          setInterfaceMode(interfaceMode === 'standard_android' ? 'qubes_matrix' : 'standard_android');
+        }}
+        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all border shadow-sm touch-manipulation min-h-[36px] ${
+          interfaceMode === 'standard_android'
+            ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500/50 hover:bg-emerald-600/40'
+            : 'bg-purple-600/30 text-purple-300 border-purple-500/50 hover:bg-purple-600/40'
+        }`}
+        title="Click to toggle between Standard Android Smartphone Mode and Qubes Hypervisor Matrix"
+      >
+        <Smartphone size={13} className={interfaceMode === 'standard_android' ? 'text-emerald-400' : 'text-purple-400'} />
+        <span>{interfaceMode === 'standard_android' ? 'Standard Android' : 'Hypervisor Matrix'}</span>
+      </button>
+
       {/* Multi-OS Qubes Hypervisor Direct Status Badge */}
       <button 
         onClick={() => {

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# apply-camera — the camera HAL reads properties directly, so propset is the fix here.
+set -uo pipefail
+STATE=/run/lrd/camera.state
+mkdir -p /run/lrd
+log() { echo "[apply-camera] $*"; logger -t lrd-adapt "$*" 2>/dev/null || true; }
+
+providers=(); for p in /vendor/lib64/hw/camera.*.so /odm/lib64/hw/camera.*.so; do [ -e "$p" ] && providers+=("$p"); done
+svc=""; for p in /vendor/bin/hw/android.hardware.camera.provider*; do [ -x "$p" ] && { svc="$p"; break; }; done
+video=(); for v in /dev/video*; do [ -e "$v" ] && video+=("$v"); done
+
+if [ "${#providers[@]}" -eq 0 ] && [ -z "$svc" ]; then
+  log "no camera HAL"
+  jq -nc '{ok:false, reason:"no camera HAL blob or provider service"}' > "$STATE"; exit 0
+fi
+
+suffix="$(basename "${providers[0]:-none}")"; suffix="${suffix#camera.}"; suffix="${suffix%.so}"
+
+# the HAL reads these directly — this is where a broken property backend used to kill it
+{
+  echo "ro.hardware.camera=${suffix}"
+  echo "persist.vendor.camera.provider=${suffix}"
+  echo "vendor.camera.aux.packagelist=org.codeaurora.camera"
+} > /etc/lrd/camera.props
+/usr/lib/lrd/adapt/propset /etc/lrd/camera.props >/dev/null 2>&1 || true
+
+cat > /etc/environment.d/54-lrd-camera.conf <<EOF
+LRD_CAMERA_HAL=${providers[0]:-}
+LRD_CAMERA_SERVICE=$svc
+LRD_CAMERA_SUFFIX=$suffix
+EOF
+
+ok=1
+[ -z "$svc" ] && [ "${#providers[@]}" -gt 0 ] && ok=1   # in-process path is legitimate
+props_ok="$(jq -r '.ok' /run/lrd/props.state 2>/dev/null || echo false)"
+[ "$props_ok" != true ] && { ok=0; log "property backend unavailable — the HAL will not find its config"; }
+
+jq -nc --argjson ok "$ok" --arg s "$svc" --argjson n "${#providers[@]}" --argjson v "${#video[@]}" \
+  '{ok:($ok==1), providers:$n, service:$s, videoNodes:$v,
+    warning:(if $ok==1 then null else "camera HAL needs a working property backend" end)}' > "$STATE"
+log "providers=${#providers[@]} service=${svc:-none} video=${#video[@]}"
+exit 0

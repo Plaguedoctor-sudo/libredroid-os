@@ -1,0 +1,33 @@
+#!/bin/sh
+# Session helpers. This is where "installed but never started" gets fixed.
+
+# portals: the split that actually works
+/usr/libexec/xdg-desktop-portal-wlr &
+/usr/libexec/xdg-desktop-portal-gtk &
+/usr/libexec/xdg-desktop-portal &
+
+# input method: started, with the wayland frontend so native apps get CJK
+fcitx5 --enable wayland --replace -d 2>/dev/null &
+sleep 1
+
+# the on-screen keyboard, hidden until asked for
+lrd-osk autostart 2>/dev/null &
+
+# notifications for non-shell apps
+mako -c /etc/xdg/mako/lrd.conf 2>/dev/null &
+
+# a polkit agent, so privilege prompts appear
+/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 2>/dev/null || \
+  lxpolkit 2>/dev/null &
+
+# removable media
+udisksd --no-debug 2>/dev/null || true
+gio mime inode/directory lrd-files.desktop 2>/dev/null || true
+
+# audio session policy
+wireplumber 2>/dev/null &
+pipewire 2>/dev/null &
+pipewire-pulse 2>/dev/null &
+
+# the shell last, so its dependencies exist
+lrd-shell-launch &

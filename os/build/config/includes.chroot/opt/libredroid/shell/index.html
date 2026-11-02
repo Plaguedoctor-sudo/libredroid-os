@@ -1,113 +1,30 @@
-<!doctype html>
-<html><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LibreDroid OS — boot check</title>
-<style>
-  :root{color-scheme:dark}
-  body{margin:0;background:#0d0d11;color:#e5e5e5;font:14px/1.5 Inter,system-ui,sans-serif}
-  .wrap{max-width:860px;margin:0 auto;padding:28px}
-  h1{font-size:19px;margin:0 0 4px} .sub{color:#737373;font-size:12px;margin-bottom:22px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
-  .card{background:#161619;border:1px solid #262626;border-radius:14px;padding:14px}
-  .card h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#10b981;margin:0 0 10px}
-  .row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12.5px}
-  .dot{width:8px;height:8px;border-radius:99px;display:inline-block;margin-right:7px}
-  .on{background:#10b981}.off{background:#525252}.bad{background:#ef4444}
-  button{background:#1f1f23;color:#e5e5e5;border:1px solid #333;border-radius:9px;
-         padding:5px 10px;font-size:11.5px;cursor:pointer}
-  button:hover{background:#26262b;border-color:#10b981}
-  .bar{height:6px;background:#1f1f23;border-radius:99px;overflow:hidden;margin-top:6px}
-  .bar>i{display:block;height:100%;background:#10b981}
-  code{background:#101013;padding:2px 6px;border-radius:6px;font-size:11.5px;color:#a3e635}
-  .stage{margin-top:18px;height:340px;background:#000;border:1px solid #262626;border-radius:14px;overflow:hidden}
-</style></head><body><div class="wrap">
-
-<h1>LibreDroid OS</h1>
-<div class="sub" id="ident">probing…</div>
-
-<div class="grid">
-  <div class="card"><h2>Isolation domains</h2><div id="domains"></div></div>
-  <div class="card"><h2>Network namespaces</h2><div id="ns"></div></div>
-  <div class="card"><h2>Tor gateway</h2><div id="tor"></div></div>
-  <div class="card"><h2>Resources</h2><div id="res"></div></div>
-</div>
-
-<div class="stage"><div id="view" style="width:100%;height:100%"></div></div>
-
-<script type="module">
-import RFB from '/novnc/core/rfb.js';
-
-const $ = id => document.getElementById(id);
-let rfb = null;
-
-async function api(p, m = 'GET', b) {
-  const r = await fetch(p, { method: m, headers: { 'content-type': 'application/json' },
-                             body: b ? JSON.stringify(b) : undefined });
-  return r.json();
-}
-
-function line(parent, label, state, action) {
-  const d = document.createElement('div');
-  d.className = 'row';
-  d.innerHTML = `<span><span class="dot ${state}"></span>${label}</span>`;
-  if (action) {
-    const btn = document.createElement('button');
-    btn.textContent = action.label;
-    btn.onclick = action.fn;
-    d.appendChild(btn);
-  }
-  parent.appendChild(d);
-}
-
-async function refresh() {
-  const s = await api('/api/status');
-  $('ident').textContent = `${s.host} · ${s.kernel} · up ${Math.floor(s.uptimeSec/60)}m`;
-
-  const dm = $('domains'); dm.innerHTML = '';
-  (s.domains || []).forEach(d => line(dm, d.name, d.active ? 'on' : 'off', {
-    label: d.active ? 'stop' : 'start',
-    fn: async () => { await api(`/api/domains/${d.name}/${d.active ? 'stop' : 'start'}`, 'POST'); refresh(); }
-  }));
-
-  const ns = $('ns'); ns.innerHTML = '';
-  ['lrd-vault','lrd-tor-gw','lrd-anon-ws','lrd-work','lrd-dispos','lrd-android'].forEach(n =>
-    line(ns, n, (s.netns || []).includes(n) ? 'on' : 'bad'));
-
-  const tr = $('tor'); tr.innerHTML = '';
-  line(tr, 'tor daemon', s.tor?.running ? 'on' : 'bad');
-  line(tr, 'exit via 3 hops', s.tor?.running ? 'on' : 'off', {
-    label: 'new identity', fn: async () => { await api('/api/domains/tor/rotate', 'POST'); } });
-
-  const rs = $('res'); rs.innerHTML = '';
-  if (s.battery) line(rs, `battery ${s.battery.level}%${s.battery.charging ? ' ⚡' : ''}`, 'on');
-  if (s.mem) {
-    const used = s.mem.totalMb - s.mem.availMb;
-    const d = document.createElement('div');
-    d.innerHTML = `<div class="row"><span>RAM ${used} / ${s.mem.totalMb} MB</span></div>
-                   <div class="bar"><i style="width:${Math.round(used/s.mem.totalMb*100)}%"></i></div>`;
-    rs.appendChild(d);
-  }
-  line(rs, 'waydroid', s.waydroid?.installed ? 'on' : 'off');
-}
-
-$('ns').onclick = e => {
-  const b = e.target.closest('button'); if (!b) return;
-};
-
-// clicking a namespace row streams that domain
-document.addEventListener('click', async e => {
-  const row = e.target.closest('#ns .row');
-  if (!row || e.target.tagName === 'BUTTON') return;
-  const name = row.textContent.trim().replace(/^(lrd-)/, '');
-  if (rfb) { rfb.disconnect(); rfb = null; }
-  try {
-    rfb = new RFB($('view'), `ws://${location.host}/api/stream/${name}`, { wsProtocols: ['binary'] });
-    rfb.scaleViewport = true;
-    rfb.touchButton = 1;
-  } catch (err) { console.warn(err); }
-});
-
-refresh();
-setInterval(refresh, 3000);
-</script>
-</div></body></html>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#10b981" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>LibreDroid OS - Sovereign Universal Operating Environment</title>
+    <!-- Fonts: Plus Jakarta Sans & Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/assets/index-6As8NeES.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Cvz0poEH.css">
+  </head>
+  <body class="bg-black text-gray-100 select-none overflow-hidden antialiased">
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>

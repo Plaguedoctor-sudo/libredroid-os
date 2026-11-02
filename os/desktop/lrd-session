@@ -1,0 +1,72 @@
+#!/bin/sh
+# lrd-session — the session leader. Everything graphical inherits from here.
+# Replaces running cage directly as a system service.
+set -u
+
+RUNTIME="${XDG_RUNTIME_DIR:-/run/lrd/session}"
+export XDG_RUNTIME_DIR="$RUNTIME"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
+
+# a session bus, which did not exist before
+if command -v dbus-daemon >/dev/null 2>&1; then
+  eval "$(dbus-launch --sh-syntax --exit-with-session 2>/dev/null)" || true
+  export DBUS_SESSION_BUS_ADDRESS
+fi
+
+# session identity
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=LibreDroid
+export XDG_SESSION_DESKTOP=libredroid
+export XDG_SESSION_CLASS=user
+export XDG_CONFIG_DIRS=/etc/xdg
+export XDG_DATA_DIRS=/usr/local/share:/usr/share
+
+# accessibility: the toolkit bridges, so AT-SPI has something to talk to
+export GTK_MODULES=gail:atk-bridge
+export QT_ACCESSIBILITY=1
+export NO_AT_BRIDGE=0
+
+# input method
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export SDL_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+export INPUT_METHOD=fcitx
+
+# xkb: AccessX options where libxkbcommon supports them
+export XKB_DEFAULT_OPTIONS="${XKB_DEFAULT_OPTIONS:-compose:ralt}"
+export XKB_DEFAULT_LAYOUT="${XKB_DEFAULT_LAYOUT:-us}"
+
+# cursor + toolkit hints for a touch device
+export XCURSOR_SIZE="${XCURSOR_SIZE:-24}"
+export QT_QPA_PLATFORM=wayland
+export MOZ_ENABLE_WAYLAND=1
+export SDL_VIDEODRIVER=wayland
+
+# a private tmp on the session
+export TMPDIR="$XDG_RUNTIME_DIR/tmp"
+mkdir -p "$TMPDIR"
+
+# record the environment so system services (the bridge) can reach us
+mkdir -p /run/lrd
+cat > /run/lrd/session.env <<EOF
+XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
+WAYLAND_DISPLAY=wayland-0
+DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-}
+XDG_SESSION_TYPE=wayland
+EOF
+chmod 644 /run/lrd/session.env
+
+# AT-SPI bus, so Orca and any reader has a tree
+if [ -x /usr/libexec/at-spi-bus-launcher ]; then
+  /usr/libexec/at-spi-bus-launcher --launch-immediately &
+elif [ -x /usr/lib/at-spi2-core/at-spi-bus-launcher ]; then
+  /usr/lib/at-spi2-core/at-spi-bus-launcher --launch-immediately &
+fi
+
+# portal backends need the session bus, start them before any app can ask
+systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR XDG_SESSION_TYPE 2>/dev/null || true
+
+# the compositor, as the last exec
+exec /usr/bin/labwc -s /usr/bin/lrd-shell-launch

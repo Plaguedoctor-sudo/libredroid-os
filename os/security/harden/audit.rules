@@ -1,0 +1,21 @@
+# identity and privilege
+-w /etc/passwd -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/sudoers -p wa -k identity
+-w /etc/sudoers.d/ -p wa -k identity
+-w /etc/pam.d/ -p wa -k pam
+# TCB
+-w /usr/lib/lrd/ -p wa -k tcb
+-w /opt/lrd/app/server.js -p wa -k tcb
+# keys
+-w /etc/lrd/keys/ -p wa -k keys
+# verity and boot
+-w /store/verity/ -p wa -k verity
+-w /store/security/ -p wa -k tcb
+-w /dev/block/by-name/misc -p wa -k boot
+# bridge
+-w /etc/lrd/bridge.token -p wa -k bridge
+# exec surface
+-a always,exit -F arch=b64 -S execve -F path=/usr/lib/lrd/adapt/propset -k lrd-exec
+# module loading
+-a always,exit -F arch=b64 -S init_module -S finit_module -k modules

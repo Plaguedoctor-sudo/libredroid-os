@@ -1,0 +1,14 @@
+#!/bin/sh
+# launch a binderised vendor hwcomposer, whichever version it is
+set -e
+for p in /vendor/bin/hw/android.hardware.graphics.composer@2.4-service \
+         /vendor/bin/hw/android.hardware.graphics.composer@2.3-service \
+         /vendor/bin/hw/android.hardware.graphics.composer@2.2-service \
+         /vendor/bin/hw/android.hardware.graphics.composer@2.1-service \
+         /vendor/bin/hw/android.hardware.graphics.composer*; do
+  [ -x "$p" ] || continue
+  echo "[hwc-launch] $p"
+  exec "$p"
+done
+echo "[hwc-launch] no composer service binary" >&2
+exit 1

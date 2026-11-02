@@ -1,0 +1,10 @@
+# @CODENAME@ — stable names, and keep systemd out of Android's nodes
+KERNEL=="card[0-9]*", SUBSYSTEM=="drm", TAG+="systemd", ENV{LRD_DISPLAY}="1"
+SUBSYSTEM=="backlight", ACTION=="add|change", RUN+="/usr/local/bin/lrd-emit display '{\"reason\":\"backlight\"}'"
+SUBSYSTEM=="power_supply", ACTION=="change", RUN+="/usr/local/bin/lrd-emit power '{\"reason\":\"uevent\"}'"
+SUBSYSTEM=="thermal", ACTION=="change", RUN+="/usr/local/bin/lrd-emit thermal '{\"reason\":\"uevent\"}'"
+KERNEL=="event*", SUBSYSTEM=="input", TAG+="systemd"
+# binder: vendor HAL services need it before anything talks to them
+KERNEL=="binder*", MODE="0666"
+# android block nodes are not systemd-managed
+KERNEL=="mmcblk*|sd*|dm-*|loop*", ENV{SYSTEMD_READY}="1"

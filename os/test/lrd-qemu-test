@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# lrd-qemu-test — boot the ISO in QEMU, run the acceptance test, report.
+# This is how you "check it works" with no device.
+#
+#   qemu-test <iso> [--timeout 600] [--keep] [--memory 3G]
+set -Eeuo pipefail
+if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  echo "usage: lrd-qemu-test <iso> [--timeout 600] [--keep] [--memory 3G]"
+  exit 2
+fi
+ISO="$1"
+shift || true
+TIMEOUT=600; KEEP=0; MEM=3G
+for a in "$@"; do case "$a" in
+  --timeout) shift; TIMEOUT="$1" ;; --keep) KEEP=1 ;; --memory) shift; MEM="$1" ;;
+esac; done
+
+command -v qemu-system-x86_64 >/dev/null || { echo "apt install qemu-system-x86"; exit 1; }
+TMP="$(mktemp -d)"
+LOG="$TMP/console.log"
+DISK="$TMP/disk.qcow2"
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+say "booting $ISO in QEMU (${MEM} RAM, ${TIMEOUT}s budget)"
+say "console log: $LOG"
+
+qemu-img create -q -f qcow2 "$DISK" 24G
+
+# -serial file: gives us the whole console write-only, which is all we need:
+# lrd-verify prints a machine-readable block to stdout, which lands here.
+timeout "$TIMEOUT" qemu-system-x86_64 \
+  -machine q35,accel=kvm:tcg \
+  -cpu max -smp 4 -m "$MEM" \
+  -drive file="$ISO",format=raw,media=cdrom,readonly=on \
+  -drive file="$DISK",format=qcow2,if=virtio \
+  -device virtio-net-pci,netdev=n0 -netdev user,id=n0 \
+  -device virtio-gpu-pci \
+  -device qemu-xhci -device usb-tablet \
+  -vga none -display none \
+  -serial "file:$LOG" \
+  -append "" \
+  -no-reboot \
+  &
+QPID=$!
+
+# the ISO's own bootloader appends lrd.verify=1 lrd.poweroff=1 via a menu entry
+say "waiting for the verify block"
+
+for _ in $(seq 1 "$TIMEOUT"); do
+  sleep 1
+  if grep -q 'LRD-VERIFY-END' "$LOG" 2>/dev/null; then break; fi
+  kill -0 "$QPID" 2>/dev/null || break
+done
+
+kill "$QPID" 2>/dev/null || true
+wait "$QPID" 2>/dev/null || true
+
+if ! grep -q 'LRD-VERIFY-END' "$LOG" 2>/dev/null; then
+  echo
+  echo "xx the VM never produced a verify block in ${TIMEOUT}s"
+  echo
+  echo "  last 60 console lines:"
+  tail -60 "$LOG" | sed 's/^/    /'
+  echo
+  echo "  common causes:"
+  echo "    * the ISO did not boot (check the first 40 lines)"
+  echo "  * no display: the virtio-gpu has no driver — lrd-display-set fbdev"
+  echo "    * the session never started: look for 'labwc' or a systemd failure"
+  echo "    * the verify service was not enabled in the image"
+  [ "$KEEP" = 1 ] && { echo; echo "  kept: $TMP"; }
+  exit 1
+fi
+
+# extract and parse
+JSON="$(sed -n '/LRD-VERIFY-BEGIN/,/LRD-VERIFY-END/p' "$LOG" | sed '1d;$d')"
+if ! printf '%s' "$JSON" | jq -e . >/dev/null 2>&1; then
+  echo "xx the verify block is not valid json"
+  printf '%s\n' "$JSON" | head -20
+  exit 1
+fi
+
+VERDICT="$(printf '%s' "$JSON" | jq -r .verdict)"
+SCORE="$(printf '%s' "$JSON" | jq -r .score)"
+FAIL="$(printf '%s' "$JSON" | jq -r .fail)"
+
+echo
+echo "══════════════════════════════════════════════════════════"
+printf '  verdict: %s   score: %s   failures: %s\n' "$VERDICT" "$SCORE" "$FAIL"
+echo "══════════════════════════════════════════════════════════"
+echo
+if [ "$FAIL" -gt 0 ]; then
+  echo "  failed checks:"
+  printf '%s' "$JSON" | jq -r '.failures[]|"    \(.id) — \(.detail|split("\n")[0])"'
+  echo
+fi
+
+# also surface the doctor's gate findings if present
+if grep -q 'gate-critical' "$LOG" 2>/dev/null; then
+  echo "  gate findings:"
+  sed -n '/gate-critical/,/^$/p' "$LOG" | head -20 | sed 's/^/    /'
+  echo
+fi
+
+printf '%s' "$JSON" > "${ISO%.iso}-qemu-verify.json"
+echo "  report: ${ISO%.iso}-qemu-verify.json"
+
+case "$VERDICT" in
+  working) echo "  ✓ this ISO works. flash it."; RC=0 ;;
+  usable)  echo "  ~ works with gaps — read the failures above."; RC=0 ;;
+  partial) echo "  ! partially working. Fix the gate-critical items."; RC=1 ;;
+  *)       echo "  ✗ broken. See the console log."; RC=1 ;;
+esac
+
+if [ "$RC" != 0 ]; then
+  echo
+  echo "  console log kept: $LOG"
+  [ "$KEEP" = 0 ] && echo "  (re-run with --keep to hold it)"
+else
+  [ "$KEEP" = 0 ] && rm -rf "$TMP"
+fi
+exit "$RC"

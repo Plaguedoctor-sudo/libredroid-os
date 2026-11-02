@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Per-device host keys, generated once and recorded so the user can verify them.
+set -Eeuo pipefail
+for t in ed25519 rsa; do
+  k="/etc/ssh/ssh_host_${t}_key"
+  [ -f "$k" ] && continue
+  ssh-keygen -q -t "$t" ${t:+$([ "$t" = rsa ] && echo -b 4096)} -N '' -f "$k" 2>/dev/null || true
+  echo "generated $k"
+done
+mkdir -p /store/security 2>/dev/null || true
+if [ -f /etc/ssh/ssh_host_ed25519_key.pub ]; then
+  ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub > /store/security/ssh-host-key.fingerprint 2>/dev/null || true
+  cat /store/security/ssh-host-key.fingerprint 2>/dev/null || true
+fi

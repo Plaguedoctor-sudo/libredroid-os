@@ -26,6 +26,9 @@ export type AppId =
   | 'messages'
   | 'universal_ai'
   | 'chats'
+  | 'task_manager'
+  | 'keystore'
+  | 'audio_mixer'
   | string; // Dynamic sideloaded APKs
 
 export interface AppMetadata {
@@ -56,4 +59,15 @@ export interface WindowInstance {
   size: { width: number; height: number };
   osDomain?: OsDomainId;
   isStreamingDomain?: boolean;
+
+  /** Deep-link payload passed by the opening app. */
+  params?: Record<string, unknown>;
+  /** Bumped on every re-target so effects re-fire on an already-open window. */
+  paramSeq?: number;
+}
+
+/** Props every native app surface may receive. */
+export interface AppIntent {
+  params?: Record<string, unknown>;
+  paramSeq?: number;
 }

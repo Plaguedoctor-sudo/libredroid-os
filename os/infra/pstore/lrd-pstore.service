@@ -1,0 +1,19 @@
+[Unit]
+Description=LibreDroid — collect the last kernel panic
+DefaultDependencies=no
+After=sysinit.target
+ConditionPathExists=/sys/fs/pstore
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'd=/var/lib/lrd/pstore; mkdir -p "$d"; \
+  if ls /sys/fs/pstore/* >/dev/null 2>&1; then \
+    stamp=$(date +%Y%m%d-%H%M%S); mkdir -p "$d/$stamp"; \
+    cp -a /sys/fs/pstore/. "$d/$stamp/"; \
+    logger -t lrd-pstore "collected a previous kernel panic into $d/$stamp"; \
+    rm -f /sys/fs/pstore/*; \
+  fi'
+
+[Install]
+WantedBy=sysinit.target

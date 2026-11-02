@@ -1,0 +1,11 @@
+# /etc/flatpak/overrides/global — the default for every app
+# nothing sees the host unless it asks
+[Context]
+shared=network;ipc;
+sockets=x11;wayland;pulseaudio;session-bus;
+filesystems=!host;xdg-documents;xdg-download;xdg-pictures;xdg-music;xdg-videos;
+
+[Environment]
+# honour the OS's proxy policy so Tor-mode apps do not leak
+ALL_PROXY=@env:ALL_PROXY
+all_proxy=@env:all_proxy

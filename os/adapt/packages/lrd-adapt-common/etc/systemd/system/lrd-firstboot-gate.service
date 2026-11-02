@@ -1,0 +1,16 @@
+[Unit]
+Description=LibreDroid — block the shell only when the score is bad
+After=lrd-adapt-validate.service
+Before=cage.service
+Requires=lrd-adapt-validate.service
+ConditionPathExists=!/var/lib/lrd/firstboot.done
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# if the adaptation is hopeless, show the console before the compositor can confuse things
+ExecStart=/bin/sh -c 'test "$(jq -r .score /run/lrd/adapt.json 2>/dev/null || echo 0)" -lt 35 && systemctl start lrd-safe.target || true'
+TimeoutStartSec=5
+
+[Install]
+WantedBy=multi-user.target

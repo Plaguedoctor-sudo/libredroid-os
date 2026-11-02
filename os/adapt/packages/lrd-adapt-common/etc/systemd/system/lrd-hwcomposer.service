@@ -1,0 +1,19 @@
+[Unit]
+Description=LibreDroid vendor hwcomposer HAL
+After=lrd-adapt-apply.service
+Requires=lrd-adapt-apply.service
+
+[Service]
+Type=simple
+# only when the adaptation actually chose the hwc2 path AND a service binary exists
+ExecCondition=/bin/sh -c 'grep -q "^backend=hwc2" /etc/lrd/display.conf 2>/dev/null'
+ExecCondition=/bin/sh -c 'ls /vendor/bin/hw/android.hardware.graphics.composer* >/dev/null 2>&1'
+EnvironmentFile=-/etc/environment.d/50-lrd-hybris.conf
+EnvironmentFile=-/etc/environment.d/51-lrd-display.conf
+ExecStart=/usr/lib/lrd/adapt/hwc-launch
+Restart=on-failure
+RestartSec=2
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

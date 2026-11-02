@@ -1,0 +1,15 @@
+[Unit]
+Description=LibreDroid binderfs
+DefaultDependencies=no
+Before=sysinit.target
+ConditionPathExists=/proc/filesystems
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'grep -q binderfs /proc/filesystems || exit 0; mkdir -p /dev/binderfs; mountpoint -q /dev/binderfs || mount -t binder binder /dev/binderfs'
+ExecStop=/bin/sh -c 'mountpoint -q /dev/binderfs && umount /dev/binderfs || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

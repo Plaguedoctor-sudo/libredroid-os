@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# lrd-a11y — turn accessibility features on/off, wired into the shell's persona.
+set -uo pipefail
+case "${1:-status}" in
+  on)
+    # magnifier via a nested compositor is fragile; use font scaling + high contrast
+    gsettings set org.gnome.desktop.interface text-scaling-factor 1.4 2>/dev/null || true
+    export GTK_THEME=HighContrast
+    mkdir -p /etc/environment.d 2>/dev/null || true
+    echo "GTK_THEME=HighContrast" > /etc/environment.d/60-lrd-a11y.conf 2>/dev/null || true
+    echo "QT_QPA_PLATFORM=wayland" >> /etc/environment.d/60-lrd-a11y.conf 2>/dev/null || true
+    ;;
+  reader)
+    # orca on a wlroots session needs speech-dispatcher + the AT-SPI bus
+    systemctl --user start at-spi-dbus-bus 2>/dev/null || true
+    orca --replace &
+    ;;
+  sticky)
+    echo "keymap: sticky modifiers are handled by the shell's own keyboard"
+    ;;
+  status)
+    echo "text scaling: $(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null || echo 1.0)"
+    echo "at-spi:       $(pgrep -c at-spi-bus-launcher 2>/dev/null || echo 0) processes"
+    echo "orca:         $(pgrep -c orca 2>/dev/null || echo 0)"
+    ;;
+esac

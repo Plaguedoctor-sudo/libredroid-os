@@ -1,0 +1,128 @@
+#!/bin/busybox sh
+# lrd initramfs — Halium-style: keep the vendor environment, boot our userspace.
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+mount -t proc     none /proc   2>/dev/null
+mount -t sysfs    none /sys    2>/dev/null
+mount -t devtmpfs none /dev    2>/dev/null
+mkdir -p /dev/pts /run
+mount -t devpts   none /dev/pts 2>/dev/null
+mount -t tmpfs    none /run 2>/dev/null
+
+CMDLINE="$(cat /proc/cmdline)"
+get() { printf '%s' "$CMDLINE" | tr ' ' '\n' | sed -n "s/^$1=//p" | head -1; }
+
+SLOT="$(get androidboot.slot_suffix)"
+HARDWARE="$(get androidboot.hardware)"
+ROOT_SPEC="$(get lrd.root)"
+LEVEL="$(get lrd.level)"
+[ -z "$ROOT_SPEC" ] && ROOT_SPEC="LABEL=LRDROOT"
+
+log() { echo "[lrd-init] $*" > /dev/kmsg 2>/dev/null; echo "[lrd-init] $*"; }
+fail() {
+  log "FATAL: $*"
+  echo "" > /dev/tty0 2>/dev/null
+  echo "==================================================" > /dev/tty0 2>/dev/null
+  echo "    LIBREDROID OS - EMERGENCY FAILSAFE CONSOLE    " > /dev/tty0 2>/dev/null
+  echo "==================================================" > /dev/tty0 2>/dev/null
+  echo "Error: $*" > /dev/tty0 2>/dev/null
+  echo "Spawning emergency shell on display console..." > /dev/tty0 2>/dev/null
+  while true; do
+    sh </dev/tty0 >/dev/tty0 2>&1 || sh </dev/console >/dev/console 2>&1 || sleep 2
+  done
+}
+
+log "slot=${SLOT:-none} hardware=$HARDWARE level=$LEVEL"
+
+# --- 1. the vendor partitions stay exactly where the blobs expect them ---
+for p in vendor odm product vendor_dlkm odm_dlkm; do
+  node="$(find /dev/block -name "${p}${SLOT}" 2>/dev/null | head -1)"
+  [ -z "$node" ] && node="$(find /dev/block -name "$p" 2>/dev/null | head -1)"
+  [ -n "$node" ] || { log "$p partition absent (ok on some devices)"; continue; }
+  mkdir -p "/$p"
+  mount -o ro "$node" "/$p" && log "mounted $p ro" || log "$p mount failed"
+done
+
+# --- 2. binderfs, because libhybris talks to the vendor HALs ---
+mkdir -p /dev/binderfs
+mount -t binder binder /dev/binderfs 2>/dev/null || log "binderfs unavailable"
+
+# --- 3. find our rootfs ---
+resolve_root() {
+  case "$1" in
+    LABEL=*)
+      if command -v blkid >/dev/null 2>&1; then
+        blkid -L "${1#LABEL=}" 2>/dev/null || true
+      fi ;;
+    UUID=*)
+      if command -v blkid >/dev/null 2>&1; then
+        blkid -U "${1#UUID=}" 2>/dev/null || true
+      fi ;;
+    /dev/*)  echo "$1" ;;
+    *)       find /dev/block -name "$1" 2>/dev/null | head -1 ;;
+  esac
+}
+
+# Wait briefly for storage blocks to appear
+for i in 1 2 3 4 5; do
+  [ -e /dev/block/by-name/userdata ] || [ -e /dev/block/by-name/system_a ] && break
+  sleep 0.5
+done
+
+ROOTDEV=""
+[ -n "$SLOT" ] && ROOTDEV="$(find /dev/block -name "system${SLOT}" 2>/dev/null | head -1)"
+[ -z "$ROOTDEV" ] && ROOTDEV="$(resolve_root "$ROOT_SPEC")"
+# Fallback to direct raw hardware userdata partition if dynamic partition is not mapped
+if [ -z "$ROOTDEV" ] && [ -b /dev/block/by-name/userdata ]; then
+  ROOTDEV="/dev/block/by-name/userdata"
+  log "using hardware userdata partition as rootfs: $ROOTDEV"
+fi
+[ -n "$ROOTDEV" ] || fail "no rootfs device (looked for system${SLOT}, $ROOT_SPEC, userdata)"
+
+mkdir -p /lower
+mount -o ro "$ROOTDEV" /lower || fail "rootfs mount failed on $ROOTDEV"
+log "rootfs mounted from $ROOTDEV"
+
+# --- 4. writable overlay lives beside the rootfs, never in it ---
+mkdir -p /overlay
+OVER="$(find /dev/block -name "lrddata${SLOT}" 2>/dev/null | head -1)"
+if [ -n "$OVER" ]; then
+  mount -o rw "$OVER" /overlay && log "overlay from $OVER"
+else
+  mount -t tmpfs -o size=80% none /overlay && log "overlay is tmpfs — changes are lost on reboot"
+fi
+mkdir -p /overlay/upper /overlay/work
+
+mkdir -p /newroot
+mount -t overlay overlay \
+  -o "lowerdir=/lower,upperdir=/overlay/upper,workdir=/overlay/work" /newroot \
+  || mount -o bind /lower /newroot \
+  || fail "rootfs handover mount failed"
+
+# --- 5. hand over ---
+mkdir -p /newroot/dev /newroot/proc /newroot/sys /newroot/run
+for d in dev proc sys run; do mount --move "/$d" "/newroot/$d" 2>/dev/null; done
+mkdir -p /newroot/vendor /newroot/odm /newroot/product /newroot/vendor_dlkm /newroot/odm_dlkm
+for p in vendor odm product vendor_dlkm odm_dlkm; do
+  mountpoint -q "/$p" && mount --move "/$p" "/newroot/$p" 2>/dev/null
+done
+
+# record how we booted, so the shell can show it instead of guessing
+mkdir -p /newroot/run/lrd
+{
+  echo "slot=${SLOT:-none}"
+  echo "root=$ROOTDEV"
+  echo "overlay=${OVER:-tmpfs}"
+  echo "level=$LEVEL"
+  echo "persistent=$( [ -n "$OVER" ] && echo yes || echo no )"
+} > /newroot/run/lrd/boot.json
+
+if [ ! -x /newroot/sbin/init ] && [ ! -x /newroot/init ]; then
+  fail "no executable /sbin/init found in rootfs"
+fi
+
+INIT_BIN="/sbin/init"
+[ ! -x "/newroot$INIT_BIN" ] && [ -x "/newroot/init" ] && INIT_BIN="/init"
+
+log "switch_root to $INIT_BIN"
+exec switch_root /newroot "$INIT_BIN"

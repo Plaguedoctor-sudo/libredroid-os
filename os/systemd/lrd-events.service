@@ -1,0 +1,23 @@
+[Unit]
+Description=LibreDroid event hub
+After=network.target
+Before=cage.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/lrd/app
+EnvironmentFile=/etc/lrd/lrd.env
+ExecStart=/usr/bin/node /opt/lrd/app/os/termux/backends/watchers.js --serve
+ExecStopPost=/usr/local/bin/lrd-emit lifecycle '{"phase":"shutdown"}'
+Restart=always
+RestartSec=2
+WatchdogSec=30
+ProtectSystem=strict
+ReadOnlyPaths=/sys
+ProtectHome=read-only
+PrivateTmp=yes
+NoNewPrivileges=yes
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target

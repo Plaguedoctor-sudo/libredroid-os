@@ -1,0 +1,7 @@
+[Unit]
+Description=Daily LibreDroid automatic snapshot
+
+[Timer]
+OnCalendar=*-*-* 03:30
+RandomizedDelaySec=2h
+Persistent=true

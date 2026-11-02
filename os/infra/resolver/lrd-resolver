@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Decide ONE resolver stack. Running networkd and NM together is the usual cause
+# of "DNS works, then stops".
+set -Eeuo pipefail
+case "${1:-resolved}" in
+  resolved)
+    systemctl disable --now NetworkManager 2>/dev/null || true
+    systemctl enable --now systemd-networkd systemd-resolved 2>/dev/null || true
+    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf 2>/dev/null || true
+    mkdir -p /etc/systemd/resolved.conf.d 2>/dev/null || true
+    cat > /etc/systemd/resolved.conf.d/lrd.conf <<'EOF'
+[Resolve]
+DNS=1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net
+FallbackDNS=1.0.0.1
+DNSOverTLS=opportunistic
+DNSSEC=allow-downgrade
+Cache=yes
+CacheFromLocalhost=no
+# tor mode overrides this with the DNSPort
+EOF
+    ;;
+  networkmanager)
+    systemctl disable --now systemd-networkd systemd-resolved 2>/dev/null || true
+    systemctl enable --now NetworkManager 2>/dev/null || true
+    mkdir -p /etc/NetworkManager/conf.d 2>/dev/null || true
+    cat > /etc/NetworkManager/conf.d/lrd.conf <<'EOF'
+[main]
+dns=default
+[connection]
+connection.metered=auto
+[device]
+wifi.scan-rand-mac-address=yes
+EOF
+    ;;
+esac
+echo "resolver: ${1:-resolved} (the other stack is disabled)"

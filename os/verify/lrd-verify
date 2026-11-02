@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# lrd-verify — acceptance test. Proves the install works, on the device.
+# Prints LRD-VERIFY-BEGIN{json}LRD-VERIFY-END on the console for automated parsing.
+#
+#   verify [--quick] [--poweroff] [--json]
+set -uo pipefail
+OUT="${LRD_VERIFY_OUT:-/var/lib/lrd/verify.json}"
+CONSOLE=/dev/tty1
+LOG="${LRD_VERIFY_LOG:-/var/log/lrd/verify.log}"
+mkdir -p "$(dirname "$OUT")" "$(dirname "$LOG")" 2>/dev/null || true
+
+QUICK=0; POWEROFF=0; JSON=0
+for a in "$@"; do case "$a" in --quick) QUICK=1 ;; --poweroff) POWEROFF=1 ;; --json) JSON=1 ;; esac; done
+
+# cmdline can request the QEMU path
+grep -q 'lrd.verify=1' /proc/cmdline 2>/dev/null && QUICK=0
+grep -q 'lrd.poweroff=1' /proc/cmdline 2>/dev/null && POWEROFF=1
+
+if [ -w "$(dirname "$LOG")" ] 2>/dev/null; then
+  exec > >(tee -a "$LOG") 2>&1
+fi
+R=(); P=0; F=0; W=0
+
+t() { # id weight cmd
+  local id="$1" w="$2"; shift 2
+  local d out rc
+  out="$(bash -c "$*" 2>&1 | head -4)"; rc=$?
+  case "$rc" in
+    0) P=$((P+1)); st=pass ;;
+    3) W=$((W+1)); st=warn ;;
+    *) F=$((F+1)); st=fail ;;
+  esac
+  R+=("$(jq -nc --arg i "$id" --arg s "$st" --argjson w "$w" --arg d "$out" '{id:$i,status:$s,weight:$w,detail:$d}')")
+  [ "$JSON" = 0 ] && printf '  %-5s %-30s %s\n' "$st" "$id" "$(printf '%s' "$out" | head -1)"
+}
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+say() { [ "$JSON" = 0 ] && echo "$@"; }
+
+say
+say "╔══════════════════════════════════════════════════════════╗"
+say "║  LibreDroid acceptance test                              ║"
+say "╚══════════════════════════════════════════════════════════╝"
+say "  $(date -Is)   $(uname -n)   $(uname -r)"
+say
+
+say "BOOT"
+t boot.slot           8 "sed -n 's/.*androidboot.slot_suffix=_\\([ab]\\).*/\\1/p' /proc/cmdline | grep -q ."
+t boot.cmdline        6 "test -s /proc/cmdline"
+t boot.pstore         6 "test -d /sys/fs/pstore"
+t boot.recovery       8 "test -s /sbin/lrd-recovery"
+t boot.safe-target    8 "systemctl list-unit-files lrd-safe.target | grep -q lrd-safe"
+t boot.serial         6 "grep -q 'console=ttyS' /proc/cmdline || exit 3"
+
+say "INTEGRITY"
+t sec.verity-active  12 "jq -e '.active==true' /run/lrd/verity.state"
+t sec.verity-tier     8 "[ \"\$(jq -r '.tier // 0' /run/lrd/verity.state)\" -ge 2 ]"
+t sec.metadata-signed 10 "m=/store/verity/lrd-verity_\$(sed -n 's/.*slot_suffix=_\\([ab]\\).*/\\1/p' /proc/cmdline).json; openssl dgst -sha256 -verify /etc/lrd/keys/verity.pub.pem -signature \"\$m.sig\" \"\$m\""
+t sec.tcb-verified   10 "jq -e '.verified==true' /run/lrd/tcb.json"
+t sec.rollback-clean  8 "jq -e '.verdict==\"ok\"' /run/lrd/rollback.json"
+t sec.module-signed   8 "[ \"\$(cat /sys/module/module/parameters/sig_enforce 2>/dev/null)\" = Y ]"
+t sec.audit-score    10 "jq -e '.score>=70' /run/lrd/security-audit.json"
+
+say "SESSION"
+t ses.bus             8 "test -n \"\${DBUS_SESSION_BUS_ADDRESS:-}\" || test -S /run/user/*/bus"
+t ses.runtime         6 "test -d /run/lrd/session"
+t ses.compositor     12 "pgrep -x labwc"
+t ses.not-cage        8 "! pgrep -x cage"
+t ses.output         10 "wlr-randr --json 2>/dev/null | jq -e 'length>0'"
+
+say "SHELL"
+t shell.bridge       10 "curl -fsS --max-time 5 http://127.0.0.1:3001/healthz | jq -e .ok"
+t shell.chromium     12 "pgrep -f 'chromium.*3001'"
+t shell.loaded        8 "curl -fsS --max-time 5 http://127.0.0.1:3001/ | grep -qi '<div id=\"root\"'"
+t shell.api-version   6 "curl -fsS http://127.0.0.1:3001/api/version | jq -e '.api>=1'"
+
+say "INPUT"
+t in.touch            8 "grep -qi touchscreen /proc/bus/input/devices"
+t in.osk              8 "lrd-osk status 2>/dev/null | grep -qE 'mode: (wvkbd|squeekboard)'"
+t in.im               8 "pgrep -x fcitx5"
+t in.im-env           6 "grep -q GTK_IM_MODULE /etc/environment.d/70-lrd-input.conf"
+
+say "A11Y"
+t a11y.at-spi         8 "pgrep -f at-spi-bus-launcher"
+t a11y.orca           4 "command -v orca || exit 3"
+
+say "APPS"
+t apps.flatpak        8 "command -v flatpak"
+t apps.flatpak-run    8 "timeout 20 flatpak run --command=true org.freedesktop.Platform 2>/dev/null || command -v flatpak"
+t apps.registry       6 "test -s /var/lib/lrd/apps.json"
+t apps.wm             8 "timeout 10 lrd-wm list >/dev/null"
+
+say "FS"
+t fs.mount            6 "command -v lrd-mount"
+t fs.trash            6 "lrd-trash count >/dev/null"
+t fs.mime             6 "test -s /etc/xdg/mimeapps.list"
+t fs.portal-split    10 "grep -q 'FileChooser=gtk' /etc/xdg/xdg-desktop-portal/portals.conf"
+
+say "AUDIO"
+t audio.sink          8 "pactl list sinks short 2>/dev/null | grep -q ."
+t audio.wireplumber   6 "pgrep -x wireplumber"
+
+say "NET"
+t net.route           6 "ip route get 1.1.1.1 >/dev/null"
+t net.dns             8 "getent hosts deb.debian.org"
+t net.policy          6 "test -s /etc/lrd/net.policy"
+
+say "DESKTOP DOCTOR"
+if [ "$QUICK" = 0 ]; then
+  DOC="$(command -v lrd-doctor || echo "$HERE/../desktop/lrd-doctor")"
+  "$DOC" --full --quiet >/dev/null 2>&1
+  drc=$?
+  t doctor.full         12 "[ $drc -ne 2 ]"
+fi
+
+TOTAL=$((P+F+W))
+SCORE=$(( TOTAL ? (P*100 + W*40) / TOTAL : 0 ))
+VERDICT=broken
+[ "$SCORE" -ge 90 ] && [ "$F" -le 1 ] && VERDICT=working
+[ "$SCORE" -ge 70 ] && [ "$VERDICT" = broken ] && VERDICT=usable
+[ "$SCORE" -ge 45 ] && [ "$VERDICT" = broken ] && VERDICT=partial
+
+JSONOUT="$(printf '%s\n' "${R[@]}" | jq -s \
+  --argjson p "$P" --argjson f "$F" --argjson w "$W" --argjson s "$SCORE" \
+  --arg v "$VERDICT" --arg at "$(date -Is)" --arg host "$(uname -n)" --arg kver "$(uname -r)" \
+  --arg slot "$(sed -n 's/.*slot_suffix=_\([ab]\).*/\1/p' /proc/cmdline)" \
+  --arg ver "$(sed -n 's/^VERSION_ID="\(.*\)"/\1/p' /etc/os-release)" \
+  '{at:$at, host:$host, kernel:$kver, slot:$slot, version:$ver, verdict:$v, score:$s,
+    pass:$p, fail:$f, warn:$w, checks:., failures:[.[]|select(.status=="fail")]}')"
+if [ -d "$(dirname "$OUT")" ] && [ -w "$(dirname "$OUT")" ]; then
+  echo "$JSONOUT" > "$OUT" 2>/dev/null || true
+  chmod 644 "$OUT" 2>/dev/null || true
+fi
+
+[ "$JSON" = 0 ] && echo
+[ "$JSON" = 0 ] && printf '  pass %d  warn %d  fail %d  score %d  verdict %s\n' "$P" "$W" "$F" "$SCORE" "$VERDICT"
+if [ "$F" -gt 0 ] && [ "$JSON" = 0 ]; then
+  echo "  failures:"
+  printf '%s\n' "${R[@]}" | jq -r 'select(.status=="fail")|"    \(.id) — \(.detail|split("\n")[0])"'
+fi
+
+# machine-readable block on the console, so a QEMU or serial test can parse it
+[ -w /dev/tty1 ] 2>/dev/null && {
+  echo "LRD-VERIFY-BEGIN"
+  echo "$JSONOUT"
+  echo "LRD-VERIFY-END"
+} > /dev/tty1 2>/dev/null || true
+[ -w /dev/ttyS0 ] 2>/dev/null && { echo "LRD-VERIFY-BEGIN"; echo "$JSONOUT"; echo "LRD-VERIFY-END"; } > /dev/ttyS0 2>/dev/null || true
+
+[ -n "${LRD_VERIFY_HOOK:-}" ] && "$LRD_VERIFY_HOOK" "$OUT" 2>/dev/null || true
+[ "$POWEROFF" = 1 ] && { echo "powering off"; sync; systemctl poweroff -i 2>/dev/null || poweroff -f; }
+if [ "$JSON" = 1 ]; then
+  echo "$JSONOUT"
+else
+  # and on stdout so a serial capture gets it
+  echo "LRD-VERIFY-BEGIN"; echo "$JSONOUT"; echo "LRD-VERIFY-END"
+fi
+[ "$VERDICT" = broken ] && exit 1
+exit 0

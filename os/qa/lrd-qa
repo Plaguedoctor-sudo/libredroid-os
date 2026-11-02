@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# lrd-qa — run a battery of subsystem tests. Produces a comparable pass/fail report
+# so two devices, or two builds, can be compared honestly.
+set -uo pipefail
+OUT="${1:-/var/lib/lrd/qa-$(date +%Y%m%d-%H%M%S).json}"
+PASS=0; FAIL=0; SKIP=0; RESULTS=()
+
+t() { # name, command
+  local name="$1"; shift
+  local out rc
+  out="$("$@" 2>&1)"; rc=$?
+  if [ "$rc" = 0 ]; then PASS=$((PASS+1)); RESULTS+=("$(jq -nc --arg n "$name" --arg o "$out" '{test:$n,result:"pass",detail:$o}')")
+  elif [ "$rc" = 2 ]; then SKIP=$((SKIP+1)); RESULTS+=("$(jq -nc --arg n "$name" --arg o "$out" '{test:$n,result:"skip",detail:$o}')")
+  else FAIL=$((FAIL+1)); RESULTS+=("$(jq -nc --arg n "$name" --arg o "$out" '{test:$n,result:"fail",detail:$o}')")
+  fi
+  printf '  %-24s %s\n' "$name" "$([ "$rc" = 0 ] && echo pass || { [ "$rc" = 2 ] && echo skip || echo FAIL; })"
+}
+
+echo "lrd-qa — $(date -Is)"
+echo
+
+t "adaptation score"   sh -c '[ "$(jq -r .score /run/lrd/adapt.json 2>/dev/null || echo 0)" -ge 60 ]'
+t "bootloader control" lrd-bootcount --status
+t "display backend"    sh -c 'jq -e ".steps.display.ok==true" /run/lrd/adapt.json'
+t "compositor alive"   systemctl is-active cage.service
+t "shell responding"   sh -c 'curl -fsS --max-time 5 http://127.0.0.1:3001/healthz | jq -e .ok'
+t "bridge exec"        sh -c 'curl -fsS -XPOST http://127.0.0.1:3001/api/host/exec/sync -H "content-type: application/json" -d "{\"cmd\":\"echo ok\",\"pty\":false}" | jq -e .ok'
+t "touch input"        sh -c 'jq -e ".steps.input.ok==true" /run/lrd/adapt.json'
+t "audio sinks"        sh -c '[ "$(pactl list sinks short 2>/dev/null | wc -l)" -gt 0 ]'
+t "net egress"         sh -c 'curl -fsS --max-time 8 https://api.ipify.org'
+t "dns resolve"        sh -c 'getent hosts deb.debian.org'
+t "tor verified"       sh -c 'curl -fsS --max-time 30 --socks5-hostname 127.0.0.1:9050 https://check.torproject.org/api/ip | jq -e .IsTor'
+t "nft loaded"         sh -c 'nft list tables 2>/dev/null | grep -q .'
+t "cgroup v2"          sh -c 'grep -q cgroup2 /proc/mounts'
+t "landlock"           sh -c 'grep -qi landlock /proc/version'
+t "overlay writable"   sh -c '[ -w /overlay/upper ]'
+t "store mounted"      mountpoint -q /store
+t "snapshot tool"      lrd-snapshot status
+t "update tool"        lrd-update status
+t "safe mode reachable" sh -c 'systemctl list-unit-files lrd-safe.target | grep -q lrd-safe'
+t "battery readable"   sh -c '[ -r /sys/class/power_supply/battery/capacity ]'
+t "thermal readable"   sh -c 'ls /sys/class/thermal/thermal_zone* >/dev/null'
+t "sensors"            sh -c 'jq -e ".steps.sensors.ok==true" /run/lrd/adapt.json'
+t "camera HAL"         sh -c 'jq -e ".steps.camera.ok==true" /run/lrd/adapt.json'
+t "suspend works"      sh -c 'systemctl list-unit-files | grep -q suspend'
+t "journal clean"      sh -c '! journalctl -b -p err --no-pager 2>/dev/null | grep -qiE "lrd-|cage|chromium"'
+
+jq -nc --argjson pass "$PASS" --argjson fail "$FAIL" --argjson skip "$SKIP" \
+  --argjson results "$(printf '%s\n' "${RESULTS[@]}" | jq -s .)" \
+  --arg at "$(date -Is)" --arg host "$(uname -n)" --arg kver "$(uname -r)" \
+  --argjson adapt "$(cat /run/lrd/adapt.json 2>/dev/null || echo '{}')" \
+  '{at:$at, host:$host, kernel:$kver, pass:$pass, fail:$fail, skip:$skip,
+    score: (($pass / (($pass+$fail) | if . == 0 then 1 else . end)) * 100 | floor),
+    results:$results, adaptation:{level:$adapt.level, score:$adapt.score, blockers:$adapt.blockers}}' > "$OUT"
+
+echo
+echo "  pass $PASS  fail $FAIL  skip $SKIP"
+echo "  written $OUT"
+[ "$FAIL" -eq 0 ]

@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# lrd-pkg — the OS's package front end. Wraps apt with the repo pinned and
+# an install transaction so a bad package cannot wedge the boot.
+set -uo pipefail
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+case "${1:-help}" in
+setup)
+  install -d /etc/apt/keyrings
+  curl -fsSL "${LRD_REPO_URL:-file:///var/lib/lrd/repo}/keys/lrd-archive-key.asc" \
+    -o /etc/apt/keyrings/lrd.asc
+  echo "deb [signed-by=/etc/apt/keyrings/lrd.asc] ${LRD_REPO_URL:-file:///var/lib/lrd/repo} lrd main" \
+    > /etc/apt/sources.list.d/lrd.list
+  apt-get update -qq
+  ;;
+install)
+  shift
+  say "snapshotting before install"
+  lrd-adapt-txn begin "lrd-pkg install $*"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y "$@" && lrd-adapt-txn commit || {
+    say "install failed — rolling back"
+    lrd-adapt-txn rollback
+    exit 1
+  }
+  ;;
+remove) shift; DEBIAN_FRONTEND=noninteractive apt-get remove -y "$@" ;;
+search) shift; apt-cache search "$@" ;;
+show)   shift; apt-cache show "$@" | head -30 ;;
+list)   dpkg -l | awk '/^ii/ && $2 ~ /^lrd-/ {printf "%-32s %s\n",$2,$3}' ;;
+*) cat <<EOF
+usage: lrd-pkg {setup|install <pkg...>|remove <pkg...>|search <q>|show <pkg>|list}
+EOF
+;;
+esac

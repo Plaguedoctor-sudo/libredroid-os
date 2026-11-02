@@ -1,0 +1,6 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+. "$HOME/.lrd/etc/lrd.env"
+cd "$LRD_HOME/app"
+echo "[lrd] start $(date -Is)"
+exec node "$LRD_HOME/app/server.js"

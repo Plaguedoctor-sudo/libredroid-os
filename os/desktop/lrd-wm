@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# lrd-wm — compositor control. The shell drives native apps through this.
+#
+#   list | launch <id> [args] | focus <id> | close <id> | cycle [back]
+#   shell | terminal | fullscreen | next-output | watch
+#
+# Uses wlrctl (foreign-toplevel-management) where available, gio/gtk-launch for
+# launching, and a fallback that still works without wlrctl.
+set -uo pipefail
+RUNTIME="${XDG_RUNTIME_DIR:-/run/lrd/session}"
+export XDG_RUNTIME_DIR="$RUNTIME"
+[ -f /run/lrd/session.env ] && . /run/lrd/session.env
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}"
+REG=/var/lib/lrd/apps.json
+STATE=/run/lrd/wm
+mkdir -p "$STATE"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+# ---------- resolution: id -> command ----------
+resolve() {
+  local id="$1"
+  # flatpak
+  if have flatpak && flatpak info "$id" >/dev/null 2>&1; then echo "flatpak run $id"; return; fi
+  # waydroid
+  case "$id" in waydroid.*|android.*) echo "waydroid app launch ${id#*.}"; return ;; esac
+  # desktop file in the registry
+  if [ -f "$REG" ]; then
+    local ex
+    ex="$(jq -r --arg id "$id" '.apps[]|select(.id==$id)|.exec' "$REG" 2>/dev/null | head -1)"
+    [ -n "$ex" ] && [ "$ex" != null ] && { echo "$ex"; return; }
+  fi
+  # a bare command
+  have "$id" && { echo "$id"; return; }
+  echo ""
+}
+
+# ---------- launch ----------
+do_launch() {
+  local id="$1"; shift || true
+  local cmd; cmd="$(resolve "$id")"
+  [ -n "$cmd" ] || { echo "cannot resolve '$id'"; return 1; }
+  say "launch $id -> $cmd"
+  # a transient scope so the app is tracked and killable as a unit
+  if have systemd-run; then
+    systemd-run --user --scope --collect --quiet \
+      -u "lrd-app-$(echo "$id" | tr -c 'a-zA-Z0-9' '-' | cut -c1-40).scope" \
+      $cmd "$@" >/dev/null 2>&1 &
+  else
+    sh -c "$cmd \"\$@\"" _ "$@" >/dev/null 2>&1 &
+  fi
+  # let it map, then focus it
+  for _ in $(seq 1 40); do
+    sleep 0.25
+    if have wlrctl && wlrctl toplevel list 2>/dev/null | grep -qi "$(echo "$id" | cut -d. -f1)"; then
+      have wlrctl && wlrctl toplevel focus "app_id:$(echo "$id" | cut -d. -f1)" 2>/dev/null || true
+      break
+    fi
+  done
+  printf '%s\n' "$id" >> "$STATE/launched"
+  echo "$id" > "$STATE/last"
+}
+
+# ---------- focus / cycle ----------
+tl() { have wlrctl && wlrctl toplevel list 2>/dev/null | awk -F': ' '/app_id/{print $2}'; }
+
+do_focus() {
+  local id="$1"
+  have wlrctl || { say "no wlrctl — focus via keybinding only"; return 1; }
+  wlrctl toplevel focus "app_id:$id" 2>/dev/null || wlrctl toplevel focus "title:$id" 2>/dev/null
+}
+
+do_cycle() {
+  local dir="${1:-fwd}"
+  have wlrctl || return 1
+  mapfile -t ids < <(tl | sort -u)
+  [ "${#ids[@]}" -lt 2 ] && return 0
+  local cur; cur="$(cat "$STATE/focus" 2>/dev/null || echo '')"
+  local idx=0
+  for i in "${!ids[@]}"; do [ "${ids[$i]}" = "$cur" ] && idx=$i; done
+  local n
+  if [ "$dir" = back ]; then n=$(( (idx - 1 + ${#ids[@]}) % ${#ids[@]} )); else n=$(( (idx + 1) % ${#ids[@]} )); fi
+  echo "${ids[$n]}" > "$STATE/focus"
+  wlrctl toplevel focus "app_id:${ids[$n]}" 2>/dev/null
+}
+
+do_shell() {
+  # the shell is a chromium window; focus it and tell the bridge to un-background
+  have wlrctl && wlrctl toplevel focus "app_id:chromium" 2>/dev/null || \
+    have wlrctl && wlrctl toplevel focus "title:libredroid" 2>/dev/null
+  curl -fsS -XPOST http://127.0.0.1:3001/api/wm/event \
+    -H 'content-type: application/json' -d '{"event":"shell-focused"}' >/dev/null 2>&1 || true
+}
+
+case "${1:-list}" in
+list)
+  if have wlrctl; then
+    wlrctl toplevel list 2>/dev/null | while IFS= read -r l; do
+      printf '{"line":%s}\n' "$(printf '%s' "$l" | jq -Rs .)"
+    done | jq -s .
+  else
+    echo '{"note":"wlrctl missing","launched":'"$(jq -Rs . < "$STATE/launched" 2>/dev/null || echo '""')"'}'
+  fi
+  ;;
+launch) shift; do_launch "$@" ;;
+focus)  do_focus "${2:?id}" ;;
+close)
+  have wlrctl && wlrctl toplevel close "app_id:${2:?id}" 2>/dev/null
+  ;;
+cycle)  do_cycle "${2:-fwd}" ;;
+shell)  do_shell ;;
+terminal) do_launch lrd-terminal.desktop ;;
+fullscreen)
+  have wlrctl && wlrctl toplevel fullscreen "app_id:${2:-chromium}" 2>/dev/null
+  ;;
+next-output)
+  have wlr-randr && {
+    mapfile -t outs < <(wlr-randr --json 2>/dev/null | jq -r '.[].name')
+    [ "${#outs[@]}" -gt 1 ] && say "outputs: ${outs[*]}"
+  }
+  ;;
+watch)
+  # report toplevel changes to the bridge so the shell knows when an app exits
+  last=""
+  while :; do
+    cur="$(tl 2>/dev/null | sort | tr '\n' ' ')"
+    if [ "$cur" != "$last" ]; then
+      last="$cur"
+      curl -fsS -XPOST http://127.0.0.1:3001/api/wm/event \
+        -H 'content-type: application/json' \
+        -d "$(jq -nc --arg t "$cur" '{event:"toplevels",toplevels:($t|split(" ")|map(select(length>0)))}')" \
+        >/dev/null 2>&1 || true
+    fi
+    sleep 1
+  done
+  ;;
+*) echo "usage: lrd-wm {list|launch <id>|focus <id>|close <id>|cycle [back]|shell|terminal|fullscreen [id]|next-output|watch}"; exit 2 ;;
+esac

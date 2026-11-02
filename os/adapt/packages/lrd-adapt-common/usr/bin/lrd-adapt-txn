@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# lrd-adapt-txn — atomic adaptation changes.
+#   begin [reason]   snapshot the confs, record the baseline score
+#   commit           after N good boots, drop the snapshot
+#   rollback         restore the snapshot
+#   check            called from validate on every boot
+#   list / show      history
+set -uo pipefail
+ROOT=/var/lib/lrd/txn
+SNAP="$ROOT/current"
+BASE="$ROOT/baseline.json"
+HIST="$ROOT/history.log"
+KEEP=5
+GOOD_BOOTS_REQUIRED=2
+REVERT_MARGIN=5          # score drop that triggers an auto-revert
+
+PATHS=(
+  /etc/lrd/display.conf /etc/lrd/display.variants /etc/lrd/hybris.conf
+  /etc/lrd/audio.conf /etc/lrd/ril.conf /etc/lrd/modules-load.lrd
+  /etc/lrd/camera.conf /etc/lrd/sensors.conf
+  /etc/environment.d
+  /etc/pulse/default.pa
+  /etc/ofono/ril_subscription.conf
+  /etc/systemd/system/cage.service.d
+  /etc/systemd/system/pulseaudio.service.d
+  /etc/systemd/system/ofono.service.d
+  /etc/udev/rules.d/7*-lrd-*.rules
+)
+mkdir -p "$ROOT"
+log() { echo "[txn] $*"; logger -t lrd-txn "$*" 2>/dev/null || true; }
+
+snapshot() {
+  rm -rf "$SNAP"; mkdir -p "$SNAP"
+  local manifest="$SNAP/MANIFEST"
+  : > "$manifest"
+  for p in "${PATHS[@]}"; do
+    [ -e "$p" ] || continue
+    local rel="${p#/}"
+    mkdir -p "$SNAP/$(dirname "$rel")"
+    cp -a "$p" "$SNAP/$rel" 2>/dev/null || true
+    if [ -f "$p" ]; then
+      printf '%s  %s\n' "$(sha256sum "$p" | cut -d' ' -f1)" "$p" >> "$manifest"
+    elif [ -d "$p" ]; then
+      find "$p" -type f -exec sha256sum {} \; 2>/dev/null | sort -k2 >> "$manifest"
+    fi
+  done
+  sort -k2 -o "$manifest" "$manifest"
+}
+
+score_now() { jq -r '.score // 0' /run/lrd/adapt.json 2>/dev/null || echo 0; }
+
+case "${1:-}" in
+
+begin)
+  reason="${2:-manual}"
+  [ -f "$BASE" ] && { log "a transaction is already open"; exit 1; }
+  snapshot
+  jq -nc --arg r "$reason" --argjson s "$(score_now)" --arg t "$(date -Is)" \
+    '{reason:$r, baselineScore:$s, at:$t, goodBoots:0}' > "$BASE"
+  echo "$(date -Is) begin $reason baseline=$(score_now)" >> "$HIST"
+  log "transaction open: $reason baseline=$(score_now)"
+  ;;
+
+check)
+  # runs on every boot. if the score regressed, revert without asking.
+  [ -f "$BASE" ] || exit 0
+  base="$(jq -r '.baselineScore' "$BASE")"
+  now="$(score_now)"
+  level="$(jq -r '.level // "unsupported"' /run/lrd/adapt.json 2>/dev/null || echo unsupported)"
+  reason="$(jq -r '.reason' "$BASE")"
+
+  if [ "$now" -lt $(( base - REVERT_MARGIN )) ] || [ "$level" = unsupported ]; then
+    log "REGRESSION: score $base -> $now (level $level) after '$reason'"
+    echo "$(date -Is) auto-revert score $base->$now reason=$reason" >> "$HIST"
+    "$0" rollback
+    touch /var/lib/lrd/force-safe
+    # surface it on the panel
+    /usr/bin/lrd-adapt-report > /run/lrd/revert.txt 2>&1 || true
+    exit 0
+  fi
+
+  good="$(jq -r '.goodBoots' "$BASE")"; good=$((good+1))
+  jq --argjson g "$good" '.goodBoots=$g' "$BASE" > "$BASE.t" && mv "$BASE.t" "$BASE"
+  log "good boot $good/$GOOD_BOOTS_REQUIRED (score $now vs baseline $base)"
+  if [ "$good" -ge "$GOOD_BOOTS_REQUIRED" ]; then
+    echo "$(date -Is) commit $reason score=$now" >> "$HIST"
+    rm -f "$BASE"
+    log "committed after $good good boots"
+    ls -1dt "$ROOT"/snap-* 2>/dev/null | tail -n +$((KEEP+1)) | xargs -r rm -rf
+    mv "$SNAP" "$ROOT/snap-$(date +%s)" 2>/dev/null || true
+  fi
+  ;;
+
+rollback)
+  [ -d "$SNAP" ] || { log "no snapshot to roll back to"; exit 1; }
+  for p in "${PATHS[@]}"; do
+    [ -e "$p" ] || continue
+    rel="${p#/}"
+    [ -e "$SNAP/$rel" ] || continue
+    rm -rf "$p"
+    mkdir -p "$(dirname "$p")"
+    cp -a "$SNAP/$rel" "$p"
+  done
+  rm -f "$BASE"
+  systemctl daemon-reload 2>/dev/null || true
+  log "rolled back. re-applying."
+  /usr/lib/lrd/adapt/validate >/dev/null 2>&1 || true
+  ;;
+
+commit) rm -f "$BASE"; mv "$SNAP" "$ROOT/snap-$(date +%s)" 2>/dev/null || true; log committed ;;
+
+list)   cat "$HIST" 2>/dev/null || echo "no history" ;;
+show)
+  [ -f "$BASE" ] && { echo "open transaction:"; jq . "$BASE"; echo; }
+  echo "changed files vs snapshot:"
+  if [ -f "$SNAP/MANIFEST" ]; then
+    while read -r sum path; do
+      [ -f "$path" ] || { echo "  deleted  $path"; continue; }
+      cur="$(sha256sum "$path" | cut -d' ' -f1)"
+      [ "$cur" != "$sum" ] && echo "  modified $path"
+    done < "$SNAP/MANIFEST"
+  else echo "  (no snapshot)"; fi
+  ;;
+*) echo "usage: lrd-adapt-txn {begin [reason]|commit|rollback|check|list|show}"; exit 2 ;;
+esac

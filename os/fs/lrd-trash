@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# lrd-trash — the freedesktop trash spec. Without this, delete is permanent.
+set -Eeuo pipefail
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+trash_dir() {
+  # per-filesystem trash when possible, so a restore is a rename
+  local f="$1" mp
+  mp="$(df -P "$f" 2>/dev/null | awk 'NR==2{print $6}' || echo /)"
+  case "$mp" in
+    /|/home) echo "${XDG_DATA_HOME:-$HOME/.local/share}/Trash" ;;
+    /store|/data) echo "$mp/.Trash-$(id -u)" ;;
+    *) echo "$mp/.Trash-$(id -u)" ;;
+  esac
+}
+
+ensure() {
+  local d="$1"
+  mkdir -p "$d/files" "$d/info"
+  [ -f "$d/directory" ] || echo "$d" > "$d/directory"
+}
+
+info_file() { # dir path -> info path
+  local d="$1" f="$2"
+  printf '%s/info/%s.trashinfo' "$d" "$(basename "$f").$(date +%s).$$"
+}
+
+do_trash() {
+  local f="$1"
+  [ -e "$f" ] || { echo "no such path"; exit 1; }
+  local abs; abs="$(realpath "$f")"
+  local d; d="$(trash_dir "$abs")"
+  ensure "$d"
+  local dst="$d/files/$(basename "$abs")"
+  # name collision
+  local i=1
+  while [ -e "$dst" ]; do dst="$d/files/$(basename "$abs").$i"; i=$((i+1)); done
+  local info; info="$(info_file "$d" "$abs")"
+  printf '[Trash Info]\nPath=%s\nDeletionDate=%s\n' \
+    "$(printf '%s' "$abs" | sed 's/ /%20/g')" "$(date +%Y-%m-%dT%H:%M:%S)" > "$info"
+  mv -- "$abs" "$dst" 2>/dev/null || { rm -rf -- "$abs"; cp -a -- "$dst" "$dst.tmp" 2>/dev/null || true; }
+  say "trashed $(basename "$abs")"
+}
+
+do_list() {
+  for d in "${XDG_DATA_HOME:-$HOME/.local/share}/Trash" /store/.Trash-* /data/.Trash-*; do
+    [ -d "$d/info" ] || continue
+    for i in "$d"/info/*.trashinfo; do
+      [ -f "$i" ] || continue
+      local p date name
+      p="$(sed -n 's/^Path=//p' "$i" | sed 's/%20/ /g')"
+      date="$(sed -n 's/^DeletionDate=//p' "$i")"
+      name="$(basename "$i" .trashinfo)"
+      jq -nc --arg n "$name" --arg p "$p" --arg d "$date" --arg t "$d" \
+        '{name:$n,original:$p,deleted:$d,trash:$t}'
+    done
+  done
+}
+
+do_restore() {
+  local name="$1"
+  for d in "${XDG_DATA_HOME:-$HOME/.local/share}/Trash" /store/.Trash-* /data/.Trash-*; do
+    local i="$d/info/$name.trashinfo"
+    [ -f "$i" ] || continue
+    local p; p="$(sed -n 's/^Path=//p' "$i" | sed 's/%20/ /g')"
+    mkdir -p "$(dirname "$p")"
+    mv -- "$d/files/$name" "$p" && rm -f "$i" && { say "restored $p"; return 0; }
+  done
+  echo "no such trashed item"
+  return 1
+}
+
+case "${1:-list}" in
+  put)     shift; for f in "$@"; do do_trash "$f"; done ;;
+  list)    do_list 2>/dev/null | jq -s . 2>/dev/null || echo "[]" ;;
+  restore) do_restore "${2:?name}" ;;
+  empty)   for d in "${XDG_DATA_HOME:-$HOME/.local/share}/Trash" /store/.Trash-* /data/.Trash-*; do
+             [ -d "$d" ] && { rm -rf "$d/files"/* "$d/info"/* 2>/dev/null; say "emptied $d"; }; done ;;
+  count)   do_list 2>/dev/null | wc -l ;;
+  *) echo "usage: lrd-trash {put <path...>|list|restore <name>|empty|count}"; exit 2 ;;
+esac

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# lrd-lock — lock the session. Uses the shell's own UI when it is up, PAM underneath.
+set -uo pipefail
+
+# 1. Shell API lock
+if curl -fsS --max-time 1 http://127.0.0.1:3001/api/system/lock >/dev/null 2>&1; then
+  exit 0
+fi
+
+# 2. Lock socket
+if [ -S /run/lrd/lock.sock ]; then
+  # the shell is running and owns the lock UI
+  printf 'lock\n' | socat - UNIX-CONNECT:/run/lrd/lock.sock 2>/dev/null && exit 0
+fi
+
+# 3. Fallback: kill the compositor and go through greetd
+systemctl stop cage.service 2>/dev/null || true
+systemctl restart greetd.service 2>/dev/null || true

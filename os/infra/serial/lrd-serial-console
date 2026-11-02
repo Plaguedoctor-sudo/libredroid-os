@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Essential for ARM bringup. Some devices expose a UART on a pad or a USB-C mux.
+set -Eeuo pipefail
+port="${1:-ttyS0}"
+mkdir -p "/etc/systemd/system/serial-getty@${port}.service.d" 2>/dev/null || true
+cat > "/etc/systemd/system/serial-getty@${port}.service.d/10-lrd.conf" <<EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --keep-baud 115200,38400,9600 %I \$TERM
+EOF
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable --now "serial-getty@${port}.service" 2>/dev/null || true
+echo "serial console on $port @115200"
+echo "add to the cmdline: console=${port},115200 console=tty0"

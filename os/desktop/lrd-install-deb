@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Install a .deb from the shell. Uses lrd-adapt-txn so a bad package rolls back.
+set -Eeuo pipefail
+f="${1:?path to .deb}"
+[ -f "$f" ] || { echo "no such file"; exit 1; }
+pkg="$(dpkg-deb -f "$f" Package 2>/dev/null || basename "$f" .deb)"
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+say "installing $pkg (snapshot first)"
+lrd-adapt-txn begin "deb install $pkg" 2>/dev/null || true
+if dpkg -i "$f" 2>/dev/null || apt-get -fy install 2>/dev/null; then
+  lrd-adapt-txn commit 2>/dev/null || true
+  lrd-tcb-manifest seal >/dev/null 2>&1 || true
+  lrd-tcb-manifest sign >/dev/null 2>&1 || true
+  lrd-apps-registry >/dev/null 2>&1 || true
+  say "$pkg installed"
+else
+  say "failed — rolling back"
+  lrd-adapt-txn rollback 2>/dev/null || true
+  exit 1
+fi

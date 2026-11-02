@@ -6,7 +6,7 @@ import { OsDomainId } from '../services/multiOsHypervisor';
 interface WindowContextType {
   windows: WindowInstance[];
   activeWindowId: string | null;
-  openApp: (appId: AppId, title?: string, domain?: OsDomainId) => void;
+  openApp: (appId: AppId, title?: string, domain?: OsDomainId, params?: Record<string, unknown>) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
   maximizeWindow: (id: string) => void;
@@ -49,9 +49,17 @@ const APP_TITLES: Record<string, string> = {
   messages: 'Messages & SMS',
   universal_ai: 'Universal AI Sovereign Assistant',
   chats: 'Sovereign Chats (Matrix / Briar E2EE)',
+  task_manager: 'Task Manager & Process Activity',
+  keystore: 'Sovereign Vault & Keyring',
+  audio_mixer: 'Sound & Audio Subsystem',
+  network_5g: '5G Adaptor & Network Simulator',
 };
 
 const DEFAULT_APP_DOMAINS: Record<string, OsDomainId> = {
+  task_manager: 'workstation-debian',
+  keystore: 'vault-airgap',
+  audio_mixer: 'workstation-debian',
+  network_5g: 'vault-airgap',
   universal_ai: 'vault-airgap',
   chats: 'anonymity-whonix',
   browser: 'anonymity-whonix',
@@ -87,7 +95,12 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const activeWindow = windows.find((w) => w.id === activeWindowId);
   const activeAppId = activeWindow && !activeWindow.isMinimized ? activeWindow.appId : null;
 
-  const openApp = (appId: AppId, customTitle?: string, domain?: OsDomainId) => {
+  const openApp = (
+    appId: AppId,
+    customTitle?: string,
+    domain?: OsDomainId,
+    params?: Record<string, unknown>,
+  ) => {
     setIsRecentsOpen(false);
     setIsAppDrawerOpen(false);
 
@@ -101,7 +114,15 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setWindows((prev) =>
         prev.map((w) =>
           w.id === existing.id
-            ? { ...w, isMinimized: false, zIndex: nextZ + 1, osDomain: targetDomain }
+            ? {
+                ...w,
+                isMinimized: false,
+                zIndex: nextZ + 1,
+                osDomain: targetDomain,
+                // merge so a re-target keeps prior context
+                params: params ? { ...(w.params ?? {}), ...params } : w.params,
+                paramSeq: params ? (w.paramSeq ?? 0) + 1 : w.paramSeq,
+              }
             : w
         )
       );
@@ -131,6 +152,8 @@ export const WindowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       size: { width: initialWidth, height: initialHeight },
       osDomain: targetDomain,
       isStreamingDomain: isStreamApp,
+      params,
+      paramSeq: params ? 1 : 0,
     };
 
     setNextZ((z) => z + 1);

@@ -1,0 +1,63 @@
+# id	category	weight	mode	needs	check	fix	hint
+session.bus	session	10	gate	-	"test -n \"${DBUS_SESSION_BUS_ADDRESS:-}\" || test -S /run/user/$(id -u)/bus"	"lrd-migrate-cage-labwc run"	no session bus: portals, IM, a11y and notifications all silently die
+session.runtime-dir	session	8	gate	-	test -d /run/lrd/session	"mkdir -p /run/lrd/session && chmod 700 /run/lrd/session"	XDG_RUNTIME_DIR missing
+session.env-file	session	6	full	-	test -s /run/lrd/session.env	"lrd-session"	no session env, so the bridge cannot reach the session
+session.systemd-user	session	6	full	-	systemctl --user is-system-running >/dev/null 2>&1	"systemctl --user daemon-reload"	systemd --user not reachable
+compositor.running	compositor	15	gate	session.bus	pgrep -x labwc	"systemctl restart labwc.service"	no compositor: nothing renders
+compositor.not-cage	compositor	10	gate	-	! pgrep -x cage	"lrd-migrate-cage-labwc run"	cage is a single-client compositor; OSK and portals cannot work
+compositor.output	compositor	12	gate	compositor.running	"wlr-randr --json 2>/dev/null | jq -e 'length>0'"	"lrd-display-set drm-atomic"	no connected output
+compositor.toplevels	compositor	8	gate	compositor.running	"wlrctl toplevel list 2>/dev/null | grep -q ."	"lrd-wm shell"	compositor up but no surfaces
+compositor.wlrctl	compositor	6	full	-	command -v wlrctl	"apt install wlrctl"	no toplevel control, so app switching is manual
+shell.running	shell	15	gate	compositor.running	"pgrep -f 'chromium.*127.0.0.1:3001'"	"lrd-shell-launch"	the shell is not running
+shell.bridge	shell	12	gate	-	curl -fsS --max-time 5 http://127.0.0.1:3001/healthz	"systemctl restart lrd-bridge.service"	bridge down, shell has nothing to talk to
+shell.api-version	shell	8	full	shell.bridge	"curl -fsS http://127.0.0.1:3001/api/version | jq -e '.api>=1'"	"rebuild the shell and bridge together"	shell and bridge out of step
+shell.kiosk-flag	shell	6	full	shell.running	"pgrep -f 'kiosk=1' >/dev/null"	"lrd-shell-launch"	shell started without the kiosk flag
+desktop.overlay-root	desktop	8	full	shell.running	"sh -c 'test -n \"\$(ls -A /var/lib/lrd/chromium/Default 2>/dev/null)\" || exit 3; dom=\$(curl -fsS http://127.0.0.1:3001/api/shell/dom-check) || exit 1; ! printf \"%s\" \"\$dom\" | grep -q \"dock icon blocked\" || { echo \"FAIL: dock unreachable\"; exit 1; }; ! printf \"%s\" \"\$dom\" | grep -q \"hit-testable\" || { echo \"FAIL: overlay blocks input\"; exit 1; }; echo \"\$dom\" | jq -e \".overlayRootIsBodyChild and .dockMarkerPresent and .noOverlap and .noClipping\"'"	""	overlays clear chrome without clipping or blocking dock
+portal.core	portal	15	gate	session.bus	pgrep -x xdg-desktop-portal	"systemctl --user restart xdg-desktop-portal"	no portal: flatpak apps have no file access at all
+portal.gtk	portal	15	gate	session.bus	pgrep -x xdg-desktop-portal-gtk	"systemctl --user restart xdg-desktop-portal-gtk"	the FileChooser backend is missing
+portal.wlr	portal	10	gate	session.bus	pgrep -x xdg-desktop-portal-wlr	"systemctl --user restart xdg-desktop-portal-wlr"	no screenshot or screencast
+portal.split-files	portal	12	gate	-	"grep -q 'FileChooser=gtk' /etc/xdg/xdg-desktop-portal/portals.conf"	"lrd-migrate-cage-labwc run"	WRONG: -wlr does not implement FileChooser. Every picker fails silently
+portal.split-cast	portal	10	gate	-	"grep -q 'ScreenCast=wlr' /etc/xdg/xdg-desktop-portal/portals.conf"	"lrd-migrate-cage-labwc run"	WRONG: -gtk cannot screencast on wlroots
+portal.pickable	portal	10	full	portal.gtk	"test -x /usr/libexec/xdg-desktop-portal-gtk -o -x /usr/lib/xdg-desktop-portal-gtk"	"apt install xdg-desktop-portal-gtk"	gtk backend not installed
+input.touch	input	10	gate	-	"grep -qi touchscreen /proc/bus/input/devices"	"lrd-adapt-apply"	no touchscreen: the device is unusable on a phone
+input.osk-binary	input	10	full	input.touch	"command -v wvkbd-mobintl || command -v squeekboard"	"apt install wvkbd"	no on-screen keyboard
+input.osk-running	input	12	gate	input.osk-binary	"lrd-osk status 2>/dev/null | grep -qE 'mode: (wvkbd|squeekboard)'"	"lrd-osk restart"	OSK installed but not running
+input.osk-coexists	input	8	full	input.osk-running input.im-running	"lrd-osk status | grep -q wvkbd"	"lrd-osk restart"	use wvkbd with fcitx5: it uses virtual-keyboard-v1 and does not fight input-method-v2
+input.im-running	input	12	gate	-	pgrep -x fcitx5	"lrd-im start"	fcitx5 not running: CJK untypable
+input.im-env	input	8	full	-	"grep -q 'GTK_IM_MODULE=fcitx' /etc/environment.d/70-lrd-input.conf"	"lrd-im setup"	toolkits will not use the input method
+input.im-wayland	input	6	full	input.im-running	"pgrep -af fcitx5 | grep -q -- '--enable wayland'"	"lrd-im start"	fcitx5 without the wayland frontend only serves XWayland apps
+input.hw-keyboard	input	4	full	-	"grep -qi 'AT Translated' /proc/bus/input/devices || true"	""	hardware keyboard present
+a11y.at-spi	a11y	12	gate	-	"pgrep -f at-spi-bus-launcher"	"lrd-a11y reader on"	no AT-SPI bus: no screen reader anywhere
+a11y.orca-available	a11y	8	full	-	command -v orca	"apt install orca"	screen reader not installed
+a11y.speech	a11y	8	full	-	command -v speech-dispatcher	"apt install speech-dispatcher espeak-ng"	no speech backend
+a11y.shell-tree	a11y	8	full	shell.running	"pgrep -x chromium >/dev/null"	""	the shell is HTML, so Chromium exposes a full a11y tree for free
+a11y.magnifier	a11y	6	full	-	command -v wl-mirror	"apt install wl-mirror"	no magnifier for native apps
+a11y.contrast	a11y	4	full	-	"test -s /etc/environment.d/72-lrd-contrast.conf"	"lrd-a11y contrast on"	high contrast theme not wired
+apps.flatpak	apps	12	full	-	command -v flatpak	"lrd-flatpak setup"	no sandboxed app runtime
+apps.flatpak-userns	apps	10	full	-	"test \"$(cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || echo 1)\" = 1"	"rebuild the kernel with CONFIG_USER_NS"	flatpak is built on bubblewrap and needs user namespaces
+apps.flatpak-remote	apps	6	full	apps.flatpak	"flatpak remotes 2>/dev/null | grep -q flathub"	"lrd-flatpak setup"	no remote configured
+apps.registry	apps	8	full	-	"test -s /var/lib/lrd/apps.json"	"lrd-apps-registry"	the shell's app catalog is empty
+apps.wm	apps	10	full	-	command -v lrd-wm	"lrd-migrate-cage-labwc run"	cannot launch native apps
+apps.launcher-works	apps	10	full	apps.wm	"timeout 12 lrd-wm list >/dev/null 2>&1"	"systemctl restart labwc.service"	the toplevel controller is broken
+fs.mount	fs	10	full	-	command -v lrd-mount	"lrd-migrate-cage-labwc run"	cannot mount removable media
+fs.udisks	fs	10	full	-	command -v udisksctl	"apt install udisks2"	no automount
+fs.polkit-mount	fs	8	full	-	"test -s /etc/polkit-1/rules.d/50-lrd-storage.rules"	"lrd-migrate-cage-labwc run"	mounting will prompt for a password
+fs.trash	fs	8	full	-	command -v lrd-trash	"lrd-migrate-cage-labwc run"	delete is permanent
+fs.gvfs	fs	10	full	-	pgrep -x gvfsd	"lrd-gvfs"	phones and network shares invisible
+fs.gvfs-mtp	fs	6	full	-	"test -d /usr/lib/*/gvfs"	"apt install gvfs-backends"	no MTP support
+fs.exfat	fs	4	full	-	"command -v mount.exfat || command -v mount.exfat-fuse"	"apt install exfatprogs"	exfat sticks unreadable
+fs.mime-registered	fs	8	full	-	"test -s /etc/xdg/mimeapps.list"	"lrd-migrate-cage-labwc run"	open-with does nothing
+audio.pipewire	audio	10	full	-	pgrep -x pipewire	"systemctl --user restart pipewire"	no audio server
+audio.wireplumber	audio	8	full	-	pgrep -x wireplumber	"systemctl --user restart wireplumber"	no session policy
+audio.sink	audio	12	full	audio.pipewire	"pactl list sinks short 2>/dev/null | grep -q ."	"lrd-adapt-apply"	no output device
+audio.rtkit	audio	6	full	-	systemctl is-active rtkit-daemon	"apt install rtkit && systemctl enable --now rtkit-daemon"	audio will xrun under load
+net.online	net	10	full	-	"curl -fsS --max-time 6 https://api.ipify.org >/dev/null || ip route get 1.1.1.1 >/dev/null"	"lrd-netd wifi"	no connectivity
+net.policy	net	8	full	-	"test -s /etc/lrd/net.policy"	"lrd-netd set-policy direct"	egress policy undefined
+net.resolver	net	8	full	-	"getent hosts deb.debian.org >/dev/null"	"lrd-resolver"	DNS broken
+notify.daemon	notify	8	full	-	pgrep -x mako	"systemctl --user restart mako"	no notifications for non-shell apps
+notify.polkit-agent	notify	10	full	-	"pgrep -f polkit.*agent"	"lxpolkit &"	no privilege prompt: apps cannot escalate
+sec.audit	sec	10	full	-	"jq -e '.score>=75' /run/lrd/security-audit.json"	"lrd-security-audit --fix"	security audit below 75
+sec.tcb	sec	10	full	-	"jq -e '.verified==true' /run/lrd/tcb.json"	"lrd-tcb-manifest verify"	TCB manifest mismatch
+sec.verity	sec	10	full	-	"jq -e '.active==true' /run/lrd/verity.state"	"lrd-verity status"	rootfs not verity-protected
+sec.apparmor	sec	6	full	-	"! aa-status --complaining 2>/dev/null | tail -n +2 | grep -q ."	"lrd-aa-triage enforce"	profiles still in complain mode
+power.idle	power	6	full	-	systemctl is-active lrd-powerd	"systemctl restart lrd-powerd"	no idle or thermal policy

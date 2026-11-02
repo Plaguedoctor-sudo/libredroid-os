@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -12,9 +12,14 @@ import {
   Globe,
   ShieldCheck,
   Sparkles,
-  Loader2
+  Loader2,
+  FileText,
+  Share2,
+  Bot
 } from 'lucide-react';
 import { useVirtualKeyboard } from '../../context/KeyboardContext';
+import { useWindow } from '../../context/WindowContext';
+import type { AppIntent } from '../../types/apps';
 import { openInNativeBrowser } from '../../services/hardwareBridgeClient';
 
 interface Tab {
@@ -25,7 +30,13 @@ interface Tab {
 
 const DEFAULT_HOME = 'duckduckgo:home';
 
-export const BrowserApp: React.FC = () => {
+interface Props extends Partial<AppIntent> {
+  intent?: AppIntent;
+}
+
+export const BrowserApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
+  const effectiveIntent = intent || (params ? { params, paramSeq } : undefined);
+  const { openApp } = useWindow();
   const [tabs, setTabs] = useState<Tab[]>([
     { id: '1', title: 'DuckDuckGo Home', url: DEFAULT_HOME },
     { id: '2', title: 'Wikipedia', url: 'https://en.m.wikipedia.org' },
@@ -73,6 +84,15 @@ export const BrowserApp: React.FC = () => {
       prev.map((t) => (t.id === activeTabId ? { ...t, url: target, title: host || 'Web Page' } : t))
     );
   };
+
+  /* Consume Deep Link / Intent */
+  useEffect(() => {
+    const p = effectiveIntent?.params;
+    if (!p) return;
+    if (typeof p.url === 'string' && p.url.trim()) {
+      handleNavigate(p.url.trim());
+    }
+  }, [effectiveIntent?.paramSeq]);
 
   const addTab = () => {
     const newId = Math.random().toString(36).substring(2, 7);
@@ -204,14 +224,55 @@ export const BrowserApp: React.FC = () => {
           {isLoading && <Loader2 size={13} className="animate-spin text-neutral-400 shrink-0" />}
         </div>
 
-        <div className="flex items-center gap-1 text-neutral-400">
+        <div className="flex items-center gap-1.5 text-neutral-400">
+          {/* Ask AI Link */}
+          <button
+            onClick={() => {
+              openApp('universal_ai', 'Universal AI', 'vault-airgap', {
+                initialPrompt: `Summarize this web page: ${activeTab.url === DEFAULT_HOME ? 'DuckDuckGo Home' : activeTab.url}`,
+              });
+            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-600/20 hover:bg-violet-600/40 text-violet-300 border border-violet-500/30 rounded-xl text-xs font-medium transition-all active:scale-95"
+            title="Ask Universal AI about this page"
+          >
+            <Bot size={14} className="text-violet-400" />
+            <span className="hidden md:inline">Ask AI</span>
+          </button>
+
+          {/* Save to Joplin Notes */}
+          <button
+            onClick={() => {
+              openApp('notes', 'Joplin Notes', undefined, {
+                title: activeTab.title,
+                content: `Bookmark: ${activeTab.title}\nURL: ${activeTab.url}\nSaved from LibreBrowse on ${new Date().toLocaleString()}`,
+              });
+            }}
+            className="p-1.5 hover:bg-neutral-800 text-neutral-300 hover:text-white rounded-xl transition-colors"
+            title="Save Page Bookmark to Joplin Notes"
+          >
+            <FileText size={15} />
+          </button>
+
+          {/* Share via Sovereign Chats */}
+          <button
+            onClick={() => {
+              openApp('chats', 'Sovereign Chats', 'anonymity-whonix', {
+                message: `Check out: ${activeTab.url}`,
+              });
+            }}
+            className="p-1.5 hover:bg-neutral-800 text-neutral-300 hover:text-white rounded-xl transition-colors"
+            title="Share URL via Sovereign Chats"
+          >
+            <Share2 size={15} />
+          </button>
+
           <button 
             onClick={handleOpenExternal}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-200 hover:text-white rounded-xl text-xs font-medium border border-neutral-700 transition-colors"
             title="Open Current URL in Native Android Chrome"
           >
             <ExternalLink size={14} className="text-emerald-400" />
-            <span className="hidden sm:inline">Open in Chrome</span>
+            <span className="hidden sm:inline">Chrome</span>
           </button>
         </div>
       </div>

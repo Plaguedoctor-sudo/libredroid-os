@@ -85,6 +85,24 @@ export interface WaydroidApp {
   name: string;
 }
 
+let bridgeToken: string | null = null;
+
+export function setBridgeToken(token: string | null) {
+  bridgeToken = token;
+}
+
+export function getBridgeToken(): string | null {
+  return bridgeToken;
+}
+
+async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (bridgeToken && !headers.has('x-lrd-token')) {
+    headers.set('x-lrd-token', bridgeToken);
+  }
+  return fetch(input, { ...init, headers });
+}
+
 /* ────────────────────────── System Bridge API ────────────────────────── */
 
 /**
@@ -92,9 +110,11 @@ export interface WaydroidApp {
  */
 export async function fetchSystemBridgeStatus(): Promise<SystemBridgeStatus | null> {
   try {
-    const res = await fetch('/api/status');
+    const res = await authFetch('/api/status');
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    if (data?.token) setBridgeToken(data.token);
+    return data;
   } catch {
     return null;
   }
@@ -106,7 +126,7 @@ export async function fetchSystemBridgeStatus(): Promise<SystemBridgeStatus | nu
  */
 export async function fetchHardwareStatus(): Promise<PhysicalHardwareStatus | null> {
   try {
-    const res = await fetch('/api/hardware/status');
+    const res = await authFetch('/api/hardware/status');
     if (res.ok) {
       const data = await res.json();
       return data;
@@ -116,8 +136,8 @@ export async function fetchHardwareStatus(): Promise<PhysicalHardwareStatus | nu
   // Fallback to kernel /api/status and /api/power if /api/hardware/status isn't present
   try {
     const [sys, pwr] = await Promise.all([
-      fetch('/api/status').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch('/api/power').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      authFetch('/api/status').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      authFetch('/api/power').then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
 
     if (sys) {
@@ -175,7 +195,7 @@ export async function togglePhysicalHardware(
   state?: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const res = await fetch('/api/hardware/toggle', {
+    const res = await authFetch('/api/hardware/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ component, state }),
@@ -186,7 +206,7 @@ export async function togglePhysicalHardware(
   // Secondary fallback: if Wi-Fi, try /api/network/wifi
   if (component === 'wifi') {
     try {
-      const res = await fetch('/api/network/wifi', {
+      const res = await authFetch('/api/network/wifi', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ on: state ?? true }),
@@ -206,7 +226,7 @@ export async function fetchPhysicalStorage(path: string = '/storage/emulated/0')
   items: PhysicalStorageItem[];
 }> {
   try {
-    const res = await fetch(`/api/storage/list?path=${encodeURIComponent(path)}`);
+    const res = await authFetch(`/api/storage/list?path=${encodeURIComponent(path)}`);
     if (res.ok) return await res.json();
   } catch {}
 
@@ -234,7 +254,7 @@ export async function createPhysicalFile(
   content?: string
 ): Promise<{ success: boolean; path?: string; error?: string }> {
   try {
-    const res = await fetch('/api/storage/create', {
+    const res = await authFetch('/api/storage/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ folderPath, name, content }),
@@ -253,7 +273,7 @@ export async function dialPhoneNumber(
   number: string
 ): Promise<{ success: boolean; dialed?: string; error?: string }> {
   try {
-    const res = await fetch('/api/telephony/call', {
+    const res = await authFetch('/api/telephony/call', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ number }),
@@ -273,7 +293,7 @@ export async function sendSmsMessage(
   message: string
 ): Promise<{ success: boolean; sent?: boolean; error?: string }> {
   try {
-    const res = await fetch('/api/telephony/sms', {
+    const res = await authFetch('/api/telephony/sms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ number, message }),
@@ -292,7 +312,7 @@ export async function openInNativeBrowser(
   url: string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    const res = await fetch('/api/browser/open', {
+    const res = await authFetch('/api/browser/open', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
@@ -310,7 +330,7 @@ export async function openInNativeBrowser(
  */
 export async function fetchDeviceContacts(): Promise<DeviceContact[]> {
   try {
-    const res = await fetch('/api/contacts/list');
+    const res = await authFetch('/api/contacts/list');
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.contacts)) return data.contacts;
@@ -332,7 +352,7 @@ export async function fetchDeviceContacts(): Promise<DeviceContact[]> {
  */
 export async function fetchDevicePhotos(): Promise<DevicePhoto[]> {
   try {
-    const res = await fetch('/api/photos/list');
+    const res = await authFetch('/api/photos/list');
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.photos)) return data.photos;
@@ -374,7 +394,7 @@ export async function fetchDevicePhotos(): Promise<DevicePhoto[]> {
  */
 export async function fetchDomains(): Promise<Array<{ name: string; active: boolean }>> {
   try {
-    const res = await fetch('/api/domains');
+    const res = await authFetch('/api/domains');
     if (res.ok) return await res.json();
   } catch {}
   return [];
@@ -387,7 +407,7 @@ export async function controlDomain(
   domain: string,
   action: 'start' | 'stop' | 'restart'
 ): Promise<{ name: string; action: string }> {
-  const res = await fetch(`/api/domains/${domain}/${action}`, { method: 'POST' });
+  const res = await authFetch(`/api/domains/${domain}/${action}`, { method: 'POST' });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }));
     throw new Error(err.error || `Failed to ${action} domain ${domain}`);
@@ -403,7 +423,7 @@ export async function execInDomain(
   cmd: string,
   args: string[] = []
 ): Promise<{ out: string }> {
-  const res = await fetch(`/api/domains/${domain}/exec`, {
+  const res = await authFetch(`/api/domains/${domain}/exec`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cmd, args }),
@@ -419,7 +439,7 @@ export async function execInDomain(
  * Request Tor identity renewal (SIGNAL NEWNYM via ControlPort 9051)
  */
 export async function rotateTorIdentity(): Promise<{ out: string }> {
-  const res = await fetch('/api/domains/tor/rotate', { method: 'POST' });
+  const res = await authFetch('/api/domains/tor/rotate', { method: 'POST' });
   if (!res.ok) throw new Error('Tor rotation failed');
   return await res.json();
 }
@@ -430,7 +450,7 @@ export async function rotateTorIdentity(): Promise<{ out: string }> {
 export async function setBrightness(percent: number): Promise<boolean> {
   try {
     const clamped = Math.max(0, Math.min(100, Math.round(percent)));
-    const res = await fetch(`/api/brightness/${clamped}`, { method: 'POST' });
+    const res = await authFetch(`/api/brightness/${clamped}`, { method: 'POST' });
     return res.ok;
   } catch {
     return false;
@@ -442,7 +462,7 @@ export async function setBrightness(percent: number): Promise<boolean> {
  */
 export async function fetchWaydroidApps(): Promise<WaydroidApp[]> {
   try {
-    const res = await fetch('/api/waydroid/apps');
+    const res = await authFetch('/api/waydroid/apps');
     if (res.ok) {
       const data = await res.json();
       return data.apps || [];
@@ -454,8 +474,8 @@ export async function fetchWaydroidApps(): Promise<WaydroidApp[]> {
 /**
  * Install APK file directly into Waydroid Android container
  */
-export async function installWaydroidApk(apkPath: string): Promise<{ out: string }> {
-  const res = await fetch('/api/waydroid/install', {
+export async function installWaydroidApk(apkPath: string): Promise<{ out?: string; ok?: boolean; pkg?: string }> {
+  const res = await authFetch('/api/waydroid/install', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path: apkPath }),
@@ -468,12 +488,118 @@ export async function installWaydroidApk(apkPath: string): Promise<{ out: string
 }
 
 /**
+ * Upload and install an APK binary package directly via the bridge
+ */
+export async function uploadWaydroidApk(file: File): Promise<{ ok: boolean; pkg?: string; meta?: any; mode?: string }> {
+  const b64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const res = await authFetch('/api/waydroid/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: file.name,
+      b64,
+      install: true,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Failed to upload and install package');
+  }
+  return await res.json();
+}
+
+/**
+ * Uninstall an APK package via Waydroid / host pm
+ */
+export async function uninstallWaydroidApk(packageName: string): Promise<boolean> {
+  try {
+    const res = await authFetch('/api/waydroid/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pkg: packageName }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Launch an APK package via Waydroid / host pm
+ */
+export async function launchWaydroidApp(packageName: string): Promise<boolean> {
+  try {
+    const res = await authFetch('/api/waydroid/launch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pkg: packageName }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Fetch nftables tracker list set in lrd-android netns
  */
 export async function fetchTrackerSet(): Promise<{ raw: string }> {
   try {
-    const res = await fetch('/api/trackers');
+    const res = await authFetch('/api/trackers');
     if (res.ok) return await res.json();
   } catch {}
   return { raw: '' };
 }
+
+/**
+ * Fetch process list across host and isolated OS domains
+ */
+export async function fetchProcessList(): Promise<any[]> {
+  try {
+    const res = await authFetch('/api/processes');
+    if (res.ok) {
+      const data = await res.json();
+      return data.processes || [];
+    }
+  } catch {}
+  return [];
+}
+
+/**
+ * Send process termination or signal via bridge
+ */
+export async function killProcessViaBridge(pid: number, signal: string = 'SIGTERM'): Promise<boolean> {
+  try {
+    const res = await authFetch(`/api/processes/${pid}/kill`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signal }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch audio and pipewire status via bridge
+ */
+export async function fetchAudioStatusViaBridge(): Promise<any> {
+  try {
+    const res = await authFetch('/api/audio');
+    if (res.ok) return await res.json();
+  } catch {}
+  return null;
+}
+

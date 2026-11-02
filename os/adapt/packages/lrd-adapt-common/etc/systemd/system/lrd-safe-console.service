@@ -1,0 +1,19 @@
+[Unit]
+Description=LibreDroid safe mode console
+After=lrd-safe.target
+PartOf=lrd-safe.target
+
+[Service]
+Type=simple
+# a getty on the panel, so a broken compositor still gives you a way in
+ExecStart=/sbin/agetty --autologin root --noclear tty1 linux
+Restart=always
+RestartSec=1
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+StandardInput=tty
+StandardOutput=tty
+
+[Install]
+WantedBy=lrd-safe.target

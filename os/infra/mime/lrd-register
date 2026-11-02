@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Without this, portals have nothing to offer and "open with" does nothing.
+set -Eeuo pipefail
+command -v update-desktop-database >/dev/null && update-desktop-database -q /usr/share/applications 2>/dev/null || true
+command -v update-mime-database >/dev/null && update-mime-database /usr/share/mime 2>/dev/null || true
+command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t /usr/share/icons/hicolor 2>/dev/null || true
+mkdir -p /etc/xdg 2>/dev/null || true
+cat > /etc/xdg/mimeapps.list <<'EOF'
+[Default Applications]
+text/plain=mousepad.desktop
+image/png=imv.desktop
+image/jpeg=imv.desktop
+application/pdf=zathura.desktop
+video/mp4=mpv.desktop
+audio/mpeg=mpv.desktop
+application/zip=file-roller.desktop
+application/x-tar=file-roller.desktop
+inode/directory=lrd-files.desktop
+application/vnd.android.package-archive=lrd-apk.desktop
+EOF
+echo "handlers registered"

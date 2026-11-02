@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# lrd-provision — first-boot provisioning on a device with no user yet.
+# Runs on tty1. Deliberately plain: it must work when nothing else does.
+set -uo pipefail
+TTY=/dev/tty1
+exec < "$TTY" > "$TTY" 2>&1 || exec > "$TTY" 2>&1
+
+ask(){ local p="$1" d="$2" v; printf '%s [%s]: ' "$p" "$d"; read -r v; echo "${v:-$d}"; }
+yesno(){ printf '%s [y/N] ' "$1"; local a; read -r a; [ "$a" = y ]; }
+pause(){ printf '\n  press enter '; read -r _; }
+
+[ -f /var/lib/lrd/provisioned ] && exit 0
+
+clear
+cat <<'EOF'
+
+  ╔══════════════════════════════════════════════╗
+  ║   L I B R E D R O I D   first boot           ║
+  ╚══════════════════════════════════════════════╝
+
+EOF
+
+if [ -r /run/lrd/adapt.json ]; then
+  printf '  adaptation: %s  score %s/100\n' "$(jq -r .level /run/lrd/adapt.json)" "$(jq -r .score /run/lrd/adapt.json)"
+  bl="$(jq -r '.blockers|join(", ")' /run/lrd/adapt.json)"
+  [ -n "$bl" ] && [ "$bl" != "null" ] && printf '  blockers:   %s\n' "$bl"
+  echo
+fi
+
+HOST="$(ask hostname libredroid)"
+USERNAME="$(ask username lrd)"
+echo -n "  password: "; read -rs P1; echo
+echo -n "  again:    "; read -rs P2; echo
+[ "$P1" = "$P2" ] || { echo "  mismatch"; pause; exit 1; }
+
+TIMEZONE="$(ask timezone UTC)"
+LOCALE="$(ask locale en_US.UTF-8)"
+
+echo
+TOR=0; yesno "  route everything through Tor by default?" && TOR=1
+VAULT=0; yesno "  create an encrypted vault?" && VAULT=1
+DISPOS=0; yesno "  provision the disposable domain?" && DISPOS=1
+
+echo
+if ! yesno "  apply these?"; then exit 1; fi
+
+set -e
+echo "$HOST" > /etc/hostname
+printf '127.0.0.1\tlocalhost\n127.0.1.1\t%s\n' "$HOST" > /etc/hosts
+ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime 2>/dev/null || true
+echo "$LOCALE UTF-8" > /etc/locale.gen 2>/dev/null || true
+command -v locale-gen >/dev/null && locale-gen >/dev/null 2>&1 || true
+
+/usr/sbin/lrd-user create "$USERNAME" --admin --autologin --password "$P1" 2>/dev/null || {
+  useradd -m -G sudo,audio,video,render,input "$USERNAME"
+  printf '%s:%s\n' "$USERNAME" "$P1" | chpasswd
+}
+
+if [ "$TOR" = 1 ]; then
+  systemctl enable --now tor.service 2>/dev/null || true
+  /usr/local/bin/lrd-net set-policy tor-default 2>/dev/null || true
+fi
+if [ "$VAULT" = 1 ]; then
+  /usr/local/bin/lrd-vault init --passphrase "$P1" 2>/dev/null || \
+    { head -c 1G /dev/zero > /home/$USERNAME/.lrd/vault.img; mkfs.ext4 -q -F /home/$USERNAME/.lrd/vault.img; }
+fi
+if [ "$DISPOS" = 1 ]; then
+  /usr/bin/lrd-domain provision dispos 2>/dev/null || true
+fi
+
+touch /var/lib/lrd/provisioned
+cat <<EOF
+
+  done. hostname=$HOST user=$USERNAME
+
+  the shell starts now. F2 inside the shell opens setup if anything is missing.
+  ctrl+alt+F2 always gives you this console back.
+
+EOF
+sleep 4
+systemctl start cage.service 2>/dev/null || true

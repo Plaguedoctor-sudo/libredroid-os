@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# lrd-cage-run — start the compositor, prove it is live, advance the variant on failure.
+# Runs as cage.service's ExecStart, so a variant failure never needs a reboot.
+set -uo pipefail
+
+CAGE="${CAGE:-/usr/bin/cage}"
+SHELL_CMD="${LRD_SHELL_CMD:-/usr/bin/chromium --kiosk --noerrdialogs --disable-pinch \
+  --overscroll-history-navigation=0 --enable-features=UseOzonePlatform --ozone-platform=wayland \
+  http://127.0.0.1:3001/?kiosk=1}"
+LIVE_TIMEOUT="${LRD_LIVE_TIMEOUT:-12}"
+ATTEMPTS=/var/lib/lrd/display.attempts
+CURRENT=/var/lib/lrd/display.variant
+STATE=/run/lrd/display.state
+mkdir -p /var/lib/lrd /run/lrd
+
+log() { echo "[lrd-cage-run] $*"; logger -t lrd-cage "$*" 2>/dev/null || true; }
+
+variants() { jq -r '.feasible[]?' "$STATE" 2>/dev/null; }
+
+# does a live output exist? prefer wlr-randr, fall back to the socket + cage liveness
+prove_live() {
+  local sock=""
+  for s in "${XDG_RUNTIME_DIR:-/run/user/0}"/wayland-*; do [ -e "$s" ] && { sock="$s"; break; }; done
+  [ -n "$sock" ] || { log "no wayland socket"; return 1; }
+  export WAYLAND_DISPLAY="$(basename "$sock")"
+  if command -v wlr-randr >/dev/null 2>&1; then
+    local n; n="$(timeout 4 wlr-randr --json 2>/dev/null | jq 'length' 2>/dev/null || echo 0)"
+    [ "${n:-0}" -gt 0 ] || { log "wlr-randr reports 0 outputs"; return 1; }
+    log "live: $n output(s)"
+    return 0
+  fi
+  # no wlr-randr: the socket existing plus the process surviving is the best proof we have
+  log "live: socket present (unverified — install wlr-randr for a real check)"
+  return 0
+}
+
+run_variant() {
+  local v="$1"
+  echo "$v" > /run/lrd/display.force
+  /usr/lib/lrd/adapt/apply-display >/dev/null 2>&1
+  set -a; . /etc/environment.d/51-lrd-display.conf 2>/dev/null; set +a
+  log "starting variant=$v backend=${WLR_BACKENDS:-?} renderer=${WLR_RENDERER:-?}"
+
+  local start=$SECONDS
+  $CAGE -- $SHELL_CMD &
+  local cpid=$!
+
+  # wait for liveness or early exit
+  local waited=0
+  while [ "$waited" -lt "$LIVE_TIMEOUT" ]; do
+    sleep 1; waited=$((waited+1))
+    if ! kill -0 "$cpid" 2>/dev/null; then
+      local code=0; wait "$cpid" || code=$?
+      log "cage exited early after ${waited}s (code $code)"
+      printf '%s %s %s\n' "$v" "$((${waited}))" "early-exit" >> "$ATTEMPTS"
+      return 1
+    fi
+    if [ "$waited" -ge 4 ] && prove_live; then
+      echo "$v" > "$CURRENT"
+      printf '%s ok\n' "$v" >> "$ATTEMPTS"
+      log "variant $v live after ${waited}s — remembered"
+      wait "$cpid"; local code=$?
+      log "cage exited (code $code) after $((SECONDS-start))s"
+      return 100   # 100 = was live, now exited normally; keep the variant
+    fi
+  done
+
+  # survived the timeout but never proved live
+  if prove_live; then
+    echo "$v" > "$CURRENT"
+    printf '%s ok-late\n' "$v" >> "$ATTEMPTS"
+    log "variant $v live late"
+    wait "$cpid"
+    return 100
+  fi
+  log "variant $v never proved live"
+  printf '%s timeout\n' "$v" >> "$ATTEMPTS"
+  kill "$cpid" 2>/dev/null; wait "$cpid" 2>/dev/null
+  return 1
+}
+
+# --- main loop: cycle variants, then hand to safe target ---
+round=0
+while [ "$round" -lt 2 ]; do
+  round=$((round+1))
+  for v in $(variants); do
+    run_variant "$v"
+    rc=$?
+    [ "$rc" = 100 ] && { log "settled on $v"; exit 0; }
+  done
+  log "every variant failed on round $round"
+  # a variant that failed twice may still be the only one; reset the counters once
+  [ "$round" = 1 ] && : > "$ATTEMPTS"
+done
+
+log "all variants exhausted — handing to safe target"
+rm -f /run/lrd/display.force
+systemctl start lrd-safe.target 2>/dev/null || true
+# stay alive so cage.service does not flap
+sleep infinity

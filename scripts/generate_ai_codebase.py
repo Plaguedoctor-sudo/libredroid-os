@@ -15,9 +15,9 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUTPUT_FILE = os.path.join(ROOT_DIR, "APPLICATION_CODE_FOR_AI.md")
 
 # Files to exclude from the code export
-EXCLUDED_EXTENSIONS = {".iso", ".png", ".jpg", ".jpeg", ".webp", ".ico", ".svg", ".lock"}
-EXCLUDED_FILES = {"package-lock.json", "APPLICATION_CODE_FOR_AI.md", "libredroid-universal-x86_64.iso"}
-EXCLUDED_DIRS = {"node_modules", ".git", "dist", ".gemini", "brain"}
+EXCLUDED_EXTENSIONS = {".iso", ".png", ".jpg", ".jpeg", ".webp", ".ico", ".svg", ".lock", ".img", ".deb", ".tgz", ".zip", ".gz", ".bin"}
+EXCLUDED_FILES = {"package-lock.json", "APPLICATION_CODE_FOR_AI.md", "libredroid-universal-x86_64.iso", "OnePlus_Pad_Go_OPD2304_MT6789_EX_11_A.30_231025_MXML.zip"}
+EXCLUDED_DIRS = {"node_modules", ".git", "dist", ".gemini", "brain", "out-pad-go", "adapt-out", "lrd-backups", "build_tmp", "os-build-out", "libredroid-os-out"}
 
 # Order of files to present logically to an AI
 PRIORITY_DIRS = [

@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<labwc_config>
+  <core>
+    <gap>0</gap>
+    <adaptiveSync>no</adaptiveSync>
+    <allowSnapping>no</allowSnapping>
+    <!-- touch devices: no titlebars, no drag-to-move -->
+    <windowSwitcher show="yes" preview="no" outlines="no"/>
+  </core>
+
+  <theme>
+    <cornerRadius>0</cornerRadius>
+    <titlebar><layout>none</layout></titlebar>
+    <font place="ActiveWindow"><name>Noto Sans</name><size>11</size></font>
+  </theme>
+
+  <keyboard>
+    <default/>
+    <!-- the hardware escape hatches, because there is no window manager UI -->
+    <keybind key="Super_L"><action name="Execute"><command>lrd-wm shell</command></action></keybind>
+    <keybind key="Super+Tab"><action name="Execute"><command>lrd-wm cycle</command></action></keybind>
+    <keybind key="Super+Shift+Tab"><action name="Execute"><command>lrd-wm cycle back</command></action></keybind>
+    <keybind key="Super+Q"><action name="Close"/></keybind>
+    <keybind key="Super+Return"><action name="Execute"><command>lrd-wm launch lrd-terminal.desktop</command></action></keybind>
+    <keybind key="Super+K"><action name="Execute"><command>lrd-osk toggle</command></action></keybind>
+    <keybind key="Super+M"><action name="Execute"><command>lrd-a11y magnifier toggle</command></action></keybind>
+    <keybind key="Super+L"><action name="Execute"><command>lrd-lock</command></action></keybind>
+    <keybind key="Super+P"><action name="Execute"><command>lrd-power-menu</command></action></keybind>
+    <keybind key="Super+F"><action name="ToggleFullscreen"/></keybind>
+    <!-- volume and brightness without a keyboard driver in userspace -->
+    <keybind key="XF86AudioRaiseVolume"><action name="Execute"><command>lrd-vol up</command></action></keybind>
+    <keybind key="XF86AudioLowerVolume"><action name="Execute"><command>lrd-vol down</command></action></keybind>
+    <keybind key="XF86AudioMute"><action name="Execute"><command>lrd-vol mute</command></action></keybind>
+    <keybind key="XF86MonBrightnessUp"><action name="Execute"><command>lrd-bright +</command></action></keybind>
+    <keybind key="XF86MonBrightnessDown"><action name="Execute"><command>lrd-bright -</command></action></keybind>
+    <keybind key="Super+Right"><action name="Execute"><command>lrd-wm next-output</command></action></keybind>
+  </keyboard>
+
+  <mouse>
+    <doubleClickTime>400</doubleClickTime>
+    <dragThreshold>8</dragThreshold>
+  </mouse>
+
+  <touch>
+    <longPressTime>500</longPressTime>
+  </touch>
+
+  <!-- everything fills the screen; the shell switches, it does not decorate -->
+  <windowRules>
+    <windowRule identifier="*" serverDecoration="no">
+      <action name="Maximize"/>
+    </windowRule>
+    <windowRule identifier="*chromium*" serverDecoration="no" skipTaskbar="no">
+      <action name="Maximize"/>
+    </windowRule>
+    <!-- the OSK must not be maximized, it is a layer surface -->
+    <windowRule identifier="wvkbd" serverDecoration="no"/>
+    <windowRule identifier="squeekboard" serverDecoration="no"/>
+  </windowRules>
+
+  <resize>
+    <drawContents>yes</drawContents>
+  </resize>
+
+  <snapping>
+    <range>20</range>
+  </snapping>
+</labwc_config>

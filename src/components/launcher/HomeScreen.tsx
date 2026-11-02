@@ -4,6 +4,8 @@ import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import { usePersona } from '../../context/PersonaContext';
 import { SYSTEM_APPS } from '../../constants/apps';
+import { getInstalledApks } from '../../services/apkManager';
+import { getInstalledAppleApps } from '../../services/appleAppManager';
 import { AppIcon } from '../common/AppIcon';
 import { AtAGlanceWidget } from './AtAGlanceWidget';
 import { GoogleSearchPill } from './GoogleSearchPill';
@@ -57,14 +59,43 @@ export const HomeScreen: React.FC = () => {
   // Apps inside any folder are grouped; loose apps are rendered directly
   const folderAppIds = new Set(folders.flatMap(f => f.appIds));
 
+  // Resolve any app from system apps, installed APKs, or installed Apple apps
+  const resolveApp = (id: string) => {
+    const sys = SYSTEM_APPS.find((app) => app.id === id);
+    if (sys) return sys;
+    const apk = getInstalledApks().find((a) => a.id === id || a.packageName === id);
+    if (apk) {
+      return {
+        id: apk.id,
+        name: apk.name,
+        icon: apk.iconName,
+        color: apk.iconBg,
+        category: apk.category as any,
+        isCustom: true,
+      };
+    }
+    const apple = getInstalledAppleApps().find((a) => a.id === id || a.bundleId === id);
+    if (apple) {
+      return {
+        id: apple.id,
+        name: apple.name,
+        icon: apple.iconName,
+        color: apple.iconBg,
+        category: apple.category as any,
+        isCustom: true,
+      };
+    }
+    return undefined;
+  };
+
   // Map user persona app IDs to actual AppMetadata
   const standaloneHomeApps = persona.homeApps
     .filter(id => !folderAppIds.has(id))
-    .map(id => SYSTEM_APPS.find(app => app.id === id))
+    .map(resolveApp)
     .filter(Boolean) as typeof SYSTEM_APPS;
 
   const dockApps = persona.dockApps
-    .map((id) => SYSTEM_APPS.find((app) => app.id === id))
+    .map(resolveApp)
     .filter(Boolean) as typeof SYSTEM_APPS;
 
   const isAccessible = persona.uiDensity === 'accessible_large';
@@ -293,7 +324,9 @@ export const HomeScreen: React.FC = () => {
             </button>
 
             {/* Dock */}
-            <div className={`w-full p-3 flex items-center justify-around shadow-2xl transition-all ${
+            <div
+              data-lrd-dock
+              className={`lrd-dock w-full p-3 flex items-center justify-around shadow-2xl transition-all ${
               persona.navigationStyle === 'ios_homebar'
                 ? 'bg-white/10 backdrop-blur-3xl border border-white/20 rounded-3xl'
                 : 'bg-neutral-900/75 backdrop-blur-2xl border border-neutral-700/60 rounded-3xl'

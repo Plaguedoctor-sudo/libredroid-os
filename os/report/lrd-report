@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# lrd-report — one tarball, everything needed to diagnose, no network.
+set -uo pipefail
+OUT="${1:-/tmp/lrd-report-$(date +%Y%m%d-%H%M%S)}"
+mkdir -p "$OUT"
+
+cp -a /etc/os-release "$OUT/" 2>/dev/null
+cp -a /etc/lrd "$OUT/etc-lrd" 2>/dev/null
+cp -a /run/lrd "$OUT/run-lrd" 2>/dev/null
+cp -a /var/lib/lrd/adapt.json "$OUT/" 2>/dev/null
+cp -a /var/lib/lrd/qa-*.json "$OUT/" 2>/dev/null
+cp -a /var/lib/lrd/display.attempts "$OUT/" 2>/dev/null
+cp -a /var/lib/lrd/txn/history.log "$OUT/" 2>/dev/null
+cp -a /run/lrd/boot.json "$OUT/" 2>/dev/null
+
+uname -a > "$OUT/uname.txt" 2>&1
+cat /proc/cmdline > "$OUT/cmdline.txt" 2>&1
+cat /proc/version > "$OUT/proc-version.txt" 2>&1
+ls -la /dev/block/by-name > "$OUT/partitions.txt" 2>&1
+ls -la /dev/dri /sys/class/drm > "$OUT/drm.txt" 2>&1
+for z in /sys/class/thermal/thermal_zone*; do
+  [ -e "$z" ] && echo "$(cat $z/type): $(cat $z/temp)" ; done > "$OUT/thermal.txt" 2>&1
+cat /proc/asound/cards > "$OUT/audio-cards.txt" 2>&1
+nft list ruleset > "$OUT/nft.txt" 2>&1
+ip -j addr > "$OUT/net.json" 2>&1
+systemctl --failed --no-pager > "$OUT/failed-units.txt" 2>&1
+systemctl list-units --no-pager > "$OUT/units.txt" 2>&1
+journalctl -b --no-pager -o short-iso 2>/dev/null | tail -3000 > "$OUT/journal.txt"
+dmesg 2>/dev/null | tail -2000 > "$OUT/dmesg.txt"
+lrd-adapt-report > "$OUT/adapt-report.txt" 2>&1
+lrd-display-status > "$OUT/display-status.txt" 2>&1
+lrd-netd verify > "$OUT/net-verify.txt" 2>&1
+lrd-update status > "$OUT/update.txt" 2>&1
+lrd-snapshot status > "$OUT/snapshot.txt" 2>&1
+
+# redact nothing by default; note it so the user can decide
+cat > "$OUT/README.txt" <<'EOF'
+LibreDroid diagnostic report.
+Contains: adaptation state, boot provenance, journal, dmesg, nft ruleset,
+network addresses, partition layout, thermal and audio device lists.
+No telemetry is collected anywhere in LibreDroid; this tarball is the only
+thing that leaves the device and only when you send it.
+
+Look at adapt-report.txt first — it names the failing subsystem and why.
+EOF
+
+tar -C "$(dirname "$OUT")" -czf "$OUT.tar.gz" "$(basename "$OUT")"
+rm -rf "$OUT"
+echo "$OUT.tar.gz  $(du -h "$OUT.tar.gz" | cut -f1)"

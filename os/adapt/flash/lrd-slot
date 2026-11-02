@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Switch between the two OSes. Nothing is erased. The whole reason for slot dual boot.
+set -Eeuo pipefail
+want="${1:?usage: lrd-slot <android|linux|show>}"
+fastboot getvar product >/dev/null 2>&1 || { echo "need fastboot"; exit 1; }
+cur="$(fastboot getvar current-slot 2>&1 | sed -n 's/^current-slot: //p' | head -1)"
+case "$want" in
+  show) echo "active slot: ${cur:-unknown}"; exit 0 ;;
+  android)
+    # android is whichever slot we did NOT flash
+    t=$([ "$cur" = a ] && echo b || echo a) ;;
+  linux)  t="$cur" ;;
+  a|b)    t="$want" ;;
+  *) echo "usage: lrd-slot <android|linux|show|a|b>"; exit 2 ;;
+esac
+echo "switching slot ${cur:-?} -> $t"
+is_userspace="$(fastboot getvar is-userspace 2>&1 | sed -n 's/^is-userspace: //p' | head -1)"
+if [ "$is_userspace" != "yes" ]; then
+  echo ":: Little Kernel detected. Rebooting to userspace fastbootd to commit slot switch..."
+  fastboot reboot fastboot
+  while ! fastboot getvar is-userspace 2>&1 | grep -q 'yes'; do sleep 1; done
+fi
+fastboot set_active "$t"
+fastboot reboot

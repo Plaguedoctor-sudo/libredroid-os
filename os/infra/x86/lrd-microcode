@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[ -d /sys/firmware/efi ] || { echo "not UEFI, skipping"; exit 0; }
+case "$(grep -m1 vendor_id /proc/cpuinfo 2>/dev/null | awk '{print $3}' || echo '')" in
+  GenuineIntel) apt-get install -y intel-microcode 2>/dev/null || true ;;
+  AuthenticAMD) apt-get install -y amd64-microcode 2>/dev/null || true ;;
+esac
+update-initramfs -u 2>/dev/null || true
+# and require IOMMU for DMA protection
+if [ -f /etc/default/grub ] && ! grep -q 'intel_iommu=on' /etc/default/grub; then
+  sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="intel_iommu=on iommu=pt /' /etc/default/grub 2>/dev/null || true
+  update-grub 2>/dev/null || true
+fi
+echo "microcode installed, IOMMU requested — reboot to apply"

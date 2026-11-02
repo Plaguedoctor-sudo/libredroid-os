@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# lrd-flatpak — the sandboxed app ecosystem.
+#   setup | search <q> | install <id> | remove <id> | perms <id> | scope <id> ...
+set -Eeuo pipefail
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+die(){ printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
+
+need_userns() {
+  # flatpak is built on bubblewrap which needs user namespaces. Hard requirement.
+  [ "$(cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || echo 1)" = 1 ] || \
+    die "user namespaces are off — flatpak cannot work. Rebuild the kernel with CONFIG_USER_NS."
+}
+
+case "${1:-status}" in
+setup)
+  need_userns
+  # flatpak must find the session bus and a portal, or apps have no file access
+  [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || . /run/lrd/session.env 2>/dev/null || true
+  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+  # a local, offline-capable mirror is the polite option for a Tor-default OS
+  flatpak remote-modify --enable flathub 2>/dev/null || true
+  systemctl enable --now flatpak-system-helper 2>/dev/null || true
+  # portal check: without it every file picker fails
+  if systemctl --user is-active xdg-desktop-portal >/dev/null 2>&1 || pgrep -x xdg-desktop-portal >/dev/null; then
+    say "portal running"
+  else
+    say "WARNING: no portal — apps will not get file access"
+  fi
+  say "flatpak ready"
+  ;;
+
+search) shift; flatpak search "$@" ;;
+
+install)
+  id="${2:?app id}"
+  say "installing $id"
+  flatpak install -y --noninteractive flathub "$id" || die "install failed"
+  # sensible default scoping: no host filesystem, no extra sockets, xdg dirs only
+  flatpak override --user --nofilesystem=host "$id" 2>/dev/null || true
+  flatpak override --user --filesystem=xdg-documents "$id" 2>/dev/null || true
+  flatpak override --user --filesystem=xdg-download "$id" 2>/dev/null || true
+  # metered/tor: flatpak's own update should respect our policy
+  lrd-apps-registry >/dev/null 2>&1 || true
+  lrd-emit apps '{"installed":"'"$id"'"}' 2>/dev/null || true
+  ;;
+
+remove) shift; flatpak uninstall -y "$@" && lrd-apps-registry >/dev/null 2>&1 ;;
+perms)  flatpak info --show-permissions "${2:?app id}" ;;
+scope)
+  # scope <id> <none|files|full>  — one command instead of the override dance
+  id="${2:?app id}"; mode="${3:-files}"
+  flatpak override --user --nofilesystem=host "$id" 2>/dev/null || true
+  case "$mode" in
+    files)
+      for d in xdg-documents xdg-download xdg-pictures xdg-music xdg-videos; do
+        flatpak override --user --filesystem="$d" "$id" 2>/dev/null || true
+      done ;;
+    full) flatpak override --user --filesystem=host "$id" ;;
+    none) : ;;
+  esac
+  say "$id scoped to $mode"
+  ;;
+
+network)
+  id="${2:?app id}"; on="${3:-off}"
+  if [ "$on" = off ]; then flatpak override --user --unshare=network "$id"
+  else flatpak override --user --share=network "$id"; fi
+  ;;
+
+update) flatpak update -y --noninteractive ;;
+list)   flatpak list --app --columns=application,name,version,size ;;
+status)
+  command -v flatpak >/dev/null && flatpak --version || echo "not installed"
+  echo "remotes:"; flatpak remotes 2>/dev/null || true
+  echo "userns:  $(cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || echo on)"
+  echo "portal:  $(pgrep -x xdg-desktop-portal >/dev/null && echo running || echo MISSING)"
+  ;;
+*) echo "usage: lrd-flatpak {setup|search|install|remove|perms|scope|network|update|list|status}"; exit 2 ;;
+esac

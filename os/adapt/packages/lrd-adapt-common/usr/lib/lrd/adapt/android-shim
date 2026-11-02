@@ -1,0 +1,16 @@
+#!/bin/sh
+# Run a bionic-linked vendor binary from a glibc system.
+#   android-shim /vendor/bin/setprop ro.hardware.gralloc mtk
+#   android-shim -l                 list candidate linkers
+set -e
+pick_linker() {
+  for l in "${HYBRIS_LINKER:-}" /vendor/bin/linker64 /system/bin/linker64 /vendor/bin/linker /system/bin/linker; do
+    [ -n "$l" ] && [ -x "$l" ] && { echo "$l"; return; }
+  done
+}
+if [ "$1" = "-l" ]; then pick_linker; exit 0; fi
+L="$(pick_linker)"
+[ -n "$L" ] || { echo "android-shim: no vendor linker found" >&2; exit 127; }
+[ -x "$1" ] || { echo "android-shim: $1 not executable" >&2; exit 126; }
+export LD_LIBRARY_PATH="/vendor/lib64:/odm/lib64:/system/lib64:${LD_LIBRARY_PATH:-}"
+exec "$L" "$@"

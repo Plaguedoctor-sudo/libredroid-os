@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+v="${1:?usage: lrd-display-set <variant>|auto}"
+if [ "$v" = auto ]; then rm -f /run/lrd/display.force /var/lib/lrd/display.variant /var/lib/lrd/display.attempts
+else echo "$v" > /run/lrd/display.force; fi
+systemctl restart cage.service
+sleep 3
+exec lrd-display-status

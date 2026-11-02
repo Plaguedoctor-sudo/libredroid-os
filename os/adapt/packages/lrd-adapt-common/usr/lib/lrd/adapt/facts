@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# facts — write /run/lrd/adapt.json. This is the ONLY thing the shell trusts about
+# this machine. Everything above records into it; validate aggregates it.
+set -uo pipefail
+OUT=/run/lrd/adapt.json
+mkdir -p /run/lrd
+
+kv() { # file key -> value or "unknown"
+  [ -r "$1" ] || { echo unknown; return; }
+  local v; v="$(grep -E "^CONFIG_$2=" "$1" 2>/dev/null | head -1)"
+  [ -z "$v" ] && { echo unknown; return; }
+  case "$v" in *=y|*=m) echo yes ;; *=n) echo no ;; *) echo unknown ;; esac
+}
+kern() { # option, module-name
+  local v; v="$(kv /proc/config.gz "$1" 2>/dev/null)"
+  # /proc/config.gz needs zcat
+  if [ "$v" = unknown ] && [ -r /proc/config.gz ]; then
+    local raw; raw="$(zcat /proc/config.gz 2>/dev/null | grep -E "^CONFIG_$1=" | head -1)"
+    case "$raw" in *=y|*=m) v=yes ;; *=n) v=no ;; esac
+  fi
+  [ "$v" = unknown ] && { [ -d "/sys/module/${2:-$1}" ] && v=yes; }
+  echo "$v"
+}
+
+# kernel tier — the isolation claims rest entirely on these
+nft_redirect="$(kern NFT_REDIRECT nft_redirect)"
+landlock="$(kern SECURITY_LANDLOCK landlock)"
+cgroup2=no; grep -q cgroup2 /proc/mounts && cgroup2=yes
+userns="$(kern USER_NS user_namespace)"
+overlayfs="$(kern OVERLAY_FS overlay)"
+binderfs=no; grep -q binderfs /proc/filesystems && binderfs=yes
+unprivileged_userns=no
+[ "$userns" = yes ] && [ -r /proc/sys/kernel/unprivileged_userns_clone ] && \
+  unprivileged_userns="$(cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null)"
+
+# per-step results
+step() { [ -r "/run/lrd/$1.state" ] && cat "/run/lrd/$1.state" || echo '{"ok":false,"reason":"not run"}'; }
+
+# boot provenance, written by the initramfs
+boot="{}"; [ -r /run/lrd/boot.json ] && boot="$(jq -Rs 'split("\n")|map(select(length>0))|map(split("=")|{(.[0]):.[1]})|add' < /run/lrd/boot.json)"
+
+# scoring, mirroring the pre-flash probe so the numbers are comparable
+score=0; blockers=()
+add() { [ "$2" = yes ] && score=$((score+$1)) || blockers+=("$3"); }
+
+disp="$(step display)"; hyb="$(step hybris)"; mods="$(step modules)"
+aud="$(step audio)"; rl="$(step ril)"; inp="$(step input)"
+prp="$(step props)"; cam="$(step camera)"; sens="$(step sensors)"
+ver="$(cat /run/lrd/verity.state 2>/dev/null || echo '{"ok":false}')"
+
+jq -e '.ok' <<<"$disp" >/dev/null 2>&1 && score=$((score+30)) || blockers+=("display")
+jq -e '.ok' <<<"$hyb"  >/dev/null 2>&1 && score=$((score+22)) || blockers+=("hybris blobs")
+jq -e '.ok' <<<"$mods" >/dev/null 2>&1 && score=$((score+8))  || blockers+=("kernel modules")
+jq -e '.ok' <<<"$inp"  >/dev/null 2>&1 && score=$((score+6))  || blockers+=("touchscreen")
+jq -e '.ok' <<<"$aud"  >/dev/null 2>&1 && score=$((score+6))  || blockers+=("audio")
+jq -e '.ok' <<<"$rl"   >/dev/null 2>&1 && score=$((score+4))  || true
+
+# property space + optional camera/sensors + dm-verity
+jq -e '.ok' <<<"$prp"  >/dev/null 2>&1 && score=$((score+6))  || blockers+=("property space")
+jq -e '.ok' <<<"$cam"  >/dev/null 2>&1 && score=$((score+3))  || true
+jq -e '.ok' <<<"$sens" >/dev/null 2>&1 && score=$((score+3))  || true
+add 8 "$(jq -r '.ok' <<<"$ver" 2>/dev/null || echo false)" "rootfs verity"
+
+add 5 "$nft_redirect" "NFT_REDIRECT"
+add 3 "$landlock"     "LANDLOCK"
+add 3 "$cgroup2"      "cgroup2"
+add 2 "$userns"       "USER_NS"
+add 1 "$overlayfs"    "OVERLAY_FS"
+add 2 "$binderfs"     "binderfs"
+
+level=unsupported
+[ "$score" -ge 88 ] && level=full
+[ "$score" -ge 62 ] && [ "$level" = unsupported ] && level=partial
+[ "$score" -ge 35 ] && [ "$level" = unsupported ] && level=boot-only
+
+jq -nc \
+  --argjson score "$score" --arg level "$level" \
+  --argjson blockers "$(printf '%s\n' "${blockers[@]:-}" | jq -Rsc 'split("\n")|map(select(length>0))')" \
+  --argjson boot "$boot" \
+  --argjson display "$disp" --argjson hybris "$hyb" --argjson modules "$mods" \
+  --argjson audio "$aud" --argjson ril "$rl" --argjson input "$inp" \
+  --argjson props "$prp" --argjson camera "$cam" --argjson sensors "$sens" \
+  --arg nft "$nft_redirect" --arg ll "$landlock" --arg cg "$cgroup2" \
+  --arg un "$userns" --arg ov "$overlayfs" --arg bf "$binderfs" \
+  --arg kver "$(uname -r)" --arg host "$(uname -n)" --arg model "$(cat /etc/lrd/device.json 2>/dev/null | jq -r .model 2>/dev/null || echo unknown)" \
+  '{
+    generatedAt: (now|todate), score: $score, level: $level, blockers: $blockers,
+    device: { model: $model, hostname: $host, kernel: $kver },
+    boot: $boot,
+    steps: {
+      display: $display, hybris: $hybris, modules: $modules,
+      audio: $audio, ril: $ril, input: $input,
+      props: $props, camera: $camera, sensors: $sensors
+    },
+    tier: {
+      nft_redirect: ($nft=="yes"), landlock: ($ll=="yes"), cgroup2: ($cg=="yes"),
+      user_namespaces: ($un=="yes"), overlayfs: ($ov=="yes"), binderfs: ($bf=="yes")
+    },
+    isolation: {
+      kernel_enforced: ($cg=="yes" and $un=="yes"),
+      tor_kernel_enforced: ($nft=="yes"),
+      detail: (if $nft=="yes" then "nft REDIRECT available — Tor can be enforced" else "no NFT_REDIRECT — Tor is app-level only" end)
+    },
+    verdict: (if $level=="full" then "bare-metal" elif $level=="partial" then "hybrid" elif $level=="boot-only" then "parasite" else "unsupported" end)
+  }' > "$OUT.tmp" && mv "$OUT.tmp" "$OUT"
+
+echo "$score"
+exit 0

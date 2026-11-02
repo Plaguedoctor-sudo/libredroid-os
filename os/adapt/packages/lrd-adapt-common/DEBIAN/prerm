@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+systemctl stop cage.service 2>/dev/null || true
+systemctl disable lrd-adapt-apply.service lrd-adapt-validate.service lrd-bootgate.service 2>/dev/null || true
+rm -f /etc/profile.d/50-lrd-adapt.sh
+# leave /etc/lrd/*.conf: the device package owns the content, we own the schema
+exit 0

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# lrd-adapt-apply — re-run after editing a conf. Does not need a reboot.
+set -uo pipefail
+echo ":: re-applying adaptation"
+/usr/lib/lrd/adapt/validate
+systemctl restart lrd-adapt-late.service 2>/dev/null || true
+systemctl restart lrd-hwcomposer.service 2>/dev/null || true
+if systemctl is-active --quiet cage.service; then
+  echo ":: restarting the shell to pick up the new environment"
+  systemctl restart cage.service
+fi
+echo
+/usr/bin/lrd-adapt-report

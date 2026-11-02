@@ -1,5 +1,46 @@
-node_modules
-dist
-.DS_Store
-*.log
+# Dependencies
+node_modules/
+
+# Build artifacts and distributions
+dist/
+build/
 *.iso
+*.img
+*.deb
+*.apk
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.so
+
+# Device build, flash, & backup outputs
+adapt-out/
+audit-out/
+out-pad-go/
+backups/
+lrd-backups/
+os/arm/treble/build_tmp/
+os/arm/treble/output/*.img
+
+# Logs and system dumps
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# OS & Editor generated files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local environment variables
+.env
+.env.local
+.env.*.local

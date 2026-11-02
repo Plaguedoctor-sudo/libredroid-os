@@ -1,0 +1,32 @@
+[Unit]
+Description=LibreDroid session (labwc)
+After=lrd-adapt-validate.service lrd-bootgate.service
+Requires=lrd-adapt-apply.service
+Wants=lrd-adapt-validate.service
+StartLimitIntervalSec=90
+StartLimitBurst=3
+OnFailure=lrd-safe.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/environment.d/50-lrd-hybris.conf
+EnvironmentFile=-/etc/environment.d/51-lrd-display.conf
+EnvironmentFile=-/etc/environment.d/53-lrd-input.conf
+EnvironmentFile=-/etc/environment.d/70-lrd-input.conf
+ExecStart=/usr/lib/lrd/lrd-session
+Restart=always
+RestartSec=2
+# the compositor owns the seat
+TTYPath=/dev/tty7
+StandardInput=tty-fail
+# needed for DRM master and input devices
+PrivateDevices=no
+ProtectSystem=no
+ProtectHome=no
+Slice=lrd.slice
+TasksMax=1024
+MemoryMax=2G
+OOMScoreAdjust=-200
+
+[Install]
+WantedBy=graphical.target

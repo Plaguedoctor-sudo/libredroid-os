@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+. /usr/share/debconf/confmodule 2>/dev/null || true
+
+mkdir -p /run/lrd /var/lib/lrd /etc/environment.d /etc/ld.so.conf.d
+
+# binderfs: the initramfs usually mounts it, but be idempotent
+grep -q binderfs /proc/filesystems 2>/dev/null && {
+  mkdir -p /dev/binderfs
+  mountpoint -q /dev/binderfs || mount -t binder binder /dev/binderfs 2>/dev/null || true
+}
+
+# every service that touches a vendor blob must inherit these
+ln -sf /usr/lib/lrd/adapt/env /etc/profile.d/50-lrd-adapt.sh 2>/dev/null || true
+
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable lrd-adapt-apply.service lrd-adapt-validate.service lrd-bootgate.service 2>/dev/null || true
+systemctl enable lrd-binder.service 2>/dev/null || true
+
+# first boot is a console, never a guess
+systemctl enable lrd-firstboot.service 2>/dev/null || true
+
+if [ ! -e /etc/lrd/display.conf ]; then
+  echo "lrd-adapt-common: no display.conf — the device package has not been installed yet"
+fi
+
+echo "lrd-adapt-common installed. Validate with: lrd-adapt-report"
+exit 0

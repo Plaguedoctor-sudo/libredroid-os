@@ -10,9 +10,11 @@ import { QuickSettingsPanel } from '../statusbar/QuickSettingsPanel';
 import { AppDrawer } from '../launcher/AppDrawer';
 import { RecentsView } from '../launcher/RecentsView';
 import { OmniAssistant } from '../assistant/OmniAssistant';
+import { LockScreen } from '../lockscreen/LockScreen';
+import { PowerMenuDialog } from '../system/PowerMenuDialog';
 
 export const DeviceFrame: React.FC = () => {
-  const { deviceMode, actualDevice, isFolded, wallpaper } = useSystem();
+  const { deviceMode, actualDevice, isFolded, wallpaper, isKiosk } = useSystem();
   const { windows } = useWindow();
 
   // Detect if running on a physical Android/touch device or in full launcher mode
@@ -21,8 +23,8 @@ export const DeviceFrame: React.FC = () => {
 
   // Determine physical frame wrapper style based on explicit simulator mode
   const getDeviceFrameClass = () => {
-    // If running on a real Android device or in full screen / auto mode: cover the entire screen edge-to-edge!
-    if (isPhysicalAndroid || deviceMode === 'auto' || deviceMode === 'desktop') {
+    // If running in Kiosk mode, on a real Android device, or in full screen / auto mode: cover the entire screen edge-to-edge!
+    if (isKiosk || isPhysicalAndroid || deviceMode === 'auto' || deviceMode === 'desktop') {
       return 'w-full h-full rounded-none border-none shadow-none';
     }
     if (deviceMode === 'phone') {
@@ -39,10 +41,10 @@ export const DeviceFrame: React.FC = () => {
     return 'w-full h-full rounded-none border-none shadow-none';
   };
 
-  const isSimulatedFrame = !isPhysicalAndroid && (deviceMode === 'phone' || deviceMode === 'tablet' || deviceMode === 'foldable');
+  const isSimulatedFrame = !isKiosk && !isPhysicalAndroid && (deviceMode === 'phone' || deviceMode === 'tablet' || deviceMode === 'foldable');
 
   return (
-    <div className={`w-full h-screen bg-[#0d0d11] flex items-center justify-center p-0 overflow-hidden relative ${isSimulatedFrame ? 'pt-12 sm:pt-14 pb-2' : ''}`}>
+    <div className={`w-full h-full h-[100dvh] bg-[#0d0d11] flex items-center justify-center p-0 overflow-hidden relative ${isSimulatedFrame ? 'pt-12 sm:pt-14 pb-2' : ''}`}>
       {/* Background ambient lighting */}
       <div 
         className="absolute inset-0 opacity-20 blur-3xl pointer-events-none"
@@ -82,11 +84,13 @@ export const DeviceFrame: React.FC = () => {
           ))}
         </main>
 
-        {/* Global Overlays: Quick Settings, App Drawer, Recents, Assistant */}
+        {/* Global Overlays: Quick Settings, App Drawer, Recents, Assistant, Lock Screen & Power Menu */}
         <QuickSettingsPanel />
         <AppDrawer />
         <RecentsView />
         <OmniAssistant />
+        <LockScreen />
+        <PowerMenuDialog />
 
         {/* Bottom Navigation: High-priority system layer (z-50) so Home & Back are always accessible */}
         {actualDevice === 'desktop' ? (

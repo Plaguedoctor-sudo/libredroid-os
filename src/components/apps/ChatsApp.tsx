@@ -25,7 +25,9 @@ import {
   Share2
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { useWindow } from '../../context/WindowContext';
 import { useVirtualKeyboard } from '../../context/KeyboardContext';
+import type { AppIntent } from '../../types/apps';
 
 export interface ChatThreadItem {
   id: string;
@@ -160,8 +162,14 @@ const INITIAL_CHATS: ChatThreadItem[] = [
   }
 ];
 
-export const ChatsApp: React.FC = () => {
+interface Props extends Partial<AppIntent> {
+  intent?: AppIntent;
+}
+
+export const ChatsApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
+  const effectiveIntent = intent || (params ? { params, paramSeq } : undefined);
   const { addNotification } = useSystem();
+  const { openApp } = useWindow();
   const { openKeyboard, closeKeyboard } = useVirtualKeyboard();
 
   const [chats, setChats] = useState<ChatThreadItem[]>(() => {
@@ -185,6 +193,32 @@ export const ChatsApp: React.FC = () => {
   const [newChatType, setNewChatType] = useState<'direct' | 'channel' | 'p2p_mesh'>('direct');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  /* Consume Deep Link / Intent */
+  useEffect(() => {
+    const p = effectiveIntent?.params;
+    if (!p) return;
+    if (typeof p.chatId === 'string') {
+      const found = chats.find(c => c.id === p.chatId);
+      if (found) setActiveChatId(found.id);
+    }
+    if (typeof p.message === 'string' && p.message.trim()) {
+      const text = p.message.trim();
+      const newMessage = {
+        id: `m-${Date.now()}`,
+        sender: 'me' as const,
+        text,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'delivered' as const
+      };
+      setChats(prev => prev.map(c => c.id === activeChatId ? {
+        ...c,
+        lastMessage: text,
+        lastMessageTime: 'Just now',
+        messages: [...c.messages, newMessage]
+      } : c));
+    }
+  }, [effectiveIntent?.paramSeq]);
 
   useEffect(() => {
     try {
@@ -476,15 +510,16 @@ export const ChatsApp: React.FC = () => {
 
             <button
               onClick={() => {
+                openApp('phone', 'Phone Dialer', 'hardened-android', { dial: activeChat.name, callNow: true });
                 addNotification({
                   appId: 'chats',
                   appName: 'Sovereign Telephony',
                   title: 'Secure P2P Call',
-                  body: `Voice session bridged with ${activeChat.name} over Tor Onion circuit.`,
+                  body: `Voice session bridged with ${activeChat.name} via Telephony HAL.`,
                 });
               }}
               className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-all"
-              title="Encrypted Audio Call"
+              title="Encrypted Audio Call via Telephony HAL"
             >
               <Phone size={16} />
             </button>

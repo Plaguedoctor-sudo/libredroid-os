@@ -1,0 +1,17 @@
+[Unit]
+Description=LibreDroid adaptation — audio and radio
+After=lrd-adapt-apply.service dbus.service
+Wants=lrd-adapt-apply.service
+Before=cage.service pulseaudio.service ofono.service
+PartOf=lrd-adapt-apply.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/lrd/adapt/apply-audio
+ExecStart=/usr/lib/lrd/adapt/apply-ril
+SuccessExitStatus=0 1
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

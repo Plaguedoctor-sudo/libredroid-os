@@ -13,9 +13,13 @@ import {
   Volume2
 } from 'lucide-react';
 import { useSecurity } from '../../context/SecurityContext';
+import { useWindow } from '../../context/WindowContext';
+import { hardwareHalBridge } from '../../services/hardwareHalBridge';
 
 export const CameraApp: React.FC = () => {
+  const { openApp } = useWindow();
   const { cameraKillswitch, setCameraKillswitch, micKillswitch, setMicKillswitch } = useSecurity();
+  const [halState, setHalState] = useState(() => hardwareHalBridge.getState());
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [photos, setPhotos] = useState<string[]>([
     'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80',
@@ -252,12 +256,54 @@ export const CameraApp: React.FC = () => {
           <div className="border-r border-white" />
           <div />
         </div>
+
+        {/* Camera HAL Lens & Computational Photography Overlay */}
+        <div className="absolute bottom-4 inset-x-0 flex flex-col items-center gap-2 z-20 pointer-events-auto">
+          {/* Lens Switcher: 0.5x, 1x, 5x */}
+          <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/15 text-xs font-bold">
+            {[
+              { id: 'ultra_wide' as const, label: '.5' },
+              { id: 'wide' as const, label: '1x' },
+              { id: 'telephoto' as const, label: '5x' },
+            ].map(lens => {
+              const isActive = halState.camera.activeLens === lens.id;
+              return (
+                <button
+                  key={lens.id}
+                  onClick={() => {
+                    hardwareHalBridge.setActiveLens(lens.id);
+                    setHalState(hardwareHalBridge.getState());
+                  }}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                    isActive ? 'bg-amber-400 text-black font-extrabold shadow' : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  {lens.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Computational Mode Pill */}
+          <div className="bg-black/50 backdrop-blur-md px-2.5 py-0.5 rounded-full border border-white/10 text-[10px] font-mono text-cyan-300 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span>Camera2 {halState.camera.apiLevel} • {halState.camera.gcamTuningProfile}</span>
+          </div>
+        </div>
       </div>
 
       {/* Bottom Shutter Controls */}
       <div className="h-24 bg-black/90 backdrop-blur-lg flex items-center justify-around px-8 z-20 shrink-0">
         {/* Gallery Preview Thumbnail */}
-        <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-white/40 cursor-pointer hover:scale-105 transition-transform">
+        <div 
+          onClick={() => {
+            if (photos[0]) {
+              openApp('photos', 'Immich Gallery', undefined, { photoUrl: photos[0], caption: 'Camera Snapshot' });
+            }
+          }}
+          className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-white/40 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+          title="Open in Gallery"
+        >
           <img src={photos[0]} alt="Recent" className="w-full h-full object-cover" />
         </div>
 
@@ -268,6 +314,22 @@ export const CameraApp: React.FC = () => {
           title="Take Photo"
         >
           <div className="w-full h-full rounded-full bg-white transition-colors" />
+        </button>
+
+        {/* AI Scan direct launcher */}
+        <button
+          onClick={() => {
+            if (photos[0]) {
+              openApp('universal_ai', 'Universal AI', 'vault-airgap', {
+                initialPrompt: 'Analyze this optical frame captured by Open Camera.',
+                image: photos[0]
+              });
+            }
+          }}
+          className="p-3 bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 rounded-full text-violet-300 transition-all active:scale-95"
+          title="Analyze Frame with Universal AI"
+        >
+          <Sparkles size={18} />
         </button>
 
         {/* Killswitch shortcut */}

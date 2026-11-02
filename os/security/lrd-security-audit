@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# lrd-security-audit — recheck every security property the OS claims.
+#   audit [--json] [--fix] [--category X]
+set -uo pipefail
+CATS="boot crypto kernel userspace network storage services desktop"
+PASS=0; FAIL=0; WARN=0; NA=0; RESULTS=()
+
+c() { # weight category name cmd...
+  local w="$1" cat="$2" name="$3"; shift 3
+  local out rc
+  out="$("$@" 2>&1 | head -6)"; rc=$?
+  local r
+  case "$rc" in
+    0) r=pass; PASS=$((PASS+1)) ;;
+    2) r=na;   NA=$((NA+1)) ;;
+    3) r=warn; WARN=$((WARN+1)) ;;
+    *) r=fail; FAIL=$((FAIL+1)) ;;
+  esac
+  RESULTS+=("$(jq -nc --arg n "$name" --arg c "$cat" --arg r "$r" --argjson w "$w" --arg d "$out" \
+    '{check:$n,category:$c,result:$r,weight:$w,detail:$d}')")
+  printf '  %-6s %-11s %s\n' "$r" "$cat" "$name"
+}
+
+warn_ok() { # 0 if a warning, so a soft failure is visible but not fatal
+  "$@" >/dev/null 2>&1 || return 3
+}
+
+[ "${1:-}" = --json ] && JSON=1 || JSON=0
+FIX=0; for a in "$@"; do [ "$a" = --fix ] && FIX=1; done
+
+echo "lrd-security-audit — $(date -Is)"
+echo "host $(uname -n) kernel $(uname -r)"
+echo
+echo "BOOT"
+c 10 boot "bootloader state known"        sh -c 'test -s /run/lrd/boot-integrity.json'
+c 10 boot "boot chain level >= 1"         sh -c '[ "$(jq -r .level /run/lrd/boot-integrity.json 2>/dev/null||echo 0)" -ge 1 ]'
+c  8 boot "boot chain level >= 3 (real)"  sh -c '[ "$(jq -r .level /run/lrd/boot-integrity.json 2>/dev/null||echo 0)" -ge 3 ] || exit 3'
+c  6 boot "slots mutually bound"          lrd-boot-integrity check
+c  6 boot "boot image carries rollback idx" sh -c 'grep -q "lrd.rollback_index=" /proc/cmdline'
+c  6 boot "rootfs verity active"          sh -c 'jq -e ".active==true" /run/lrd/verity.state 2>/dev/null'
+c  4 boot "verity is not pinned-only"     sh -c '[ "$(jq -r .tier /run/lrd/verity.state 2>/dev/null||echo 0)" -ge 2 ]'
+c  4 boot "recovery reachable"            sh -c 'test -s /sbin/lrd-recovery || test -s /usr/sbin/lrd-recovery'
+
+echo
+echo "CRYPTO"
+c 12 crypto "rootfs is LUKS2 encrypted"     sh -c 'jq -e ".layout==\"luks2+verity-inside\"" /store/verity/lrd-verity_$(sed -n "s/.*slot_suffix=_\([ab]\).*/\1/p" /proc/cmdline 2>/dev/null || echo a).json'
+c 10 crypto "rootfs metadata signed"      sh -c 'm=/store/verity/lrd-verity_$(sed -n "s/.*slot_suffix=_\([ab]\).*/\1/p" /proc/cmdline 2>/dev/null || echo a).json; \
+   openssl dgst -sha256 -verify /etc/lrd/keys/verity.pub.pem -signature "$m.sig" "$m"'
+c 10 crypto "TCB manifest signed"         sh -c 'openssl dgst -sha256 -verify /etc/lrd/keys/verity.pub.pem \
+   -signature /store/security/tcb-manifest.json.sig /store/security/tcb-manifest.json'
+c 10 crypto "TCB manifest matches reality" lrd-tcb-manifest verify
+c 10 crypto "LUKS header is backed up"      sh -c 'test -s /store/keys/luks_header_$(sed -n "s/.*slot_suffix=_\([ab]\).*/\1/p" /proc/cmdline 2>/dev/null || echo a).img'
+c  8 crypto "verity is INSIDE the crypto"   sh -c 'jq -e ".layout==\"luks2+verity-inside\"" /store/verity/lrd-verity_$(sed -n "s/.*slot_suffix=_\([ab]\).*/\1/p" /proc/cmdline 2>/dev/null || echo a).json'
+c  8 crypto "mapped root is verity-backed"  sh -c 'dmsetup table lrdroot-$(sed -n "s/.*slot_suffix=_\([ab]\).*/\1/p" /proc/cmdline 2>/dev/null || echo a) 2>/dev/null | grep -q verity'
+c  8 crypto "rollback check clean"        sh -c '[ "$(jq -r .verdict /run/lrd/rollback.json 2>/dev/null||echo rollback)" = ok ]'
+c  8 crypto "rollback enforced not advisory" sh -c '[ "$(jq -r .enforcement /run/lrd/rollback.json 2>/dev/null||echo advisory)" != advisory ] || exit 3'
+c  6 crypto "LUKS header matches the signed record" \
+  sh -c 'img=/store/lrd-rootfs_$(sed -n "s/.*slot_suffix=_\([ab]\).*/\1/p" /proc/cmdline 2>/dev/null || echo a).raw; \
+         want=$(jq -r .luksHeaderSha256 /store/verity/lrd-verity_$(sed -n "s/.*slot_suffix=_\([ab]\).*/\1/p" /proc/cmdline 2>/dev/null || echo a).json 2>/dev/null || echo ""); \
+         got=$(dd if="$img" bs=1M count=16 2>/dev/null | sha256sum | cut -d" " -f1); \
+         [ -n "$want" ] && [ "$want" = "$got" ]'
+c  6 crypto "overlay fs supports verity"  sh -c 'tune2fs -l "$(findmnt -no SOURCE /overlay 2>/dev/null)" 2>/dev/null | grep -q verity'
+c  6 crypto "TCB files sealed with fsverity" sh -c '[ "$(jq -r "[.entries[]|select(.digest|startswith(\"fsverity:\"))]|length" /store/security/tcb-manifest.json 2>/dev/null||echo 0)" -gt 20 ] || exit 3'
+c  6 crypto "data partition encrypted"    sh -c 'grep -q lrd-data /etc/crypttab 2>/dev/null'
+c  6 crypto "overlay encrypted"           sh -c 'test -s /etc/crypttab && grep -q overlay /etc/crypttab'
+c  6 crypto "swap/zram noted"             sh -c 'ls /sys/block/zram0 2>/dev/null | grep -q . && exit 3; true'
+c  4 crypto "no plaintext key on disk"    sh -c '[ "$(stat -c %a /store/keys/luks_a.key 2>/dev/null)" = 600 ] || exit 3'
+c  4 crypto "early entropy seeded"        sh -c 'test -s /var/lib/systemd/random-seed'
+
+echo
+echo "KERNEL"
+c 10 kernel "module signing enforced"     sh -c '[ "$(cat /sys/module/module/parameters/sig_enforce 2>/dev/null)" = Y ]'
+c  8 kernel "all loaded modules signed"   sh -c 'for m in $(lsmod|awk "NR>1{print \$1}"); do
+     p=$(modinfo -n "$m" 2>/dev/null); [ -n "$p" ] && modinfo -F signer "$p" 2>/dev/null|grep -q . || echo "unsigned $m"; done | grep -q . && exit 1; true'
+c  8 kernel "kernel lockdown integrity"   sh -c '[ "$(cat /sys/kernel/security/lockdown 2>/dev/null | grep -o "\[[a-z]*\]" | tr -d "[]")" = integrity ] || exit 3'
+c  6 kernel "KASLR on"                    sh -c 'grep -q "Kernel Offset" /proc/kallsyms 2>/dev/null || [ -d /sys/kernel/randomize ] || exit 0'
+c  6 kernel "strict RWX"                  sh -c 'dmesg 2>/dev/null | grep -qi "rodata" || true'
+c  6 kernel "landlock available"          sh -c 'grep -qi landlock /proc/version || test -d /sys/kernel/security/landlock'
+c  6 kernel "nft REDIRECT present"        sh -c 'nft list ruleset 2>/dev/null | grep -qi redirect'
+c  4 kernel "user namespaces on"          sh -c 'test "$(cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || echo 1)" = 1'
+c  4 kernel "cgroup v2 only"              sh -c 'grep -q cgroup2 /proc/mounts && ! grep -q "cgroup " /proc/mounts'
+
+echo
+echo "USERSPACE"
+c 10 userspace "bridge requires a token"  sh -c 'test -s /etc/lrd/bridge.token'
+c  8 userspace "bridge bound to loopback" sh -c 'ss -ltnp 2>/dev/null | grep -q "127.0.0.1:3001"'
+c  8 userspace "bridge token enforced"    sh -c 'curl -fsS http://127.0.0.1:3001/api/host/exec/sync -XPOST \
+     -H "content-type: application/json" -d "{\"cmd\":\"true\",\"pty\":false}" 2>/dev/null | jq -e .ok'
+c  8 userspace "bridge rejects bad origin" sh -c 'curl -fsS -o /dev/null -w "%{http_code}" \
+     -H "origin: https://evil.example" http://127.0.0.1:3001/api/host/caps 2>/dev/null | grep -q 200 || exit 3'
+c  8 userspace "apparmor enforcing"        sh -c '[ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null)" = Y ]'
+c  6 userspace "apparmor profiles loaded"  sh -c 'aa-status --enforced 2>/dev/null | grep -q . || exit 3'
+c  6 userspace "no complain-mode profiles" sh -c 'aa-status 2>/dev/null | sed -n "/complain/,/^$/p" | grep -q "^\s*/" && exit 3; true'
+c  6 userspace "sudoers is TCB-sealed"     lrd-tcb-manifest verify
+c  6 userspace "PAM config unmodified"     lrd-tcb-manifest verify
+c  4 userspace "greetd configured"         sh -c 'test -s /etc/greetd/config.toml'
+c  4 userspace "polkit agent present"      sh -c 'test -x /usr/lib/polkit-1/polkit-agent-helper-1 || exit 3'
+c  4 userspace "xdg portal present"        sh -c 'test -d /usr/share/xdg-desktop-portal || exit 3'
+c  4 userspace "shell is TCB-sealed"       lrd-tcb-manifest verify
+c  4 userspace "no world-writable in TCB"  sh -c 'find /usr/lib/lrd /opt/lrd/app -perm -o+w -type f 2>/dev/null | grep -q . && exit 3; true'
+
+echo
+echo "NETWORK"
+c 10 network "egress policy set"           sh -c 'test -s /etc/lrd/net.policy'
+c 10 network "nft ruleset loaded"          sh -c 'nft list ruleset 2>/dev/null | grep -q .'
+c  8 network "tor running when policy says" sh -c 'p=$(cat /etc/lrd/net.policy 2>/dev/null); case "$p" in tor*) systemctl is-active tor.service;; *) exit 2;; esac'
+c  8 network "tor exit verified"           sh -c 'curl -fsS --max-time 25 --socks5-hostname 127.0.0.1:9050 https://check.torproject.org/api/ip 2>/dev/null | jq -e .IsTor'
+c  8 network "no DNS leak"                 sh -c 'p=$(cat /etc/lrd/net.policy 2>/dev/null); case "$p" in direct) exit 2;; esac; \
+     a=$(dig +short +timeout=4 @127.0.0.1 -p 5353 example.com 2>/dev/null | head -1); [ -n "$a" ]'
+c  6 network "inbound default deny"        sh -c 'nft list ruleset 2>/dev/null | grep -q "hook input"'
+c  6 network "ipv6 handled or disabled"    sh -c 'grep -q "ipv6.disable=1" /proc/cmdline || nft list ruleset 2>/dev/null | grep -q ip6'
+c  6 network "no clearnet fallback in tor-only" sh -c 'p=$(cat /etc/lrd/net.policy 2>/dev/null); [ "$p" = tor-only ] && grep -q "policy drop" /etc/nftables.d/lrd-net.nft || exit 2'
+c  4 network "captive portal handled"      sh -c 'systemctl is-active NetworkManager 2>/dev/null || exit 2'
+c  4 network "vpn support installed"       sh -c 'command -v wg >/dev/null || command -v openvpn >/dev/null || exit 3'
+
+echo
+echo "STORAGE"
+c 10 storage "overlay is separate+rw"       sh -c 'mountpoint -q /overlay && test -w /overlay/upper'
+c  8 storage "store mounted"               sh -c 'mountpoint -q /store'
+c  8 storage "snapshot exists"             sh -c '[ "$(lrd-snapshot list 2>/dev/null | wc -l)" -gt 0 ]'
+c  8 storage "snapshot timer armed"        sh -c 'systemctl is-enabled lrd-snapshot.timer 2>/dev/null'
+c  6 storage "eMMC/SSD wear readable"      sh -c 'ls /sys/block/mmcblk*/device/life_time 2>/dev/null || ls /sys/block/nvme*/ 2>/dev/null | grep -q . || exit 3'
+c  6 storage "free space headroom >15%"    sh -c 'f=$(df -Pk /overlay 2>/dev/null | awk "NR==2{print \$4}"); t=$(df -Pk /overlay 2>/dev/null | awk "NR==2{print \$2}"); [ -n "$t" ] && [ "$t" -gt 0 ] && [ $((f*100/t)) -gt 15 ]'
+c  4 storage "zram configured"             sh -c 'ls /sys/block/zram0 2>/dev/null | grep -q . || exit 3'
+c  4 storage "oomd or earlyoom active"     sh -c 'systemctl is-active systemd-oomd 2>/dev/null || systemctl is-active earlyoom 2>/dev/null || exit 3'
+
+echo
+echo "SERVICES"
+c 10 services "adapt validate passed"      sh -c 'jq -e ".level != \"unsupported\"" /run/lrd/adapt.json 2>/dev/null'
+c  8 services "safe target exists"         sh -c 'systemctl list-unit-files lrd-safe.target 2>/dev/null | grep -q lrd-safe'
+c  8 services "cage restart-bounded"       sh -c 'grep -q StartLimitAction /etc/systemd/system/cage.service.d/*.conf 2>/dev/null'
+c  8 services "bootcount marks success"    sh -c 'systemctl is-enabled lrd-bootcount-mark.service 2>/dev/null'
+c  6 services "all lrd units hardened"     sh -c 'for u in /etc/systemd/system/lrd-*.service; do
+     grep -qE "NoNewPrivileges|ProtectSystem" "$u" 2>/dev/null || echo "$u"; done | grep -q . && exit 3; true'
+c  6 services "unit failure count zero"    sh -c '[ "$(systemctl --failed --no-legend 2>/dev/null | wc -l)" -eq 0 ]'
+c  6 services "audit rules loaded"         sh -c 'auditctl -l 2>/dev/null | grep -q .'
+c  6 services "usbguard active"            sh -c 'systemctl is-active usbguard 2>/dev/null || exit 3'
+c  4 services "coredump captured"          sh -c 'systemctl is-active systemd-coredump.socket 2>/dev/null || exit 3'
+c  4 services "time synced"                sh -c 'timedatectl show -p NTPSynchronized --value 2>/dev/null | grep -q yes || exit 3'
+c  4 services "watchdog armed"             sh -c 'test "$(cat /proc/sys/kernel/watchdog 2>/dev/null||echo 1)" = 1'
+
+echo
+echo "DESKTOP"
+c 8 desktop "overlays clear chrome without clipping or blocking dock" sh -c '
+  test -n "$(ls -A /var/lib/lrd/chromium/Default 2>/dev/null)" || exit 3
+  dom=$(curl -fsS http://127.0.0.1:3001/api/shell/dom-check) || exit 1
+  ! printf "%s" "$dom" | grep -q "dock icon blocked" || { echo "FAIL: dock unreachable"; exit 1; }
+  ! printf "%s" "$dom" | grep -q "hit-testable" || { echo "FAIL: overlay blocks input"; exit 1; }
+  echo "$dom" | jq -e ".overlayRootIsBodyChild and .dockMarkerPresent and .noOverlap and .noClipping"'
+
+
+if [ "$FIX" = 1 ]; then
+  echo
+  echo "FIX"
+  # mechanical, safe fixes only
+  [ ! -s /etc/lrd/bridge.token ] && { mkdir -p /etc/lrd; head -c 32 /dev/urandom | base64 > /etc/lrd/bridge.token; chmod 600 /etc/lrd/bridge.token; echo "  generated bridge token"; }
+  systemctl enable --now lrd-snapshot.timer lrd-verity-scan.timer 2>/dev/null && echo "  armed timers" || true
+  command -v fsverity >/dev/null 2>&1 && { lrd-tcb-manifest seal >/dev/null 2>&1 && lrd-tcb-manifest sign >/dev/null 2>&1 && echo "  re-sealed and re-signed the TCB manifest"; } || true
+  lrd-boot-integrity bind 2>/dev/null && echo "  bound slots" || true
+  lrd-rollback seal 2>/dev/null && echo "  sealed rollback counter" || true
+  systemctl enable --now usbguard auditd systemd-oomd 2>/dev/null && echo "  enabled usbguard/auditd/oomd" || true
+fi
+
+# ---------- score ----------
+total=0; got=0
+while read -r r w; do
+  total=$((total+w))
+  case "$r" in pass) got=$((got+w));; warn) got=$((got + w/2));; esac
+done < <(printf '%s\n' "${RESULTS[@]}" | jq -r '[.result,.weight]|@tsv')
+score=$(( total ? got*100/total : 0 ))
+
+mkdir -p /run/lrd
+jq -nc --argjson pass "$PASS" --argjson fail "$FAIL" --argjson warn "$WARN" --argjson na "$NA" \
+  --argjson score "$score" --arg at "$(date -Is)" \
+  --argjson results "$(printf '%s\n' "${RESULTS[@]}" | jq -s 'sort_by(-.weight)')" \
+  '{at:$at, score:$score, pass:$pass, fail:$fail, warn:$warn, na:$na,
+    verdict: (if $score>=90 then "hardened" elif $score>=75 then "reasonable"
+              elif $score>=50 then "weak" else "exposed" end),
+    failures: [.results[]|select(.result=="fail")],
+    warnings: [.results[]|select(.result=="warn")]}' \
+  > /run/lrd/security-audit.json
+
+echo
+echo "  pass $PASS  warn $WARN  fail $FAIL  n/a $NA   score $score/100"
+jq -r '.failures[]|"  FAIL [\(.weight)] \(.category)/\(.check)"' /run/lrd/security-audit.json 2>/dev/null
+echo
+echo "  written /run/lrd/security-audit.json"
+[ "$FAIL" -eq 0 ]

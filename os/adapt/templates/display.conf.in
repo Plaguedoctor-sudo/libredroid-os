@@ -1,0 +1,10 @@
+# templates/display.conf.in
+# display backend chosen at adaptation time. Never edit on the device.
+backend=@BACKEND@
+drm_nodes=@DRMNODES@
+hwcomposer=@HWCOMPOSER@
+# drm  -> cage/labwc use the KMS backend directly (preferred)
+# hwc2 -> wlroots goes through the vendor hwcomposer via libhybris
+# fbdev-> last resort, software only, no GPU accel
+renderer=@BACKEND@
+allow_software_fallback=1

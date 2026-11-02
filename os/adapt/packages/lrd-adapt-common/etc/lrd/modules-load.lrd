@@ -1,0 +1,5 @@
+# Modules to force-load at boot. The adaptation package appends to this.
+# Leave empty to derive from the vendor's own modules.load (minus Android-only ones).
+overlay
+fuse
+zram

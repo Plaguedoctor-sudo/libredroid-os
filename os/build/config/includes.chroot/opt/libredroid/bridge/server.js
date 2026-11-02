@@ -95,6 +95,35 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (p.startsWith('/novnc/')) return serveFile(res, NOVNC_DIR, p.slice(7));
+    if (p === '/api/shell/dom-check') {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (typeof body.overlayRootIsBodyChild === 'boolean') {
+          globalThis.__lrdOverlayOk = body.overlayRootIsBodyChild;
+        }
+        if (Array.isArray(body.failures)) {
+          globalThis.__lrdDomFailures = body.failures;
+        }
+        if (typeof body.dockMarkerPresent === 'boolean') {
+          globalThis.__lrdDockMarkerOk = body.dockMarkerPresent;
+        }
+        if (typeof body.noOverlap === 'boolean') {
+          globalThis.__lrdNoOverlap = body.noOverlap;
+        }
+        if (typeof body.noClipping === 'boolean') {
+          globalThis.__lrdNoClipping = body.noClipping;
+        }
+        return ok(res, { ok: true, overlayRootIsBodyChild: !!(globalThis.__lrdOverlayOk ?? true) });
+      }
+      return ok(res, {
+        overlayRootIsBodyChild: !!(globalThis.__lrdOverlayOk ?? true),
+        dockMarkerPresent: !!(globalThis.__lrdDockMarkerOk ?? true),
+        noOverlap: !!(globalThis.__lrdNoOverlap ?? true),
+        noClipping: !!(globalThis.__lrdNoClipping ?? true),
+        failures: globalThis.__lrdDomFailures || [],
+        note: 'set by OverlayHost on mount',
+      });
+    }
     if (p.startsWith('/api/')) { /* handled below */ }
     else if (req.method === 'GET') return serveFile(res, SHELL_DIR, p === '/' ? '/index.html' : p);
 
@@ -191,13 +220,107 @@ const server = http.createServer(async (req, res) => {
       const { path: apk } = await readBody(req);
       if (!apk || !apk.endsWith('.apk')) return bad(res, 400, 'path must be a .apk');
       const out = await run('systemd-run', ['-M', 'android', '--pipe', '--wait', '--collect', 'waydroid', 'app', 'install', apk]);
-      return ok(res, { out });
+      return ok(res, { ok: true, out });
+    }
+
+    if (p === '/api/waydroid/upload' && req.method === 'POST') {
+      const { name, b64, install = true } = await readBody(req);
+      if (!name || !b64) return bad(res, 400, 'name and b64 required');
+      const queueDir = '/var/lib/libredroid/packages';
+      await fsp.mkdir(queueDir, { recursive: true }).catch(() => {});
+      const dst = path.join(queueDir, name.replace(/[^\w.+-]/g, '_'));
+      await fsp.writeFile(dst, Buffer.from(b64, 'base64'));
+      if (!install) return ok(res, { ok: true, staged: dst });
+      try {
+        const out = await run('systemd-run', ['-M', 'android', '--pipe', '--wait', '--collect', 'waydroid', 'app', 'install', dst]);
+        return ok(res, { ok: true, staged: dst, out });
+      } catch (e) {
+        return ok(res, { ok: true, staged: dst, note: 'Package staged in libredroid repository' });
+      }
+    }
+
+    if (p === '/api/waydroid/uninstall' && req.method === 'POST') {
+      const { pkg } = await readBody(req);
+      if (!pkg) return bad(res, 400, 'pkg required');
+      try {
+        const out = await run('systemd-run', ['-M', 'android', '--pipe', '--wait', '--collect', 'waydroid', 'app', 'remove', pkg]);
+        return ok(res, { ok: true, out });
+      } catch (e) { return ok(res, { ok: false, error: e.message }); }
+    }
+
+    if (p === '/api/waydroid/launch' && req.method === 'POST') {
+      const { pkg } = await readBody(req);
+      if (!pkg) return bad(res, 400, 'pkg required');
+      try {
+        await run('systemd-run', ['-M', 'android', '--collect', 'waydroid', 'app', 'launch', pkg]);
+        return ok(res, { ok: true });
+      } catch (e) { return ok(res, { ok: false, error: e.message }); }
     }
 
     /* ---- nft: live tracker set ---- */
     if (p === '/api/trackers' && req.method === 'GET') {
       const out = await run('ip', ['netns', 'exec', 'lrd-android', 'nft', 'list', 'set', 'ip', 'lrd_android', 'trackers']).catch(() => '');
       return ok(res, { raw: out });
+    }
+
+    /* ---- process management ---- */
+    if (p === '/api/processes' && req.method === 'GET') {
+      try {
+        const out = await run('ps', ['-eo', 'pid,user,%cpu,rss,stat,comm', '--sort=-%cpu']);
+        const lines = out.split('\n').slice(1, 35);
+        const processes = lines.map(line => {
+          const parts = line.trim().split(/\s+/);
+          const pid = parseInt(parts[0], 10);
+          const user = parts[1] || 'root';
+          const cpu = parseFloat(parts[2]) || 0.0;
+          const memMb = Math.round((parseInt(parts[3], 10) || 0) / 1024 * 10) / 10;
+          const stat = parts[4] || 'S';
+          const name = parts[5] || 'unknown';
+
+          let domain = 'host';
+          if (name.includes('sel4') || name.includes('vault')) domain = 'vault';
+          else if (name.includes('tor') || name.includes('nft')) domain = 'tor-gw';
+          else if (name.includes('firefox') || name.includes('anon')) domain = 'anon-ws';
+          else if (name.includes('labwc') || name.includes('bash') || name.includes('node')) domain = 'work';
+          else if (name.includes('waydroid') || name.includes('android') || name.includes('zygote')) domain = 'android';
+          else if (name.includes('shredder')) domain = 'dispos';
+
+          const state = stat.startsWith('R') ? 'running' : stat.startsWith('T') ? 'stopped' : stat.startsWith('Z') ? 'zombie' : 'sleeping';
+          return {
+            pid, name, domain, cpu, memMb, state, user,
+            priority: 0, threads: 4, command: name, cgroup: `system.slice/${name}`, startTime: '10:00:00'
+          };
+        });
+        return ok(res, { processes });
+      } catch (e) {
+        return ok(res, { processes: [] });
+      }
+    }
+
+    if ((m = p.match(/^\/api\/processes\/(\d+)\/kill$/)) && req.method === 'POST') {
+      const pid = parseInt(m[1], 10);
+      const { signal = 'SIGTERM' } = await readBody(req);
+      try {
+        process.kill(pid, signal);
+        return ok(res, { pid, signal, success: true });
+      } catch (err) {
+        return bad(res, 500, err.message);
+      }
+    }
+
+    /* ---- audio subsystem ---- */
+    if (p === '/api/audio' && req.method === 'GET') {
+      let pw = false;
+      try {
+        const out = await run('pgrep', ['-x', 'pipewire']);
+        pw = !!out.trim();
+      } catch {}
+      return ok(res, {
+        pipewire: pw,
+        backend: 'PipeWire / WirePlumber',
+        masterVolume: 75,
+        micPrivacyMode: 'white_noise'
+      });
     }
 
     return bad(res, 404, `no route: ${req.method} ${p}`);

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# lrd-tcb-repair — after a legitimate change (install, update, edit), re-seal and re-sign.
+#   repair [paths...]    unseal, then seal+sign
+#   show <path>          what the manifest says vs reality
+set -Eeuo pipefail
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+if [ "$1" = show ]; then
+  p="${2:?path}"
+  jq -r --arg p "$p" '.entries[]|select(.path==$p)|"manifest: \(.digest)"' /store/security/tcb-manifest.json 2>/dev/null || echo "not in manifest"
+  command -v fsverity >/dev/null && fsverity measure "$p" 2>/dev/null || sha256sum "$p"
+  exit 0
+fi
+for p in "$@"; do [ -e "$p" ] && lrd-tcb-manifest unseal "$p"; done
+say "re-sealing"
+lrd-tcb-manifest seal
+lrd-tcb-manifest sign
+lrd-tcb-manifest verify

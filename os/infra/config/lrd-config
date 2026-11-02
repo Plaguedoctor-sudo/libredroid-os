@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# lrd-config — the config of record, on disk, with a user override layer.
+# Precedence: user drop-in > device adaptation > defaults.
+#   get <key> | set <key> <val> [--user] | unset <key> | show | validate | export
+set -Eeuo pipefail
+BASE=/etc/lrd/config.d
+USERD=/etc/lrd/config.user.d
+RECORD=/var/lib/lrd/config.json
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+# built-in defaults; anything absent is a bug, not a silent zero
+DEFAULTS='{"ui.persona":"everyday","ui.scale":1.0,"ui.wallpaper":"","ui.clock24":true,
+"ai.backend":"local","ai.model":"","ai.remoteUrl":"","ai.remoteKey":"",
+"net.policy":"direct","net.torAuto":false,"power.idleDim":60,"power.idleOff":180,
+"power.idleSuspend":600,"power.critical":5,"storage.snapshotKeep":5,
+"sec.verityPolicy":"warn","sec.lockOnSuspend":true,"sec.idleLock":300,
+"upd.channel":"stable","upd.auto":"check","upd.metered":false,
+"domains.enabled":["work"],"a11y.scale":1.0,"a11y.reader":false,"i18n.locale":"en_US.UTF-8"}'
+
+layered() {
+  printf '%s' "$DEFAULTS"
+  for d in "$BASE" "$USERD"; do
+    [ -d "$d" ] || continue
+    for f in "$d"/*.json; do [ -f "$f" ] && cat "$f"; done
+  done | jq -s 'reduce .[] as $o ({}; . * $o)'
+}
+
+case "${1:-show}" in
+get)  layered | jq -r --arg k "${2:?key}" '.[$k] | if type=="array" then join(",") else tostring end' ;;
+set)
+  k="${2:?key}"; v="${3:?value}"
+  dir="$BASE"; [ "${4:-}" = --user ] && dir="$USERD"
+  mkdir -p "$dir"
+  f="$dir/$(echo "$k" | tr '.' '-').json"
+  # coerce the type to match the default
+  t="$(layered | jq -r --arg k "$k" '.[$k]|type')"
+  case "$t" in
+    boolean) jv="$([ "$v" = true ] || [ "$v" = 1 ] && echo true || echo false)" ;;
+    number)  jv="$v" ;;
+    array)   jv="$(printf '%s' "$v" | jq -R 'split(",")')" ;;
+    *)       jv="$(printf '%s' "$v" | jq -Rs .)" ;;
+  esac
+  jq -nc --arg k "$k" --argjson v "$jv" '{($k):$v}' > "$f"
+  say "$k = $v  ($f)"
+  ;;
+unset)
+  k="${2:?key}"
+  for d in "$BASE" "$USERD"; do
+    f="$d/$(echo "$k" | tr '.' '-').json"
+    [ -f "$f" ] && rm -f "$f" && say "removed $f"
+  done
+  ;;
+show) layered | jq . ;;
+export)
+  mkdir -p "$(dirname "$RECORD")" 2>/dev/null || true
+  layered > "$RECORD"
+  say "wrote $RECORD"
+  ;;
+validate)
+  layered | jq -e '
+    ((.["ui.scale"] >= 0.5) and (.["ui.scale"] <= 3)) and
+    (.["sec.verityPolicy"] | test("^(warn|strict|off)$")) and
+    (.["upd.channel"] | test("^(stable|beta|nightly)$")) and
+    (.["net.policy"] | test("^(direct|tor-default|tor-only|offline)$"))' >/dev/null \
+    && say "valid" || { echo "invalid config"; layered | jq .; exit 1; }
+  ;;
+*) echo "usage: lrd-config {get|set|unset|show|validate|export}"; exit 2 ;;
+esac

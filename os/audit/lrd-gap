@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# lrd-gap — report which components and security properties are present, absent,
+# or present-but-weak. Reads gaps.tsv; runs each check.
+#   gap [--category X] [--phase N] [--json] [--plan]
+set -uo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REG="$HERE/gaps.tsv"
+CAT=""; PHASE=""; JSON=0; PLAN=0
+for a in "$@"; do case "$a" in
+  --category) shift; CAT="$1" ;;
+  --phase) shift; PHASE="$1" ;;
+  --json) JSON=1 ;;
+  --plan) PLAN=1 ;;
+esac; done
+
+PRESENT=0; ABSENT=0; WEAK=0; SKIP=0
+ROWS=()
+
+while IFS=$'\t' read -r id cat phase weight kind check fix notes; do
+  case "$id" in ''|\#*) continue ;; esac
+  [ -n "$CAT" ] && [ "$cat" != "$CAT" ] && continue
+  [ -n "$PHASE" ] && [ "$phase" != "$PHASE" ] && continue
+
+  # check exit: 0 present, 1 absent, 2 weak/partial, 3 not applicable
+  out="$(bash -c "$check" 2>&1 | head -3)"; rc=$?
+  case "$rc" in
+    0) r=present; PRESENT=$((PRESENT+1)) ;;
+    2) r=weak;    WEAK=$((WEAK+1)) ;;
+    3) r=n/a;     SKIP=$((SKIP+1)) ;;
+    *) r=absent;  ABSENT=$((ABSENT+1)) ;;
+  esac
+  ROWS+=("$(jq -nc --arg id "$id" --arg c "$cat" --arg p "$phase" --argjson w "$weight" \
+    --arg r "$r" --arg f "$fix" --arg n "$notes" --arg d "$out" \
+    '{id:$id,category:$c,phase:$p,weight:$w,status:$r,fix:$f,notes:$n,detail:$d}')")
+  [ "$JSON" = 0 ] && {
+    case "$r" in
+      present) printf '  \033[32m ok \033[0m %-28s %s\n' "$id" "$notes" ;;
+      weak)    printf '  \033[33mweak\033[0m %-28s %s\n' "$id" "$notes" ;;
+      absent)  printf '  \033[31m -- \033[0m %-28s %s\n' "$id" "$notes" ;;
+      n/a)     printf '  \033[90mskip\033[0m %-28s %s\n' "$id" "$notes" ;;
+    esac
+  }
+done < "$REG"
+
+if [ "$JSON" = 1 ]; then
+  printf '%s\n' "${ROWS[@]}" | jq -s --argjson p "$PRESENT" --argjson a "$ABSENT" --argjson w "$WEAK" \
+    '{present:$p, absent:$a, weak:$w, coverage: (($p + $w/2) / (($p+$a+$w)|if .==0 then 1 else . end) * 100 | floor), items:.}'
+  exit 0
+fi
+
+echo
+echo "  present $PRESENT   weak $WEAK   absent $ABSENT   n/a $SKIP"
+COV=$(( (PRESENT*100 + WEAK*50) / ((PRESENT+ABSENT+WEAK) ? (PRESENT+ABSENT+WEAK) : 1) ))
+echo "  coverage ${COV}%"
+echo
+if [ "$PLAN" = 1 ]; then
+  echo "  next, by weight:"
+  printf '%s\n' "${ROWS[@]}" | jq -r 'select(.status=="absent" or .status=="weak")|"    [\(.weight)] \(.id) — \(.fix)"' | head -25
+fi

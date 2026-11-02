@@ -1,0 +1,14 @@
+[Unit]
+Description=LibreDroid — initialise the bootloader control block
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=sysinit.target
+ConditionPathExists=/dev/block/by-name/misc
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/lrd-bootcount --status
+
+[Install]
+WantedBy=sysinit.target

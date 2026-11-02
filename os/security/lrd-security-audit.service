@@ -1,0 +1,16 @@
+[Unit]
+Description=LibreDroid security recheck
+After=lrd-tcb-verify.service multi-user.target
+Before=cage.service
+Wants=lrd-tcb-verify.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/lrd-security-audit
+TimeoutStartSec=180
+# a failing audit must not stop the boot; it must be visible
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# lrd-mount — removable media via udisks2, with a polkit rule so it needs no password.
+set -uo pipefail
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+command -v udisksctl >/dev/null || { echo "udisks2 missing"; exit 1; }
+
+case "${1:-list}" in
+list)
+  # enumerate block devices with a filesystem, and whether they are mounted
+  lsblk -J -o NAME,PATH,LABEL,FSTYPE,SIZE,MOUNTPOINT,RM,HOTPLUG 2>/dev/null | \
+    jq '[.blockdevices[]? | select(.fstype != null and .fstype != "" and .type=="part") |
+         {path:.path,label:(.label//.path),fs:.fstype,size:.size,
+          removable:(.rm//false),mounted:(.mountpoint!=null),mountpoint:.mountpoint}]' 2>/dev/null || echo "[]"
+  ;;
+mount)
+  dev="${2:?device}"
+  out="$(udisksctl mount -b "$dev" 2>&1)" && { say "$out"; echo "$out" | sed -n 's/.*at \([^.]*\)\./\1/p'; } \
+    || { echo "$out"; exit 1; }
+  # tell the shell so the Files app can jump there
+  mp="$(findmnt -no TARGET "$dev" 2>/dev/null || true)"
+  [ -n "$mp" ] && lrd-emit storage "{\"event\":\"mounted\",\"device\":\"$dev\",\"mount\":\"$mp\"}" 2>/dev/null || true
+  ;;
+unmount)
+  dev="${2:?device}"
+  udisksctl unmount -b "$dev" 2>&1 && lrd-emit storage "{\"event\":\"unmounted\",\"device\":\"$dev\"}" 2>/dev/null || true
+  ;;
+eject)
+  dev="${2:?device}"
+  udisksctl unmount -b "$dev" 2>/dev/null || true
+  udisksctl power-off -b "$dev" 2>&1 || true
+  ;;
+status)
+  udisksctl status 2>/dev/null | head -20 || echo "udisks2 not available"
+  ;;
+*) echo "usage: lrd-mount {list|mount <dev>|unmount <dev>|eject <dev>|status}"; exit 2 ;;
+esac

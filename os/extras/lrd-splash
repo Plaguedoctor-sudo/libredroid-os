@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+# plymouth needs a theme; a minimal one so it is not a black box
+mkdir -p /usr/share/plymouth/themes/lrd 2>/dev/null || true
+cat > /usr/share/plymouth/themes/lrd/lrd.plymouth <<'EOF'
+[Plymouth Theme]
+Name=LibreDroid
+Description=LibreDroid boot
+ModuleName=script
+[script]
+ImageDir=/usr/share/plymouth/themes/lrd
+ScriptFile=/usr/share/plymouth/themes/lrd/lrd.script
+EOF
+cat > /usr/share/plymouth/themes/lrd/lrd.script <<'EOF'
+# minimal: a wordmark and a progress bar, no animation budget
+bg = Window.GetBackground();
+w = Window.GetWidth(); h = Window.GetHeight();
+barw = w / 4; barh = 6; x0 = (w - barw) / 2; y0 = h * 0.62;
+bar = Rectangle(x0, y0, barw, barh, 0.25, 0.25, 0.25, 1);
+fill = Rectangle(x0, y0, 0, barh, 0.55, 0.85, 0.95, 1);
+fun refresh() {
+  p = Plymouth.GetProgress();
+  fill.SetWidth(barw * p);
+  return 1;
+}
+Plymouth.SetRefreshFunction(refresh);
+EOF
+plymouth-set-default-theme lrd 2>/dev/null || true
+# quiet the kernel text so plymouth is not fighting it
+sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 vt.global_cursor_default=0"/' /etc/default/grub 2>/dev/null || true
+update-initramfs -u 2>/dev/null || true

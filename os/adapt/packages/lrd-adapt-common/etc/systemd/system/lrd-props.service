@@ -1,0 +1,20 @@
+[Unit]
+Description=LibreDroid — populate the Android property space
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=sysinit.target lrd-adapt-apply.service
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# vendor props first (ro.* must land before any HAL reads them), then the adaptation's
+ExecStart=/usr/lib/lrd/adapt/propset /etc/lrd/device.props
+ExecStartPost=/usr/lib/lrd/adapt/propset /etc/lrd/hybris.props
+TimeoutStartSec=30
+# a partial property set is still better than none
+SuccessExitStatus=0 1 2
+
+[Install]
+WantedBy=sysinit.target

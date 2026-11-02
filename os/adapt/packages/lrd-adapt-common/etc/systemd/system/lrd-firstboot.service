@@ -1,0 +1,19 @@
+[Unit]
+Description=LibreDroid first boot report
+# deliberately NOT Before=cage — it renders alongside and never delays the shell
+After=lrd-adapt-validate.service
+Before=getty@tty1.service
+ConditionPathExists=!/var/lib/lrd/firstboot.done
+Conflicts=getty@tty1.service
+
+[Service]
+Type=oneshot
+# StandardOutput=tty would close the fd on exit; the script opens /dev/tty1 itself
+StandardInput=null
+StandardOutput=null
+TTYPath=/dev/tty1
+ExecStart=/usr/lib/lrd/adapt/firstboot
+TimeoutStartSec=30
+# a hung report must not stall the boot
+TimeoutAbortSec=10
+Nice=5

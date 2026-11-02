@@ -1,0 +1,6 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+while :; do
+  sleep 21600
+  "$HOME/.lrd/bin/lrd-backup.sh" || true
+done

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# lrd-aa-triage — the workflow that gets profiles from complain to enforce
+# without a week of guesswork.
+set -uo pipefail
+P=/etc/apparmor.d
+LOG=/var/lib/lrd/aa-denials
+mkdir -p "$LOG" 2>/dev/null || true
+case "${1:-report}" in
+  report)
+    echo "denials since boot, by profile:"
+    journalctl -b --no-pager 2>/dev/null | grep -oP 'apparmor="DENIED" operation="\w+" profile="[^"]+"' \
+      | sed 's/.*profile="//; s/"$//' | sort | uniq -c | sort -rn | head -30
+    ;;
+  suggest)
+    for prof in $(aa-status --complaining 2>/dev/null | tail -n +2); do
+      echo "=== $prof ==="
+      aa-logprof --json 2>/dev/null | jq -r '.profiles[]?|select(.name=="'"$prof"'")|.additions[]?' 2>/dev/null | head -5 || true
+    done
+    ;;
+  enforce)
+    for prof in $(aa-status --complaining 2>/dev/null | tail -n +2); do
+      echo "enforcing $prof"
+      aa-enforce "$prof" 2>/dev/null || true
+    done
+    aa-status --enforced 2>/dev/null | wc -l || echo 0
+    ;;
+  revert)
+    aa-complain "${2:?profile}" 2>/dev/null || true
+    ;;
+  watch)
+    # the profile must survive a full workload cycle before enforcing
+    echo "watching for denials — exercise the system, then ctrl-c"
+    journalctl -f -o cat 2>/dev/null | grep --line-buffered 'apparmor="DENIED"' | tee -a "$LOG/$(date +%s).log"
+    ;;
+esac

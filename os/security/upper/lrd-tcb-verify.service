@@ -1,0 +1,18 @@
+[Unit]
+Description=LibreDroid — verify the TCB manifest
+After=lrd-adapt-validate.service
+Before=cage.service lrd-bridge.service
+Requires=lrd-adapt-validate.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# warn by default: a modified sudoers must not stop the OS from booting
+ExecStart=/usr/bin/lrd-tcb-manifest verify
+TimeoutStartSec=45
+SuccessExitStatus=0 1
+# publish to the readiness report
+ExecStartPost=/bin/sh -c 'jq -r .verified /run/lrd/tcb.json > /run/lrd/tcb.flag 2>/dev/null || echo false > /run/lrd/tcb.flag'
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# lrd-apps-registry — build the shell's app catalog from everything installed.
+# Scans .desktop files, flatpak, waydroid. The shell never scans; it reads this.
+set -Eeuo pipefail
+OUT=/var/lib/lrd/apps.json
+TMP="$(mktemp)"
+have(){ command -v "$1" >/dev/null 2>&1; }
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+emit() { # id name exec icon category source
+  jq -nc --arg id "$1" --arg n "$2" --arg e "$3" --arg i "$4" --arg c "$5" --arg s "$6" \
+    '{id:$id,name:$n,exec:$e,icon:$i,category:$c,source:$s}' >> "$TMP"
+}
+
+say "desktop entries"
+for d in /usr/share/applications /usr/local/share/applications ~/.local/share/applications; do
+  [ -d "$d" ] || continue
+  for f in "$d"/*.desktop; do
+    [ -f "$f" ] || continue
+    grep -q '^NoDisplay=true' "$f" 2>/dev/null && continue
+    grep -q '^Hidden=true' "$f" 2>/dev/null && continue
+    id="$(basename "$f" .desktop)"
+    name="$(sed -n 's/^Name=//p' "$f" | head -1)"
+    ex="$(sed -n 's/^Exec=//p' "$f" | head -1 | sed 's/ *%[a-zA-Z]//g')"
+    icon="$(sed -n 's/^Icon=//p' "$f" | head -1)"
+    cats="$(sed -n 's/^Categories=//p' "$f" | head -1 | cut -d';' -f1)"
+    [ -n "$ex" ] || continue
+    emit "$id" "${name:-$id}" "$ex" "$icon" "${cats:-Utility}" desktop
+  done
+done
+
+say "flatpak"
+if have flatpak; then
+  flatpak list --app --columns=application,name,version 2>/dev/null | while IFS=$'\t' read -r appid name ver; do
+    [ -n "$appid" ] || continue
+    emit "$appid" "$name" "flatpak run $appid" "$appid" "Application" flatpak
+  done
+fi
+
+say "waydroid"
+if have waydroid && waydroid status 2>/dev/null | grep -q RUNNING; then
+  waydroid app list 2>/dev/null | while read -r pkg; do
+    [ -n "$pkg" ] || continue
+    emit "waydroid.$pkg" "$pkg" "waydroid app launch $pkg" "" "Android" waydroid
+  done
+fi
+
+say "our own"
+for f in /usr/share/applications/lrd-*.desktop; do
+  [ -f "$f" ] || continue
+  id="$(basename "$f" .desktop)"
+  name="$(sed -n 's/^Name=//p' "$f" | head -1)"
+  ex="$(sed -n 's/^Exec=//p' "$f" | head -1 | sed 's/ *%[a-zA-Z]//g')"
+  emit "$id" "$name" "$ex" "$(sed -n 's/^Icon=//p' "$f" | head -1)" "LibreDroid" native
+done
+
+mkdir -p "$(dirname "$OUT")" 2>/dev/null || true
+jq -s --arg at "$(date -Is)" '{generatedAt:$at, count:length, apps:.}' "$TMP" > "$OUT.t"
+mv "$OUT.t" "$OUT"; rm -f "$TMP"
+say "$(jq .count "$OUT") apps"

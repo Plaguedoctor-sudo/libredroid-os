@@ -1,0 +1,28 @@
+[Unit]
+Description=LibreDroid adaptation — apply hybris, display, modules
+Documentation=file:/usr/share/doc/lrd-adapt-common/README
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=sysinit.target
+Wants=lrd-binder.service
+After=lrd-binder.service
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# early and unprivileged-ish, but it must be able to mount and modprobe
+ExecStartPre=/usr/lib/lrd/adapt/apply-hybris
+ExecStart=/usr/lib/lrd/adapt/apply-display
+ExecStart=/usr/lib/lrd/adapt/apply-modules
+ExecStart=/usr/lib/lrd/adapt/apply-input
+# audio and ril need /run and dbus-ish things, so they get their own later unit
+TimeoutStartSec=45
+# a failing step must never block the boot
+SuccessExitStatus=0 1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target

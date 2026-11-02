@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# apply-sensors — prefer mainline IIO, fall back to the vendor HAL.
+set -uo pipefail
+STATE=/run/lrd/sensors.state
+mkdir -p /run/lrd
+log() { echo "[apply-sensors] $*"; logger -t lrd-adapt "$*" 2>/dev/null || true; }
+
+iio=(); for d in /sys/bus/iio/devices/iio:device*; do [ -e "$d/name" ] && iio+=("$(cat "$d/name" 2>/dev/null)"); done
+hal=""; for d in /vendor/lib64/hw /odm/lib64/hw; do for f in "$d"/sensors.*.so "$d"/sensors.default.so; do [ -e "$f" ] && { hal="$f"; break 2; }; done; done
+
+if [ "${#iio[@]}" -gt 0 ]; then
+  log "IIO devices: ${iio[*]}"
+  mkdir -p /etc/systemd/system/iio-sensor-proxy.service.d
+  cat > /etc/systemd/system/iio-sensor-proxy.service.d/10-lrd.conf <<'EOF'
+[Service]
+Environment=LRD_SENSORS=mainline
+EOF
+  systemctl enable --now iio-sensor-proxy.service 2>/dev/null || true
+  jq -nc --argjson n "${#iio[@]}" --argjson d "$(printf '%s\n' "${iio[@]}" | jq -Rsc 'split("\n")|map(select(length>0))')" \
+    '{ok:true, path:"mainline", count:$n, devices:$d}' > "$STATE"
+  log "using mainline IIO path"
+  exit 0
+fi
+
+if [ -n "$hal" ]; then
+  suffix="$(basename "$hal")"; suffix="${suffix#sensors.}"; suffix="${suffix%.so}"
+  {
+    echo "ro.hardware.sensors=${suffix}"
+    echo "persist.vendor.sensors=${suffix}"
+  } > /etc/lrd/sensors.props
+  /usr/lib/lrd/adapt/propset /etc/lrd/sensors.props >/dev/null 2>&1 || true
+  cat > /etc/environment.d/55-lrd-sensors.conf <<EOF
+LRD_SENSORS_HAL=$hal
+EOF
+  log "no IIO — vendor HAL path ($suffix); needs a libhybris sensorfw bridge"
+  jq -nc --arg h "$hal" --arg s "$suffix" '{ok:true, path:"vendor-hal", hal:$h, suffix:$s,
+    warning:"vendor sensor HAL requires sensorfw + libhybris; not wired by default"}' > "$STATE"
+  exit 0
+fi
+
+log "no sensors found"
+jq -nc '{ok:false, reason:"neither IIO devices nor a vendor sensor HAL"}' > "$STATE"
+exit 0

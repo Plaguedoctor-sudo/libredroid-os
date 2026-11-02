@@ -1,0 +1,23 @@
+[Unit]
+Description=LibreDroid acceptance test
+After=lrd-doctor-gate.service labwc.service
+Wants=lrd-doctor-gate.service
+ConditionPathExists=!/var/lib/lrd/.verified
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# run it on the console so a human sees it and a serial capture gets it
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+ExecStart=/usr/bin/lrd-verify
+TimeoutStartSec=300
+# a broken verdict is information, not a failure to boot
+SuccessExitStatus=0 1
+ExecStartPost=/bin/sh -c 'touch /var/lib/lrd/.verified; \
+  jq -r .verdict /var/lib/lrd/verify.json > /run/lrd/verify.verdict 2>/dev/null || echo broken > /run/lrd/verify.verdict'
+ExecStartPost=/usr/local/bin/lrd-emit lifecycle "$(jq -c '{verify: .verdict, score: .score}' /var/lib/lrd/verify.json 2>/dev/null || echo '{}')"
+
+[Install]
+WantedBy=graphical.target

@@ -27,12 +27,21 @@ import {
   Mic, 
   MicOff, 
   Layers,
-  Radio
+  Radio,
+  PhoneCall,
+  CheckCircle2,
+  Maximize,
+  Minimize,
+  Lock,
+  Power
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import { useSecurity } from '../../context/SecurityContext';
 import { togglePhysicalHardware, fetchHardwareStatus, PhysicalHardwareStatus } from '../../services/hardwareBridgeClient';
+import { hardwareHalBridge } from '../../services/hardwareHalBridge';
+import { playIntegrityEngine } from '../../services/playIntegrityEngine';
+import { network5gEngine } from '../../services/network5gEngine';
 
 export const QuickSettingsPanel: React.FC = () => {
   const { 
@@ -50,12 +59,18 @@ export const QuickSettingsPanel: React.FC = () => {
     syncAccount,
     deviceMode,
     setDeviceMode,
-    actualDevice
+    interfaceMode,
+    setInterfaceMode,
+    actualDevice,
+    lockDevice,
+    setIsPowerMenuOpen
   } = useSystem();
 
   const { openApp, purgeDisposableWindows } = useWindow();
   const { cameraKillswitch, setCameraKillswitch, micKillswitch, setMicKillswitch } = useSecurity();
   const [hwStatus, setHwStatus] = useState<PhysicalHardwareStatus | null>(null);
+  const [halState, setHalState] = useState(() => hardwareHalBridge.getState());
+  const [integrityStatus, setIntegrityStatus] = useState(() => playIntegrityEngine.getStatus());
 
   useEffect(() => {
     if (isShadeOpen) {
@@ -137,6 +152,26 @@ export const QuickSettingsPanel: React.FC = () => {
               title="System Settings"
             >
               <Settings size={18} />
+            </button>
+            <button 
+              onClick={() => {
+                setIsShadeOpen(false);
+                lockDevice();
+              }}
+              className="p-2 hover:bg-neutral-800 rounded-full transition-colors text-blue-400 hover:text-white"
+              title="Lock Screen"
+            >
+              <Lock size={18} />
+            </button>
+            <button 
+              onClick={() => {
+                setIsShadeOpen(false);
+                setIsPowerMenuOpen(true);
+              }}
+              className="p-2 hover:bg-neutral-800 rounded-full transition-colors text-rose-400 hover:text-white"
+              title="Power Menu"
+            >
+              <Power size={18} />
             </button>
             <button 
               onClick={() => setIsShadeOpen(false)}
@@ -227,6 +262,77 @@ export const QuickSettingsPanel: React.FC = () => {
             </div>
           </button>
 
+          {/* VoLTE HD Voice */}
+          <button
+            onClick={() => {
+              const next = !halState.volteEnabled;
+              hardwareHalBridge.toggleVoLte(next);
+              setHalState(hardwareHalBridge.getState());
+            }}
+            className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
+              halState.volteEnabled 
+                ? 'bg-emerald-600 text-white font-medium shadow-md' 
+                : 'bg-neutral-800 text-neutral-400'
+            }`}
+          >
+            <div className={`p-2 rounded-xl ${halState.volteEnabled ? 'bg-emerald-700' : 'bg-neutral-700'}`}>
+              <PhoneCall size={18} />
+            </div>
+            <div className="text-left truncate">
+              <div className="text-sm font-semibold truncate">VoLTE HD</div>
+              <div className="text-xs opacity-80 truncate">{halState.volteEnabled ? 'Enabled' : 'Off'}</div>
+            </div>
+          </button>
+
+          {/* 5G Network Adaptor */}
+          <button
+            onClick={() => {
+              const next = quickSettings.network5g === false;
+              toggleQuickSetting('network5g' as any);
+              network5gEngine.setEnabled(next);
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setIsShadeOpen(false);
+              openApp('network_5g');
+            }}
+            className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
+              quickSettings.network5g !== false
+                ? 'bg-cyan-600 text-white font-medium shadow-md' 
+                : 'bg-neutral-800 text-neutral-400'
+            }`}
+            title="Click to toggle 5G • Right click/long press for 5G Adaptor & Slicing"
+          >
+            <div className={`p-2 rounded-xl ${quickSettings.network5g !== false ? 'bg-cyan-700' : 'bg-neutral-700'}`}>
+              <Radio size={18} />
+            </div>
+            <div className="text-left truncate">
+              <div className="text-sm font-semibold truncate flex items-center gap-1">
+                <span>5G Network</span>
+              </div>
+              <div className="text-xs opacity-80 truncate">
+                {quickSettings.network5g !== false ? 'Gigabit Adaptor' : 'Off'}
+              </div>
+            </div>
+          </button>
+
+          {/* Play Integrity Shield */}
+          <button
+            onClick={() => {
+              setIsShadeOpen(false);
+              openApp('settings', 'Settings', undefined, { tab: 'compatibility' });
+            }}
+            className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-800 hover:bg-neutral-750 text-emerald-300 transition-all border border-emerald-500/20"
+          >
+            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+              <CheckCircle2 size={18} />
+            </div>
+            <div className="text-left truncate">
+              <div className="text-sm font-semibold truncate">Play Integrity</div>
+              <div className="text-xs text-neutral-400 truncate">Device Passing</div>
+            </div>
+          </button>
+
           {/* Privacy Shield */}
           <button
             onClick={() => toggleQuickSetting('dnd')}
@@ -260,6 +366,35 @@ export const QuickSettingsPanel: React.FC = () => {
             <div className="text-left">
               <div className="text-sm font-semibold">Flashlight</div>
               <div className="text-xs opacity-80">{quickSettings.flashlight ? 'On' : 'Off'}</div>
+            </div>
+          </button>
+
+          {/* Fullscreen Kiosk Mode */}
+          <button
+            onClick={() => {
+              if (typeof document !== 'undefined') {
+                if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen?.().catch(() => {});
+                } else {
+                  document.exitFullscreen?.().catch(() => {});
+                }
+              }
+              setIsShadeOpen(false);
+            }}
+            className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
+              typeof document !== 'undefined' && document.fullscreenElement 
+                ? 'bg-emerald-600 text-white font-medium' 
+                : 'bg-neutral-800 text-neutral-400'
+            }`}
+          >
+            <div className={`p-2 rounded-xl ${typeof document !== 'undefined' && document.fullscreenElement ? 'bg-emerald-700' : 'bg-neutral-700'}`}>
+              {typeof document !== 'undefined' && document.fullscreenElement ? <Minimize size={18} /> : <Maximize size={18} />}
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-semibold">Fullscreen Kiosk</div>
+              <div className="text-xs opacity-80">
+                {typeof document !== 'undefined' && document.fullscreenElement ? 'Active' : 'Tap to Enter'}
+              </div>
             </div>
           </button>
 

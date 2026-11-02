@@ -1,0 +1,16 @@
+[Transfer]
+Features=verify
+Verify=signature
+# the store partition holds versioned rootfs images and a manifest
+Source
+Type=regular-file
+Path=/lrdstore
+MatchPattern=lrd-rootfs_@v.raw
+MatchPattern=lrd-rootfs_@v.raw.sha256
+MatchPattern=lrd-rootfs_@v.raw.gpg
+
+[Target]
+Type=regular-file
+Path=/lrdstore
+MatchPattern=lrd-rootfs_@v.raw
+MatchPattern=lrd-rootfs.raw

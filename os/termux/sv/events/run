@@ -1,0 +1,15 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+. "$HOME/.lrd/etc/lrd.env"
+cd "$LRD_HOME/app"
+echo "[events] start $(date -Is)"
+exec node -e '
+  const w = require("./os/termux/backends/watchers.js");
+  const i = require("./os/termux/backends/input.js");
+  const stop = [];
+  stop.push(w.start());
+  stop.push(i.start());
+  i.setLifecycle({ phase: "running", since: Date.now() });
+  process.on("SIGTERM", () => { stop.forEach((f) => f()); process.exit(0); });
+  setInterval(() => {}, 1 << 30);
+'

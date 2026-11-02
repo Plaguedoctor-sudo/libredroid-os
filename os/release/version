@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# lrd-version — one line, machine readable, plus what actually matters at a glance.
+set -uo pipefail
+. /etc/os-release 2>/dev/null || true
+printf '%s %s (%s)\n' "${ID:-libredroid}" "${VERSION_ID:-unknown}" "${LRD_KERNEL:-unknown}"
+[ "${1:-}" = --json ] && jq -nc \
+  --arg v "${VERSION_ID:-}" --arg b "$(cat /usr/share/lrd/build 2>/dev/null || echo unknown)" \
+  --arg k "$(uname -r)" --arg s "$(jq -r .score /run/lrd/adapt.json 2>/dev/null || echo 0)" \
+  '{version:$v, build:$b, kernel:$k, score:($s|tonumber)}'

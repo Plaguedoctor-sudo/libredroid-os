@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# lrd-crypt — LUKS2 outer, verity inner. The order is load-bearing.
+#
+#   format <img> [--slot a|b] [--passphrase-file f]
+#   open <img> <name> [--passphrase-file f] [--header hdr]
+#   close <name>
+#   reseal <img>            re-append verity after a rootfs change
+#   status
+#   header-backup <img> <out>
+#
+# Layout inside the file:
+#   [ 0 .. HDR )          LUKS2 header (primary), 16MiB
+#   [ HDR .. HDR+json )   signed verity metadata (plaintext, inside nothing)
+#   [ luks offset .. )    LUKS2 payload = ext4(plaintext) || verity tree
+#
+# The verity tree is INSIDE the LUKS mapping, so it hashes plaintext.
+# Consequence: a ciphertext bit-flip fails to decrypt; a plaintext bit-flip
+# that survives (should not, with aes-xts, but does on torn writes) fails verity.
+set -Eeuo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+KEYS="${LRD_VERITY_KEYS:-/etc/lrd/keys}"
+STORE="${LRD_STORE:-/store}"
+HDR_LEN=$((16*1024*1024))
+HDR_SLOT_OFFSET=0
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+die(){ printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
+need(){ command -v "$1" >/dev/null || die "missing $1"; }
+
+# ---------- format: LUKS2 header, then the payload, then verity inside it ----------
+do_format() {
+  local img="$1" slot="${2:-a}" passfile="${3:-}"
+  need cryptsetup; need veritysetup
+  [ -f "$img" ] || die "no such file: $img"
+
+  local total; total="$(stat -c %s "$img")"
+  # 16MiB header + the payload; shrink the image by the header so the payload
+  # keeps its intended size, then pad for the verity tree
+  local payload=$(( total - HDR_LEN ))
+  [ "$payload" -gt $((1024*1024*1024)) ] || die "image too small"
+
+  say "LUKS2 header at offset 0, payload at $HDR_LEN, payload ${payload}B"
+  # luksFormat with --offset so the header is where the initramfs will look
+  local fmt=(--type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha256
+             --pbkdf argon2id --pbkdf-memory 262144 --pbkdf-parallel 4
+             --sector-size 4096 --offset "$HDR_LEN"
+             --header "$img" --batch-mode -q)
+  # integrity gives per-sector authentication; costs ~2% space and some IO
+  local withint="${LRD_LUKS_INTEGRITY:-0}"
+  [ "$withint" = 1 ] && fmt+=(--integrity hmac-sha256 --integrity-no-wipe)
+
+  if [ -n "$passfile" ]; then
+    cryptsetup "${fmt[@]}" luksFormat "$img" --key-file "$passfile"
+    cryptsetup luksOpen "$img" lrdtmp --key-file "$passfile" --header "$img"
+  else
+    cryptsetup "${fmt[@]}" luksFormat "$img"
+    cryptsetup luksOpen "$img" lrdtmp --header "$img"
+  fi
+
+  local dev=/dev/mapper/lrdtmp
+  say "filesystem inside the mapping"
+  mkfs.ext4 -q -F -L LRDROOT "$dev"
+  # the verity feature must be on, so TCB files can be sealed later
+  tune2fs -O verity "$dev" >/dev/null
+
+  # fill it with something so a bare format is usable for testing
+  mkdir -p /mnt/lrdfmt && mount "$dev" /mnt/lrdfmt
+  mkdir -p /mnt/lrdfmt/{etc,usr,var,home,opt,boot}
+  umount /mnt/lrdfmt
+
+  say "verity INSIDE the mapping (hashes plaintext)"
+  local data_blocks; data_blocks="$(blockdev --getsz "$dev")"
+  data_blocks=$(( data_blocks / 8 ))            # 512B sectors -> 4KiB blocks
+  local salt; salt="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  local ht; ht="$(mktemp)"
+  local out; out="$(veritysetup format --salt="$salt" --data-blocks="$data_blocks" \
+      --data-block-size=4096 --hash-block-size=4096 --fec-roots=2 "$dev" "$ht")"
+  local roothash; roothash="$(sed -n 's/^Root hash:[[:space:]]*//p' <<<"$out")"
+  [ -n "$roothash" ] || die "no root hash"
+  say "root hash $roothash"
+
+  # append the tree to the payload, then grow the file to fit
+  local htsz; htsz="$(stat -c %s "$ht")"
+  cryptsetup close lrdtmp
+  truncate -s $(( HDR_LEN + payload + htsz )) "$img"
+  # reopen to write the tree at the payload end
+  cryptsetup luksOpen "$img" lrdtmp --header "$img" ${passfile:+--key-file "$passfile"}
+  dd if="$ht" of=/dev/mapper/lrdtmp bs=4096 seek="$data_blocks" conv=notrunc status=none
+  cryptsetup close lrdtmp
+  rm -f "$ht"
+
+  local luks_hdr_sha; luks_hdr_sha="$(dd if="$img" bs=1M count=16 2>/dev/null | sha256sum | cut -d' ' -f1)"
+
+  # metadata in the plaintext gap between the header and the payload
+  local meta="$STORE/verity/lrd-verity_${slot}.json"
+  mkdir -p "$STORE/verity"
+  jq -nc \
+    --arg slot "$slot" --arg rh "$roothash" --arg salt "$salt" \
+    --argjson ho "$HDR_LEN" --argjson db "$data_blocks" --argjson dbs 4096 --argjson hbs 4096 \
+    --argjson hdr "$HDR_LEN" --argjson total "$(stat -c %s "$img")" \
+    --argjson ri "${LRD_ROLLBACK_INDEX:-1}" \
+    --arg ver "${LRD_VERSION:-dev}" --arg build "${LRD_BUILD:-$(date -u +%Y%m%dT%H%M%SZ)}" \
+    --arg keyid "$(cat "$KEYS/verity.fingerprint" 2>/dev/null || echo unknown)" \
+    --arg luksHdrSha "$luks_hdr_sha" \
+    '{version:$ver,buildId:$build,slot:$slot,layout:"luks2+verity-inside",
+      rootHash:$rh,salt:$salt,hashOffset:$ho,dataBlocks:$db,dataBlockSize:$dbs,
+      hashBlockSize:$hbs,luksHeaderOffset:0,luksHeaderSize:$hdr,luksHeaderSha256:$luksHdrSha,
+      imageBytes:$total,rollbackIndex:$ri,keyId:$keyid,algorithm:"sha256",format:2}' \
+    > "$meta"
+  openssl dgst -sha256 -sign "$KEYS/verity.key.pem" -out "$meta.sig" "$meta"
+
+  say "formatted $img ($(numfmt --to=iec "$(stat -c %s "$img")"))"
+  say "metadata $meta"
+}
+
+case "${1:-status}" in
+format) do_format "${2:?img}" "${4:-a}" "${5:-}" ;;
+open)
+  img="${2:?img}"; name="${3:?name}"; passfile=""
+  for a in "$@"; do [ "$a" = --passphrase-file ] && passfile=1; done
+  shift; shift; shift || true
+  pf=""; while [ $# -gt 0 ]; do [ "$1" = --passphrase-file ] && { pf="$2"; shift 2; continue; }; shift; done
+  if [ -n "$pf" ]; then cryptsetup luksOpen "$img" "$name" --key-file "$pf" --header "$img"
+  else cryptsetup luksOpen "$img" "$name" --header "$img"; fi
+  ;;
+close) cryptsetup close "${2:?name}" ;;
+status)
+  echo "layout: luks2 outer, dm-verity inner (hashes plaintext)"
+  for s in a b; do
+    m="$STORE/verity/lrd-verity_${s}.json"
+    [ -f "$m" ] || continue
+    echo "slot $s: $(jq -r '"\(.layout)  rootfs=\(.imageBytes)  rootHash=\(.rootHash[0:16])…  luksHdr=\(.luksHeaderSize)"' "$m")"
+    if cryptsetup isLuks --header "$(jq -r .imagePath // "" "$m" 2>/dev/null)" 2>/dev/null; then :; fi
+  done
+  echo
+  echo "integrity mode: ${LRD_LUKS_INTEGRITY:-0} (1 = dm-integrity inside LUKS)"
+  ;;
+header-backup)
+  need cryptsetup
+  cryptsetup luksHeaderBackup "${2:?img}" --header "${2}" --header-backup-file "${3:?out}"
+  say "header backed up to $3 — keep it, a corrupt header is unbootable"
+  ;;
+reseal)
+  # after modifying the rootfs, the tree must be regenerated
+  img="${2:?img}"; meta="${3:?metadata}"
+  need veritysetup
+  passfile="${4:-}"
+  [ -n "$passfile" ] && cryptsetup luksOpen "$img" lrdrs --key-file "$passfile" --header "$img" \
+                     || cryptsetup luksOpen "$img" lrdrs --header "$img"
+  db="$(jq -r .dataBlocks "$meta")"
+  salt="$(jq -r .salt "$meta")"
+  ht="$(mktemp)"
+  out="$(veritysetup format --salt="$salt" --data-blocks="$db" \
+      --data-block-size=4096 --hash-block-size=4096 --fec-roots=2 /dev/mapper/lrdrs "$ht")"
+  rh="$(sed -n 's/^Root hash:[[:space:]]*//p' <<<"$out")"
+  dd if="$ht" of=/dev/mapper/lrdrs bs=4096 seek="$db" conv=notrunc status=none
+  cryptsetup close lrdrs; rm -f "$ht"
+  jq --arg rh "$rh" '.rootHash=$rh' "$meta" > "$meta.t" && mv "$meta.t" "$meta"
+  openssl dgst -sha256 -sign "$KEYS/verity.key.pem" -out "$meta.sig" "$meta"
+  say "resealed: $rh"
+  ;;
+*) echo "usage: lrd-crypt {format <img> [slot]|open <img> <name> [--passphrase-file f]|close <name>|reseal <img> <meta>|header-backup <img> <out>|status}"; exit 2 ;;
+esac

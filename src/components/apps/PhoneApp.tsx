@@ -11,12 +11,15 @@ import {
   MicOff, 
   Volume2, 
   VolumeX, 
-  Grid,
-  CheckCircle,
-  Search,
-  Plus
+  Grid, 
+  CheckCircle, 
+  Search, 
+  Plus,
+  MessageSquare
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { useWindow } from '../../context/WindowContext';
+import type { AppIntent } from '../../types/apps';
 import { dialPhoneNumber, fetchDeviceContacts } from '../../services/hardwareBridgeClient';
 
 export interface CallLogItem {
@@ -35,8 +38,14 @@ export interface ContactItem {
   avatarColor: string;
 }
 
-export const PhoneApp: React.FC = () => {
+interface Props extends Partial<AppIntent> {
+  intent?: AppIntent;
+}
+
+export const PhoneApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
+  const effectiveIntent = intent || (params ? { params, paramSeq } : undefined);
   const { addNotification } = useSystem();
+  const { openApp } = useWindow();
   const [activeTab, setActiveTab] = useState<'dialer' | 'recents' | 'contacts'>('dialer');
   const [dialedNumber, setDialedNumber] = useState('');
   const [isInCall, setIsInCall] = useState(false);
@@ -69,6 +78,22 @@ export const PhoneApp: React.FC = () => {
   useEffect(() => {
     loadContacts();
   }, [activeTab]);
+
+  /* Consume Intent (e.g. dial or open tab) */
+  useEffect(() => {
+    const p = effectiveIntent?.params;
+    if (!p) return;
+    if (typeof p.tab === 'string' && (p.tab === 'dialer' || p.tab === 'recents' || p.tab === 'contacts')) {
+      setActiveTab(p.tab);
+    }
+    const num = (p.dial || p.number) as string | undefined;
+    if (typeof num === 'string' && num.trim()) {
+      setDialedNumber(num.trim());
+      if (p.callNow) {
+        handleStartCall(num.trim());
+      }
+    }
+  }, [effectiveIntent?.paramSeq]);
 
   // Call timer
   useEffect(() => {
@@ -297,7 +322,7 @@ export const PhoneApp: React.FC = () => {
             </div>
 
             {/* Call Action Bar */}
-            <div className="flex items-center justify-center pt-2">
+            <div className="flex items-center justify-center gap-4 pt-2">
               <button
                 onClick={() => handleStartCall()}
                 disabled={!dialedNumber}
@@ -306,6 +331,15 @@ export const PhoneApp: React.FC = () => {
               >
                 <Phone size={26} />
               </button>
+              {dialedNumber && (
+                <button
+                  onClick={() => openApp('messages', 'Messages & SMS', undefined, { recipient: dialedNumber })}
+                  className="w-12 h-12 rounded-full bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                  title="Send SMS"
+                >
+                  <MessageSquare size={18} />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -332,15 +366,28 @@ export const PhoneApp: React.FC = () => {
                     <div className="text-xs text-neutral-400 font-mono">{log.number} • {log.time}</div>
                   </div>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartCall(log.number);
-                  }}
-                  className="p-2 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600 hover:text-white rounded-full transition-colors"
-                >
-                  <Phone size={14} />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openApp('messages', 'Messages & SMS', undefined, { recipient: log.number, name: log.name });
+                    }}
+                    className="p-2 bg-blue-600/20 text-blue-300 hover:bg-blue-600 hover:text-white rounded-full transition-colors"
+                    title="Send SMS"
+                  >
+                    <MessageSquare size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStartCall(log.number);
+                    }}
+                    className="p-2 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600 hover:text-white rounded-full transition-colors"
+                    title="Call"
+                  >
+                    <Phone size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -375,15 +422,28 @@ export const PhoneApp: React.FC = () => {
                       <div className="text-xs text-neutral-400 font-mono">{contact.number}</div>
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStartCall(contact.number);
-                    }}
-                    className="p-2 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600 hover:text-white rounded-full transition-colors"
-                  >
-                    <Phone size={14} />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openApp('messages', 'Messages & SMS', undefined, { recipient: contact.number, name: contact.name });
+                      }}
+                      className="p-2 bg-blue-600/20 text-blue-300 hover:bg-blue-600 hover:text-white rounded-full transition-colors"
+                      title="Send SMS"
+                    >
+                      <MessageSquare size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartCall(contact.number);
+                      }}
+                      className="p-2 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600 hover:text-white rounded-full transition-colors"
+                      title="Call"
+                    >
+                      <Phone size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

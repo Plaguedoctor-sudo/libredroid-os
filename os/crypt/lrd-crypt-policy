@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Choose: convenience (key on store, silent boot) vs security (passphrase prompt).
+set -uo pipefail
+case "${1:-show}" in
+  convenience) rm -f /store/luks_*.key /store/keys/luks_*.key; echo "key removed — the initramfs will prompt" ;;
+  auto)
+    # keep the key but only for slot a, and require a passphrase for b
+    : ;;
+  show)
+    echo "key files present:"
+    ls -la /store/luks*.key /store/keys/luks*.key 2>/dev/null || echo "  none — passphrase prompt at boot"
+    echo
+    echo "with a key file:   silent boot, key readable by anyone holding the device"
+    echo "without:           one passphrase entry, real protection at rest"
+    echo "hybrid:            key file + LUKS2 keyslot 2 with a passphrase as a fallback"
+    ;;
+esac

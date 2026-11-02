@@ -1,0 +1,17 @@
+Package: lrd-adapt-common
+Version: 1.0.0
+Architecture: arm64
+Maintainer: LibreDroid <adapt@lrd.local>
+Section: admin
+Priority: optional
+Depends: libhybris, libhybris-utils, systemd, udev, kmod, jq
+Recommends: cage, chromium, pulseaudio, pulseaudio-modules-droid, ofono
+Suggests: sshd
+Conflicts: lrd-adapt-legacy
+Description: LibreDroid adaptation runtime
+ Turns the per-device adaptation config into a live stack: libhybris property
+ and environment setup, display backend selection, vendor module loading,
+ audio and radio wiring, and the boot gate.
+ .
+ Every step records whether it actually succeeded, so the shell can report a
+ real tier instead of assuming one.

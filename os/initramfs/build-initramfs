@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# build-initramfs — assemble the boot initramfs. Must be reproducible and minimal.
+set -Eeuo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+OUT="${OUT:-$PWD/initramfs-out}"
+KVER="${KVER:-$(uname -r)}"
+MODDIR="${MODDIR:-/lib/modules/$KVER}"
+ADAPT="${ADAPT_PKG:-}"
+
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+[ -d "$MODDIR" ] || { echo "no modules for $KVER"; exit 1; }
+command -v busybox >/dev/null || { echo "apt install busybox-static"; exit 1; }
+
+rm -rf "$OUT"; mkdir -p "$OUT"/{bin,sbin,etc,proc,sys,dev,run,newroot,lower,overlay,lib/modules,tmp}
+say "busybox"
+cp "$(command -v busybox)" "$OUT/bin/busybox"
+for applet in sh ls cat mount umount switch_root mkdir cp mv rm dd blkid find grep sed awk \
+              sleep echo printf tar gzip zcat chmod chown ln stat head tail wc sort uniq \
+              cut tr tee sync reboot poweroff dmesg lsmod modprobe insmod mdev fsck.ext4 \
+              mkfs.ext4 e2fsck resize2fs losetup cryptsetup date; do
+  ln -sf /bin/busybox "$OUT/bin/$applet" 2>/dev/null || true
+done
+for a in blkid findfs; do ln -sf /bin/busybox "$OUT/sbin/$a" 2>/dev/null || true; done
+
+say "verity tools"
+for b in veritysetup cryptsetup openssl; do
+  bin="$(command -v "$b" || true)" || true
+  if [ -n "$bin" ] && [ -x "$bin" ]; then
+    cp "$bin" "$OUT/bin/"
+    ldd "$bin" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^\//) print $i}' | while read -r lib; do
+      mkdir -p "$OUT$(dirname "$lib")"; cp -n "$lib" "$OUT$lib" 2>/dev/null || true
+    done
+  else
+    echo ":: note: $b missing from build host"
+  fi
+done
+find "$OUT/lib" -name 'libcrypto.so*' -exec strip --strip-unneeded {} \; 2>/dev/null || true
+
+say "verity public key & config"
+mkdir -p "$OUT/etc/lrd/keys"
+cp "${LRD_VERITY_KEYS:-/etc/lrd/keys}/verity.pub.pem" "$OUT/etc/lrd/keys/" 2>/dev/null || true
+[ -f /etc/lrd/verity.pinned ] && cp /etc/lrd/verity.pinned "$OUT/etc/lrd/" || true
+[ -f /etc/lrd/verity.conf ] && cp /etc/lrd/verity.conf "$OUT/etc/lrd/" || true
+install -m755 "$HERE/../verity/initramfs/verity-open.sh" "$OUT/sbin/verity-open.sh" 2>/dev/null || true
+
+say "modules (storage, overlay, fs, input, panel, crypto, verity)"
+MODS=(
+  overlay loop ext4 vfat exfat f2fs fuse zram
+  dm-mod dm-crypt dm-verity dm-bufio sha256
+  drm drm_kms_helper panel_simple simplepanel backlight pwm_bl
+  usb_storage uas sd_mod mmc_block
+)
+for m in "${MODS[@]}"; do
+  find "$MODDIR" -name "${m}.ko*" -exec cp {} "$OUT/lib/modules/" \; 2>/dev/null || true
+done
+cp "$MODDIR/modules.dep" "$MODDIR/modules.alias" "$MODDIR/modules.builtin" "$OUT/lib/modules/" 2>/dev/null || true
+
+say "init"
+install -m755 "$HERE/init" "$OUT/init"
+install -m755 "$HERE/lrd-recovery.sh" "$OUT/sbin/lrd-recovery" 2>/dev/null || true
+
+if [ -n "$ADAPT" ] && [ -f "$ADAPT" ]; then
+  say "adaptation payload"
+  dpkg-deb -x "$ADAPT" "$OUT/tmp/adapt"
+  cp -a "$OUT/tmp/adapt/usr/lib/lrd/dtb/." "$OUT/lib/" 2>/dev/null || true
+fi
+
+say "cpio"
+( cd "$OUT" && find . -print0 | cpio --null -o -H newc 2>/dev/null | gzip -9 ) > "$OUT/../initramfs.cpio.gz"
+SZ=$(du -h "$OUT/../initramfs.cpio.gz" | cut -f1)
+say "initramfs.cpio.gz  $SZ"
+[ -n "${LRD_SIGN_KEY:-}" ] && { gpg --batch --yes --armor --detach-sign "$OUT/../initramfs.cpio.gz"; say "signed"; }

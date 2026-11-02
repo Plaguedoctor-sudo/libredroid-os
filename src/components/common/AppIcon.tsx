@@ -27,6 +27,10 @@ import {
   Sparkles,
   Phone,
   Bot,
+  Activity,
+  KeyRound,
+  Volume2,
+  Radio,
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -40,6 +44,11 @@ interface AppIconProps {
 }
 
 const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> = {
+  network_5g: {
+    icon: Radio,
+    bg: 'bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-700',
+    color: 'text-white',
+  },
   universal_ai: {
     icon: Bot,
     bg: 'bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500',
@@ -158,6 +167,21 @@ const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> 
   darwin_bridge: {
     icon: Apple,
     bg: 'bg-gradient-to-tr from-rose-500 via-pink-600 to-red-600',
+    color: 'text-white',
+  },
+  task_manager: {
+    icon: Activity,
+    bg: 'bg-gradient-to-tr from-cyan-600 via-blue-700 to-indigo-800',
+    color: 'text-white',
+  },
+  keystore: {
+    icon: KeyRound,
+    bg: 'bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-800',
+    color: 'text-white',
+  },
+  audio_mixer: {
+    icon: Volume2,
+    bg: 'bg-gradient-to-tr from-teal-500 via-emerald-600 to-cyan-700',
     color: 'text-white',
   },
   'com.christianselig.apollo': {

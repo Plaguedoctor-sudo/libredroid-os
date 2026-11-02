@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# lrd-osk — on-screen keyboard controller. Shows/hides, picks the right protocol,
+# and stays out of the way when there is a hardware keyboard.
+#   autostart | show | hide | toggle | status | restart
+set -uo pipefail
+RUNTIME="${XDG_RUNTIME_DIR:-/run/lrd/session}"
+export XDG_RUNTIME_DIR="$RUNTIME"
+[ -f /run/lrd/session.env ] && . /run/lrd/session.env 2>/dev/null || true
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}"
+SOCK=/run/lrd/osk.sock
+PIDF=/run/lrd/osk.pid
+MODE=/run/lrd/osk.mode
+mkdir -p /run/lrd 2>/dev/null || true
+
+log(){ logger -t lrd-osk "$*" 2>/dev/null || true; }
+
+# ---------- which OSK, decided by what the compositor advertises ----------
+pick() {
+  local protos=""
+  if command -v wayland-info >/dev/null 2>&1; then
+    protos="$(wayland-info 2>/dev/null || true)"
+  elif command -v wlrctl >/dev/null 2>&1; then
+    protos="$(wlrctl --help 2>&1 || true)"
+  fi
+  # input-method-v2 lets an IM own the keyboard; squeekboard uses it.
+  # virtual-keyboard-v1 is orthogonal to the IM, so wvkbd coexists with fcitx5.
+  if command -v wvkbd-mobintl >/dev/null 2>&1; then echo wvkbd; return; fi
+  if command -v squeekboard >/dev/null 2>&1; then echo squeekboard; return; fi
+  if command -v wvkbd >/dev/null 2>&1; then echo wvkbd-plain; return; fi
+  echo none
+}
+
+start_wvkbd() {
+  local bin="$1"
+  # -L height, -H start hidden; SIGUSR1 show, SIGUSR2 hide
+  "$bin" -L 220 -H >/dev/null 2>&1 &
+  echo $! > "$PIDF"
+  echo wvkbd > "$MODE"
+  log "started $bin pid $(cat "$PIDF")"
+}
+
+start_squeekboard() {
+  squeekboard --hidden >/dev/null 2>&1 &
+  echo $! > "$PIDF"
+  echo squeekboard > "$MODE"
+  log "started squeekboard"
+}
+
+running() { [ -f "$PIDF" ] && kill -0 "$(cat "$PIDF")" 2>/dev/null; }
+
+show() {
+  running || restart
+  case "$(cat "$MODE" 2>/dev/null)" in
+    wvkbd) kill -USR1 "$(cat "$PIDF")" 2>/dev/null || true ;;
+    squeekboard)
+      # squeekboard has no signal API; use its dbus/CLI if present, else restart shown
+      command -v busctl >/dev/null && \
+        busctl --user call sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 SetVisible b true 2>/dev/null || \
+        { kill "$(cat "$PIDF")" 2>/dev/null || true; squeekboard >/dev/null 2>&1 & echo $! > "$PIDF"; }
+      ;;
+  esac
+  log "shown"
+  echo "visible" > /run/lrd/osk.state 2>/dev/null || true
+}
+
+hide() {
+  running || return 0
+  case "$(cat "$MODE" 2>/dev/null)" in
+    wvkbd) kill -USR2 "$(cat "$PIDF")" 2>/dev/null || true ;;
+    squeekboard)
+      command -v busctl >/dev/null && \
+        busctl --user call sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 SetVisible b false 2>/dev/null || true
+      ;;
+  esac
+  log "hidden"
+  echo "hidden" > /run/lrd/osk.state 2>/dev/null || true
+}
+
+toggle() { [ "$(cat /run/lrd/osk.state 2>/dev/null || echo hidden)" = visible ] && hide || show; }
+
+restart() {
+  [ -f "$PIDF" ] && kill "$(cat "$PIDF")" 2>/dev/null || true
+  sleep 0.3
+  local m; m="$(pick)"
+  case "$m" in
+    wvkbd) start_wvkbd wvkbd-mobintl ;;
+    wvkbd-plain) start_wvkbd wvkbd ;;
+    squeekboard) start_squeekboard ;;
+    *) log "no OSK available"; echo none > "$MODE" 2>/dev/null || true ;;
+  esac
+}
+
+# ---------- the socket, so the shell and the bridge can drive it ----------
+serve() {
+  rm -f "$SOCK"
+  while :; do
+    if command -v socat >/dev/null 2>&1; then
+      socat UNIX-LISTEN:"$SOCK",fork,reuseaddr,mode=660 SYSTEM:'read c; lrd-osk $c' 2>/dev/null || true
+    else
+      sleep 1
+    fi
+  done
+}
+
+case "${1:-status}" in
+autostart)
+  # only show the OSK if there is no hardware keyboard AND this is a touch device
+  if [ -r /proc/bus/input/devices ] && grep -qi 'touchscreen' /proc/bus/input/devices; then
+    restart
+    hide
+  fi
+  serve &
+  ;;
+show|hide|toggle|restart) "$1" ;;
+status)
+  echo "mode:  $(cat "$MODE" 2>/dev/null || echo none)"
+  echo "state: $(cat /run/lrd/osk.state 2>/dev/null || echo unknown)"
+  echo "pid:   $(cat "$PIDF" 2>/dev/null || echo none)"
+  echo "proto: $(pick)"
+  ;;
+*) echo "usage: lrd-osk {autostart|show|hide|toggle|restart|status}"; exit 2 ;;
+esac

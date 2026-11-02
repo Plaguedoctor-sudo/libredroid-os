@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# lrd-netd — connectivity + per-domain egress policy + a provable killswitch.
+#   status | verify | set-policy <direct|tor-default|tor-only|offline> | wifi <ssid> [psk]
+set -uo pipefail
+POLICY=/etc/lrd/net.policy
+NFT=/etc/nftables.d/lrd-net.nft
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+policy() { cat "$POLICY" 2>/dev/null || echo direct; }
+
+write_nft() {
+  local p="$1"
+  mkdir -p "$(dirname "$NFT")"
+  case "$p" in
+    offline)
+      cat > "$NFT" <<'EOF'
+table inet lrdnet {
+  chain out { type filter hook output priority 0; policy drop;
+    oif "lo" accept
+    ip daddr 10.66.0.1 accept
+  }
+}
+EOF
+      ;;
+    tor-only)
+      cat > "$NFT" <<'EOF'
+table inet lrdnet {
+  chain out { type filter hook output priority 0; policy drop;
+    oif "lo" accept
+    # everything must be redirected to tor; non-TCP/UDP dies (no ICMP leak)
+    meta l4proto tcp redirect to :9040
+    meta l4proto udp udp dport 53 redirect to :53
+    ip daddr 10.66.0.1 accept
+  }
+}
+EOF
+      ;;
+    tor-default)
+      cat > "$NFT" <<'EOF'
+table inet lrdnet {
+  chain out { type filter hook output priority 0; policy accept;
+    # tor's own traffic must not be redirected into itself
+    ip daddr 127.0.0.1 accept
+    meta skuid "debian-tor" accept
+    meta l4proto tcp redirect to :9040
+    meta l4proto udp udp dport 53 redirect to :53
+  }
+}
+EOF
+      ;;
+    *)
+      cat > "$NFT" <<'EOF'
+table inet lrdnet {
+  chain out { type filter hook output priority 0; policy accept; }
+}
+EOF
+      ;;
+  esac
+  nft -f "$NFT" 2>/dev/null || { nft flush ruleset 2>/dev/null; nft -f "$NFT"; }
+}
+
+case "${1:-status}" in
+status)
+  echo "policy:  $(policy)"
+  echo "ifaces:"
+  for i in /sys/class/net/*; do
+    n="$(basename "$i")"; [ "$n" = lo ] && continue
+    printf '  %-12s %s\n' "$n" "$(cat "$i/operstate" 2>/dev/null)"
+  done
+  echo "default route: $(ip route get 1.1.1.1 2>/dev/null | head -1)"
+  echo "tor: $(systemctl is-active tor.service 2>/dev/null || echo inactive)"
+  echo "nft: $(nft list tables 2>/dev/null | tr '\n' ' ')"
+  ;;
+
+verify)
+  echo "direct IP:  $(curl -fsS --max-time 8 https://api.ipify.org 2>/dev/null || echo unreachable)"
+  if [ "$(policy)" != direct ]; then
+    echo "tor exit:   $(curl -fsS --max-time 25 --socks5-hostname 127.0.0.1:9050 https://api.ipify.org 2>/dev/null || echo unreachable)"
+    echo "check.tor:  $(curl -fsS --max-time 25 --socks5-hostname 127.0.0.1:9050 https://check.torproject.org/api/ip 2>/dev/null | jq -r .IsTor 2>/dev/null || echo unknown)"
+    echo "dns via tor:$(dig +short +timeout=5 @127.0.0.1 -p 5353 example.com 2>/dev/null | head -1)"
+  fi
+  echo
+  case "$(policy)" in
+    offline)   echo "verdict: no egress at all";;
+    tor-only)  echo "verdict: only tor can reach the network — a leak requires bypassing nft";;
+    tor-default) echo "verdict: redirected, but ICMP and root-owned sockets can escape";;
+    direct)    echo "verdict: no isolation";;
+  esac
+  ;;
+
+set-policy)
+  p="${2:?direct|tor-default|tor-only|offline}"
+  echo "$p" > "$POLICY"
+  write_nft "$p"
+  case "$p" in
+    tor-*) systemctl enable --now tor.service 2>/dev/null || true ;;
+  esac
+  say "policy: $p"
+  "$0" verify
+  ;;
+
+wifi)
+  ssid="${2:?ssid}"; psk="${3:-}"
+  if command -v nmcli >/dev/null; then
+    if [ -n "$psk" ]; then nmcli dev wifi connect "$ssid" password "$psk"
+    else nmcli dev wifi connect "$ssid"; fi
+  else
+    wpa_passphrase "$ssid" "$psk" > /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null
+    wpa_supplicant -B -i "$(iw dev | awk '/Interface/{print $2}' | head -1)" -c /etc/wpa_supplicant/wpa_supplicant.conf
+    udhcpc -i "$(iw dev | awk '/Interface/{print $2}' | head -1)" 2>/dev/null || dhclient -v
+  fi
+  ;;
+*) echo "usage: lrd-netd {status|verify|set-policy <p>|wifi <ssid> [psk]}"; exit 2 ;;
+esac

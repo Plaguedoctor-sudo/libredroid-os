@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# lrd-shell-launch — start the shell. Kept separate so labwc's -s and the autostart
+# agree on exactly one instance.
+set -uo pipefail
+mkdir -p /run/lrd
+if [ -f /run/lrd/shell.pid ] && kill -0 "$(cat /run/lrd/shell.pid)" 2>/dev/null; then
+  exit 0
+fi
+# the bridge must be up or the shell has nothing to talk to
+for _ in $(seq 1 30); do
+  curl -fsS --max-time 2 http://127.0.0.1:3001/healthz >/dev/null 2>&1 && break
+  sleep 1
+done
+
+exec /usr/bin/chromium \
+  --kiosk --noerrdialogs --disable-pinch --overscroll-history-navigation=0 \
+  --enable-features=UseOzonePlatform,WaylandWindowDecorations \
+  --ozone-platform=wayland \
+  --enable-wayland-ime --wayland-text-input-version=3 \
+  --force-dark-mode \
+  --renderer-process-limit=4 \
+  --js-flags="--max-old-space-size=384" \
+  --disk-cache-size=268435456 \
+  --disable-background-networking --disable-component-update \
+  --no-first-run --no-default-browser-check --password-store=basic \
+  --user-data-dir=/var/lib/lrd/chromium \
+  --app="http://127.0.0.1:3001/?kiosk=1&app=1" &
+echo $! > /run/lrd/shell.pid
+wait

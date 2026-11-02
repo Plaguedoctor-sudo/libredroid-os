@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# propset — apply a .props file with whichever backend actually works.
+# Tiers: 1) compiled helper (dlopen vendor libc)  2) hybris-property-set  3) android-shim setprop
+set -uo pipefail
+SRC=/usr/lib/lrd/adapt/src/lrd-propset.c
+BIN=/usr/lib/lrd/adapt/lrd-propset.bin
+
+backend() {
+  if [ ! -x "$BIN" ] && [ -r "$SRC" ] && command -v gcc >/dev/null 2>&1; then
+    gcc -O2 -o "$BIN" "$SRC" -ldl 2>/dev/null || true
+  fi
+  if [ -x "$BIN" ] && "$BIN" --check >/dev/null 2>&1; then echo compiled; return; fi
+  command -v hybris-property-set >/dev/null 2>&1 && { echo hybris; return; }
+  if [ -x /vendor/bin/setprop ] && [ -x /vendor/bin/linker64 ]; then echo shim; return; fi
+  echo none
+}
+
+mode="$(backend)"
+file="${1:?usage: propset <file.props> [--force]}"
+force="${2:-}"
+n=0; fail=0
+
+case "$mode" in
+  compiled)
+    args=(--file-quiet "$file"); [ "$force" = --force ] && args=(--file-force "$file")
+    "$BIN" "${args[@]}" 2>/dev/null; rc=$?
+    n=$(grep -cvE '^\s*(#|$)' "$file" 2>/dev/null || echo 0)
+    fail=$([ "$rc" = 0 ] && echo 0 || echo 1)
+    ;;
+  hybris)
+    while IFS= read -r line; do
+      case "$line" in ''|\#*) continue ;; esac
+      k="${line%%=*}"; v="${line#*=}"
+      if hybris-property-set "$k" "$v" 2>/dev/null; then n=$((n+1)); else fail=$((fail+1)); fi
+    done < "$file"
+    ;;
+  shim)
+    while IFS= read -r line; do
+      case "$line" in ''|\#*) continue ;; esac
+      k="${line%%=*}"; v="${line#*=}"
+      if /vendor/bin/linker64 /vendor/bin/setprop "$k" "$v" 2>/dev/null; then n=$((n+1)); else fail=$((fail+1)); fi
+    done < "$file"
+    ;;
+  none)
+    fail=$(grep -cvE '^\s*(#|$)' "$file" 2>/dev/null || echo 0)
+    ;;
+esac
+
+jq -nc --arg mode "$mode" --argjson n "$n" --argjson f "$fail" \
+  '{mode:$mode, applied:$n, failed:$f, ok: ($f==0 and $n>0)}' > /run/lrd/props.state
+echo "[propset] mode=$mode applied=$n failed=$fail" | logger -t lrd-adapt 2>/dev/null || true
+echo "[propset] mode=$mode applied=$n failed=$fail"
+[ "$fail" -eq 0 ] && [ "$n" -gt 0 ]

@@ -1,0 +1,9 @@
+[Unit]
+Description=LibreDroid safe mode — no compositor, no shell, just a console
+Documentation=man:lrd-adapt-common(7)
+AllowIsolate=yes
+Conflicts=graphical.target
+After=lrd-adapt-validate.service
+
+[Install]
+WantedBy=multi-user.target

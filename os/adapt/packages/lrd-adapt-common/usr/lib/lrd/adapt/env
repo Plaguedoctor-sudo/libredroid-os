@@ -1,0 +1,6 @@
+# sourced by login shells and services. Mirrors the environment.d drops so that
+# `lrd-adapt-report` and a manual compositor start behave identically.
+for f in /etc/environment.d/5[0-3]-lrd-*.conf; do
+  [ -r "$f" ] || continue
+  set -a; . "$f"; set +a
+done

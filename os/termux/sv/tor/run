@@ -1,0 +1,7 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+. "$HOME/.lrd/etc/lrd.env"
+exec tor --SocksPort 9050 --DNSPort 5353 --TransPort 9040 \
+         --ControlPort 9051 --CookieAuthentication 1 \
+         --DataDirectory "$HOME/.lrd/state/tor" \
+         --Log "notice file $HOME/.lrd/log/tor.log"

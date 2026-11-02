@@ -1,0 +1,21 @@
+# Module signing. Without FORCE, an attacker with write access to /lib/modules
+# loads arbitrary code into the kernel and every userspace guarantee is void.
+CONFIG_MODULE_SIG=y
+CONFIG_MODULE_SIG_FORCE=y
+CONFIG_MODULE_SIG_ALL=y
+CONFIG_MODULE_SIG_SHA256=y
+CONFIG_MODULE_SIG_KEY="certs/lrd_signing_key.pem"
+CONFIG_MODULE_COMPRESS_NONE=y
+CONFIG_STRICT_MODULE_RWX=y
+CONFIG_STRICT_KERNEL_RWX=y
+CONFIG_DEBUG_RODATA=y
+CONFIG_RANDOMIZE_BASE=y
+CONFIG_RANDOMIZE_MEMORY=y
+# keep the kernel from being patched at runtime
+CONFIG_SECURITY_LOCKDOWN_LSM=y
+CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y
+CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y
+# module signature verification needs the key parser
+CONFIG_KEYS=y
+CONFIG_PKCS7_MESSAGE_PARSER=y
+CONFIG_MODULE_SIG_FORCE=y

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# lrd-compat — version negotiation. Without it, a shell update against an old bridge
+# fails silently and looks like a bug in the shell.
+set -uo pipefail
+API=1                      # bump on any breaking bridge change
+MIN_SHELL=1                # oldest shell this bridge serves
+FILE="${LRD_API_FILE:-/usr/share/lrd/api-version}"
+mkdir -p "$(dirname "$FILE")" 2>/dev/null || true
+
+case "${1:-check}" in
+  stamp)
+    echo "$API" > "$FILE"
+    echo "$MIN_SHELL" > "$FILE.min"
+    echo "api $API, min shell $MIN_SHELL"
+    ;;
+  check)
+    bridge="${LRD_API:-$(cat "$FILE" 2>/dev/null || echo 1)}"
+    shell="${2:?shell api version}"
+    if [ "$shell" -gt "$bridge" ]; then
+      echo "shell api $shell > bridge $bridge — the shell is newer, update the bridge"
+      exit 1
+    fi
+    [ "$shell" -lt "$(cat "$FILE.min" 2>/dev/null || echo 1)" ] && {
+      echo "shell api $shell below the bridge minimum — update the shell"; exit 1; }
+    echo "compatible (shell $shell, bridge $bridge)"
+    ;;
+  *) echo "usage: lrd-compat {stamp|check <shell_version>}"; exit 2 ;;
+esac

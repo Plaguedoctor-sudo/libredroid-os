@@ -1,21 +1,45 @@
 import React, { useState } from 'react';
-import { Search, X, Box, Upload } from 'lucide-react';
+import { Search, X, Box, Upload, Pin, PinOff } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import { useVirtualKeyboard } from '../../context/KeyboardContext';
+import { usePersona } from '../../context/PersonaContext';
 import { SYSTEM_APPS } from '../../constants/apps';
 import { getInstalledApks } from '../../services/apkManager';
 import { getInstalledAppleApps } from '../../services/appleAppManager';
 import { AppIcon } from '../common/AppIcon';
 
 export const AppDrawer: React.FC = () => {
-  const { isAppDrawerOpen, setIsAppDrawerOpen, actualDevice } = useSystem();
+  const { isAppDrawerOpen, setIsAppDrawerOpen, actualDevice, addNotification } = useSystem();
   const { openApp } = useWindow();
   const { openKeyboard, closeKeyboard, isKeyboardOpen } = useVirtualKeyboard();
+  const { persona, updatePersona } = usePersona();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   if (!isAppDrawerOpen) return null;
+
+  const togglePinToHome = (e: React.MouseEvent, appId: string, appName: string) => {
+    e.stopPropagation();
+    const isPinned = persona.homeApps.includes(appId);
+    if (isPinned) {
+      updatePersona({ homeApps: persona.homeApps.filter(id => id !== appId) });
+      addNotification({
+        appId: 'system',
+        appName: 'Launcher',
+        title: 'Removed from Home',
+        body: `${appName} unpinned from Home Screen.`,
+      });
+    } else {
+      updatePersona({ homeApps: [...persona.homeApps, appId] });
+      addNotification({
+        appId: 'system',
+        appName: 'Launcher',
+        title: 'Pinned to Home',
+        body: `${appName} added to Home Screen!`,
+      });
+    }
+  };
 
   const sideloadedApks = getInstalledApks().map((apk) => ({
     id: apk.id,
@@ -135,23 +159,35 @@ export const AppDrawer: React.FC = () => {
 
         {/* Apps Grid */}
         <div className="grid grid-cols-4 sm:grid-cols-5 gap-y-6 gap-x-4 py-4 overflow-y-auto max-h-[50vh] pr-1">
-          {filteredApps.map((app) => (
-            <button
-              key={app.id}
-              onClick={() => {
-                openApp(app.id, app.name);
-                setIsAppDrawerOpen(false);
-              }}
-              className="flex flex-col items-center justify-center gap-2 group transition-transform active:scale-95"
-            >
-              <div className="group-hover:scale-105 transition-transform">
-                <AppIcon appId={app.id} size={actualDevice === 'phone' ? 'md' : 'lg'} badge={'badge' in app ? app.badge : undefined} />
+          {filteredApps.map((app) => {
+            const isPinned = persona.homeApps.includes(app.id);
+            return (
+              <div
+                key={app.id}
+                onClick={() => {
+                  openApp(app.id, app.name);
+                  setIsAppDrawerOpen(false);
+                }}
+                className="relative flex flex-col items-center justify-center gap-2 group transition-transform active:scale-95 cursor-pointer"
+              >
+                <button
+                  onClick={(e) => togglePinToHome(e, app.id, app.name)}
+                  title={isPinned ? 'Unpin from Home Screen' : 'Pin to Home Screen'}
+                  className={`absolute -top-1 right-2 sm:right-4 z-10 p-1 rounded-full transition-opacity opacity-0 group-hover:opacity-100 ${
+                    isPinned ? 'bg-emerald-600/90 text-white opacity-80' : 'bg-neutral-800/90 text-neutral-300 hover:text-white'
+                  }`}
+                >
+                  {isPinned ? <PinOff size={11} /> : <Pin size={11} />}
+                </button>
+                <div className="group-hover:scale-105 transition-transform">
+                  <AppIcon appId={app.id} size={actualDevice === 'phone' ? 'md' : 'lg'} badge={'badge' in app ? app.badge : undefined} />
+                </div>
+                <span className="text-xs text-neutral-300 group-hover:text-white text-center truncate max-w-[80px]">
+                  {app.name}
+                </span>
               </div>
-              <span className="text-xs text-neutral-300 group-hover:text-white text-center truncate max-w-[80px]">
-                {app.name}
-              </span>
-            </button>
-          ))}
+            );
+          })}
         </div>
 
         {/* Footer info */}

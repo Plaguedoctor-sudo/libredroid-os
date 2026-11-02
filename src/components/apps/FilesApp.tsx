@@ -13,9 +13,15 @@ import {
   ArrowLeft,
   Download,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Box,
+  Image as ImageIcon,
+  Bot,
+  Share2
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { useWindow } from '../../context/WindowContext';
+import type { AppIntent } from '../../types/apps';
 import { VFile } from '../../types/system';
 import { 
   fetchPhysicalStorage, 
@@ -23,8 +29,14 @@ import {
   PhysicalStorageItem 
 } from '../../services/hardwareBridgeClient';
 
-export const FilesApp: React.FC = () => {
+interface Props extends Partial<AppIntent> {
+  intent?: AppIntent;
+}
+
+export const FilesApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
+  const effectiveIntent = intent || (params ? { params, paramSeq } : undefined);
   const { account, addNotification } = useSystem();
+  const { openApp } = useWindow();
   const [sourceMode, setSourceMode] = useState<'physical' | 'nextcloud'>('physical');
   const [currentFolder, setCurrentFolder] = useState<string>('root');
   const [search, setSearch] = useState('');
@@ -103,6 +115,17 @@ export const FilesApp: React.FC = () => {
       loadPhysicalDirectory(physicalPath);
     }
   }, [sourceMode]);
+
+  useEffect(() => {
+    const p = effectiveIntent?.params;
+    if (!p) return;
+    if (typeof p.source === 'string' && (p.source === 'physical' || p.source === 'nextcloud')) {
+      setSourceMode(p.source);
+    }
+    if (typeof p.path === 'string') {
+      loadPhysicalDirectory(p.path);
+    }
+  }, [effectiveIntent?.paramSeq]);
 
   const displayedFiles = files.filter((f) => {
     if (search.trim()) {
@@ -523,23 +546,107 @@ export const FilesApp: React.FC = () => {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-1">
-              {'path' in previewFile && (
-                <a
-                  href={`/api/storage/file?path=${encodeURIComponent(previewFile.path)}`}
-                  download={previewFile.name}
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-medium flex items-center gap-1.5"
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-800">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {/* APK Installer Link */}
+                {previewFile.name.endsWith('.apk') && (
+                  <button
+                    onClick={() => {
+                      openApp('apk_installer', 'Package Hub', 'hardened-android', {
+                        select: previewFile.name,
+                        path: 'path' in previewFile ? previewFile.path : undefined,
+                        tab: 'detail'
+                      });
+                      setPreviewFile(null);
+                    }}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-white shadow-md active:scale-95 transition-all"
+                  >
+                    <Box size={13} />
+                    <span>Install via Package Hub</span>
+                  </button>
+                )}
+
+                {/* Photo Viewer Link */}
+                {'path' in previewFile && (previewFile.name.endsWith('.png') || previewFile.name.endsWith('.jpg') || previewFile.name.endsWith('.jpeg')) && (
+                  <button
+                    onClick={() => {
+                      openApp('photos', 'Immich Gallery', undefined, {
+                        photoUrl: `/api/storage/file?path=${encodeURIComponent(previewFile.path)}`,
+                        caption: previewFile.name,
+                      });
+                      setPreviewFile(null);
+                    }}
+                    className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-white shadow-md active:scale-95 transition-all"
+                  >
+                    <ImageIcon size={13} />
+                    <span>Open in Gallery</span>
+                  </button>
+                )}
+
+                {/* Joplin Notes Link */}
+                {(previewFile.name.endsWith('.txt') || previewFile.name.endsWith('.md') || previewFile.name.endsWith('.conf') || previewFile.name.endsWith('.json')) && (
+                  <button
+                    onClick={() => {
+                      openApp('notes', 'Joplin Notes', undefined, {
+                        title: previewFile.name,
+                        content: 'content' in previewFile ? previewFile.content : `File: ${previewFile.name}`,
+                      });
+                      setPreviewFile(null);
+                    }}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-white shadow-md active:scale-95 transition-all"
+                  >
+                    <FileText size={13} />
+                    <span>Open in Notes</span>
+                  </button>
+                )}
+
+                {/* Ask Universal AI Link */}
+                <button
+                  onClick={() => {
+                    openApp('universal_ai', 'Universal AI', 'vault-airgap', {
+                      initialPrompt: `Analyze this file: ${previewFile.name}\n\n${'content' in previewFile ? previewFile.content : ('path' in previewFile ? previewFile.path : '')}`,
+                    });
+                    setPreviewFile(null);
+                  }}
+                  className="px-3 py-1.5 bg-violet-600/30 hover:bg-violet-600/50 text-violet-300 border border-violet-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all"
                 >
-                  <Download size={13} />
-                  <span>Download File</span>
-                </a>
-              )}
-              <button 
-                onClick={() => setPreviewFile(null)}
-                className="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-xs font-medium"
-              >
-                Close
-              </button>
+                  <Bot size={13} />
+                  <span>Ask AI</span>
+                </button>
+
+                {/* Share Link */}
+                <button
+                  onClick={() => {
+                    openApp('chats', 'Sovereign Chats', 'anonymity-whonix', {
+                      message: `Sharing file: ${previewFile.name}`,
+                    });
+                    setPreviewFile(null);
+                  }}
+                  className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all"
+                >
+                  <Share2 size={13} />
+                  <span>Share</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {'path' in previewFile && (
+                  <a
+                    href={`/api/storage/file?path=${encodeURIComponent(previewFile.path)}`}
+                    download={previewFile.name}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-medium flex items-center gap-1.5 text-white"
+                  >
+                    <Download size={13} />
+                    <span>Download</span>
+                  </a>
+                )}
+                <button 
+                  onClick={() => setPreviewFile(null)}
+                  className="px-3.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-xs font-medium text-neutral-300 hover:text-white"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# lrd-timed — secure-ish time on a device that may have no RTC.
+set -uo pipefail
+RTC=/dev/rtc0
+STATE=/var/lib/lrd/time.state
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+# 1. RTC if present
+if [ -e "$RTC" ]; then hwclock -s 2>/dev/null && say "time from RTC"; fi
+
+# 2. if the clock is nonsense, we cannot validate certificates. Fix before Tor.
+year="$(date +%Y)"
+if [ "$year" -lt 2020 ] || [ "$year" -gt 2100 ]; then
+  say "clock is nonsense ($(date -Is)) — waiting for the network"
+  # 3. chrony with a wide slew, then step once plausible
+  systemctl start chronyd 2>/dev/null || true
+  for i in $(seq 1 30); do
+    sleep 2
+    y="$(date +%Y)"
+    [ "$y" -ge 2020 ] && break
+  done
+fi
+
+# 4. modem time on devices that expose it (cheap, no RTC needed)
+if [ -r /dev/at0 ] || [ -e /dev/ttyUSB0 ]; then
+  : # at+CCLK? parsing would go here per modem family
+fi
+
+# 5. persist a sane timestamp so a no-RTC device starts close
+mkdir -p /var/lib/lrd 2>/dev/null || true
+date -Is > "$STATE" 2>/dev/null || true
+say "time is $(date -Is)"

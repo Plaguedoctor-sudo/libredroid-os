@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# lrd-rollback — anti-rollback with redundancy, and real enforcement where AVB allows.
+#
+# Trust levels, honest:
+#   enforced   AVB rollback_index in vbmeta, checked by a LOCKED bootloader
+#   redundant  the same index in the signed per-slot metadata AND a counter in two
+#              places AND the boot cmdline. An attacker must change all of them
+#              consistently, and any inconsistency is detectable.
+#   advisory   nothing checks it at boot; lrd-rollback check reports it
+set -Eeuo pipefail
+STORE="${LRD_STORE:-/store}"
+MISC=/dev/block/by-name/misc
+SLOT="$(sed -n 's/.*androidboot.slot_suffix=_\([ab]\).*/\1/p' /proc/cmdline 2>/dev/null || echo a)"
+CMDIDX="$(sed -n 's/.*lrd\.rollback_index=\([0-9]*\).*/\1/p' /proc/cmdline 2>/dev/null || echo '')"
+META="$STORE/verity/lrd-verity_${SLOT}.json"
+C1="$STORE/rollback/counter"
+C2="$STORE/rollback/counter.bak"
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+avb_supported() {
+  [ -e /dev/block/by-name/avb_custom_key ] && return 0
+  command -v avbtool >/dev/null 2>&1 && return 0
+  return 1
+}
+bootloader_locked() {
+  grep -q 'androidboot.flash.locked=1' /proc/cmdline 2>/dev/null
+}
+
+read_counters() {
+  local a b
+  a="$(cat "$C1" 2>/dev/null || echo 0)"
+  b="$(cat "$C2" 2>/dev/null || echo 0)"
+  # the max wins: deleting one copy does not lower the floor
+  echo "$(( a > b ? a : b ))"
+}
+
+case "${1:-check}" in
+status)
+  echo "slot:            ${SLOT:-?}"
+  echo "metadata index:  $(jq -r '.rollbackIndex // "absent"' "$META" 2>/dev/null || echo absent)"
+  echo "cmdline index:   ${CMDIDX:-absent}"
+  echo "counter:         $(read_counters)"
+  echo "bootloader:      $(bootloader_locked && echo locked || echo unlocked)"
+  echo "avb_custom_key:  $(avb_supported && echo present || echo absent)"
+  if avb_supported && bootloader_locked; then echo "enforcement:     ENFORCED by the bootloader"
+  elif avb_supported; then echo "enforcement:     redundant (AVB present but bootloader unlocked)"
+  else echo "enforcement:     ADVISORY — a determined attacker can roll back"; fi
+  ;;
+
+check)
+  [ -f "$META" ] || { say "no metadata — cannot check"; exit 0; }
+  meta_idx="$(jq -r '.rollbackIndex // 0' "$META" 2>/dev/null || echo 0)"
+  counter="$(read_counters)"
+  verdict=ok
+
+  # 1. metadata vs counter
+  if [ "$meta_idx" -lt "$counter" ]; then
+    say "ROLLBACK: metadata index $meta_idx < counter $counter"
+    verdict=rollback
+  fi
+  # 2. cmdline vs metadata: catches a rolled-back boot image with a fresh rootfs
+  if [ -n "$CMDIDX" ] && [ "$CMDIDX" != "$meta_idx" ]; then
+    say "MISMATCH: boot image says index $CMDIDX, rootfs metadata says $meta_idx"
+    verdict=mismatch
+  fi
+  # 3. AVB index, if readable
+  if avb_supported; then
+    for v in /dev/block/by-name/vbmeta /dev/block/by-name/vbmeta_a /dev/block/by-name/vbmeta_b; do
+      [ -r "$v" ] || continue
+      avb_idx="$(avbtool info_image --image "$v" 2>/dev/null | sed -n 's/^Rollback Index:[[:space:]]*//p' | head -1)"
+      [ -n "$avb_idx" ] && [ "$avb_idx" != "$meta_idx" ] && {
+        say "AVB rollback index $avb_idx != metadata $meta_idx"
+        [ "$verdict" = ok ] && verdict=mismatch
+      }
+    done
+  fi
+
+  mkdir -p /run/lrd
+  jq -nc --arg v "$verdict" --argjson m "$meta_idx" --argjson c "$counter" \
+    --arg cmd "${CMDIDX:-}" --arg locked "$(bootloader_locked && echo true || echo false)" \
+    --argjson avb "$(avb_supported && echo true || echo false)" \
+    '{verdict:$v, metadataIndex:$m, counter:$c, cmdlineIndex:$cmd,
+      bootloaderLocked:($locked=="true"), avbAvailable:$avb,
+      enforcement: (if $avb and $locked=="true" then "enforced"
+                    elif $avb then "redundant" else "advisory" end)}' > /run/lrd/rollback.json
+
+  echo "verdict: $verdict"
+  [ "$verdict" = ok ] || logger -t lrd-rollback "ROLLBACK DETECTED: $verdict" 2>/dev/null || true
+  exit 0
+  ;;
+
+advance)
+  # called after a successful update to the new slot
+  idx="${2:-$(jq -r '.rollbackIndex // 0' "$META" 2>/dev/null || echo 0)}"
+  mkdir -p "$STORE/rollback"
+  cur="$(read_counters)"
+  [ "$idx" -le "$cur" ] && { say "counter already at $cur"; exit 0; }
+  echo "$idx" > "$C1"; echo "$idx" > "$C2"; sync
+  say "counter advanced $cur -> $idx (both copies)"
+  ;;
+
+seal)
+  # bind the index into a place a rolled-back image cannot also change: the counter
+  mkdir -p "$STORE/rollback"
+  idx="$(jq -r '.rollbackIndex // 1' "$META" 2>/dev/null || echo 1)"
+  echo "$idx" > "$C1"; echo "$idx" > "$C2"
+  say "sealed at $idx"
+  ;;
+
+verify-signatures)
+  # the counters are only meaningful if the metadata they came from is signed
+  for s in a b; do
+    m="$STORE/verity/lrd-verity_${s}.json"
+    [ -f "$m" ] || continue
+    if openssl dgst -sha256 -verify /etc/lrd/keys/verity.pub.pem -signature "$m.sig" "$m" >/dev/null 2>&1; then
+      say "slot $s metadata: signed, index $(jq -r .rollbackIndex "$m" 2>/dev/null || echo 0)"
+    else
+      say "slot $s metadata: SIGNATURE INVALID"
+    fi
+  done
+  ;;
+
+*) echo "usage: lrd-rollback {status|check|advance [n]|seal|verify-signatures}"; exit 2 ;;
+esac

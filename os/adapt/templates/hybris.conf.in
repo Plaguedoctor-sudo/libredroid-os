@@ -1,0 +1,14 @@
+# templates/hybris.conf.in
+# libhybris properties, consumed by /usr/lib/lrd/adapt/apply-hybris
+GRALLOC_IMPL=@GRALLOC@
+EGL_PLATFORM=@EGL_PLATFORM@
+EGL_LIBS=@EGL@
+HWCOMPOSER_IMPL=@HWCOMPOSER@
+AUDIO_IMPL=@AUDIO@
+RIL_IMPL=@RIL@
+SENSORS_IMPL=@SENSORS@
+LINKER_NAMESPACE=1
+BINDER_DEVICE=/dev/binderfs
+# /vendor and /odm are mounted read-only from the live partitions by the initramfs
+VENDOR_PATH=/vendor
+ODM_PATH=/odm

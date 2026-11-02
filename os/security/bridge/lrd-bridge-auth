@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# lrd-bridge-auth — the bridge was an unauthenticated localhost exec surface.
+# Any page in the same browser could POST to it. Fix: token + Origin + Host.
+#   token | rotate | check
+set -Eeuo pipefail
+TOK="${LRD_BRIDGE_TOKEN:-/etc/lrd/bridge.token}"
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+case "${1:-check}" in
+token)
+  mkdir -p "$(dirname "$TOK")" 2>/dev/null || true
+  [ -s "$TOK" ] || { head -c 32 /dev/urandom | base64 | tr -d '\n' > "$TOK"; chmod 600 "$TOK"; }
+  cat "$TOK"; echo
+  ;;
+rotate)
+  mkdir -p "$(dirname "$TOK")" 2>/dev/null || true
+  head -c 32 /dev/urandom | base64 | tr -d '\n' > "$TOK"; chmod 600 "$TOK"
+  say "rotated — restart the bridge and reload the shell"
+  systemctl restart lrd-bridge.service 2>/dev/null || true
+  ;;
+check)
+  echo "token present:  $([ -s "$TOK" ] && echo yes || echo NO)"
+  echo "permissions:    $(stat -c %a "$TOK" 2>/dev/null || echo missing)"
+  echo "bound to:       $(ss -ltn 2>/dev/null | awk '/:3001/{print $4}' || echo 'not running')"
+  echo "origins allowed: $(sed -n 's/^LRD_ALLOW_ORIGINS=//p' /etc/lrd/bridge.env 2>/dev/null || echo 'default (loopback only)')"
+  echo
+  echo "checks:"
+  printf '  no token -> %s\n' "$(curl -s -o /dev/null -w '%{http_code}' -XPOST http://127.0.0.1:3001/api/host/exec/sync -H 'content-type: application/json' -d '{"cmd":"true","pty":false}' 2>/dev/null || echo connection-refused)"
+  printf '  bad token -> %s\n' "$(curl -s -o /dev/null -w '%{http_code}' -XPOST http://127.0.0.1:3001/api/host/exec/sync -H 'content-type: application/json' -H 'x-lrd-token: wrong' -d '{"cmd":"true","pty":false}' 2>/dev/null || echo connection-refused)"
+  tok="$(cat "$TOK" 2>/dev/null || true)"
+  printf '  good token -> %s\n' "$(curl -s -o /dev/null -w '%{http_code}' -XPOST http://127.0.0.1:3001/api/host/exec/sync -H 'content-type: application/json' -H "x-lrd-token: $tok" -d '{"cmd":"true","pty":false}' 2>/dev/null || echo connection-refused)"
+  printf '  bad origin -> %s\n' "$(curl -s -o /dev/null -w '%{http_code}' -H 'origin: https://evil.example' http://127.0.0.1:3001/api/host/caps 2>/dev/null || echo connection-refused)"
+  printf '  bad host   -> %s\n' "$(curl -s -o /dev/null -w '%{http_code}' -H 'host: evil.example' http://127.0.0.1:3001/api/host/caps 2>/dev/null || echo connection-refused)"
+  ;;
+*) echo "usage: lrd-bridge-auth {token|rotate|check}"; exit 2 ;;
+esac

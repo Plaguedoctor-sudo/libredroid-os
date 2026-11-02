@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, Circle, Square, Home, Grid } from 'lucide-react';
 import { useWindow } from '../../context/WindowContext';
 import { useSystem } from '../../context/SystemContext';
 import { usePersona } from '../../context/PersonaContext';
+import { systemBus } from '../../services/systemBus';
+import { registerBack } from '../../platform/input';
 
 export const NavigationBar: React.FC = () => {
-  const { returnHome, goBack, activeWindowId, minimizeWindow } = useWindow();
+  const { returnHome, goBack, activeWindowId, minimizeWindow, openApp } = useWindow();
   const { 
     isRecentsOpen, 
     setIsRecentsOpen, 
@@ -14,14 +16,18 @@ export const NavigationBar: React.FC = () => {
     isShadeOpen,
     setIsShadeOpen,
     isAssistantOpen,
-    setIsAssistantOpen
+    setIsAssistantOpen,
+    isLocked
   } = useSystem();
   
   const { persona, isWizardOpen, setIsWizardOpen } = usePersona();
   const [isHomebarPressed, setIsHomebarPressed] = useState(false);
 
   // Unified Smart Back Action
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
+    // If device is locked, Back cannot exit the lock screen
+    if (isLocked) return;
+
     if (navigator.vibrate) navigator.vibrate(12);
 
     // 1. Close Adaptation Wizard if open
@@ -56,7 +62,31 @@ export const NavigationBar: React.FC = () => {
     }
     // 7. Base Home: smooth fallback
     goBack();
-  };
+  }, [
+    isWizardOpen,
+    setIsWizardOpen,
+    isAssistantOpen,
+    setIsAssistantOpen,
+    isShadeOpen,
+    setIsShadeOpen,
+    isAppDrawerOpen,
+    setIsAppDrawerOpen,
+    isRecentsOpen,
+    setIsRecentsOpen,
+    activeWindowId,
+    minimizeWindow,
+    goBack
+  ]);
+
+  // Subscribe to system:back emitted by hardware back / popstate
+  useEffect(() => {
+    const unsub = systemBus.on('system:back', () => {
+      handleBack();
+    });
+    return () => {
+      unsub();
+    };
+  }, [handleBack]);
 
   // Unified Smart Home Action
   const handleHome = () => {
@@ -78,6 +108,48 @@ export const NavigationBar: React.FC = () => {
     setIsAppDrawerOpen(false);
     setIsRecentsOpen(!isRecentsOpen);
   };
+
+  // Expose system navigation and register prioritized back handlers
+  useEffect(() => {
+    (window as any).__LRD_NAV__ = {
+      home: handleHome,
+      recents: handleRecents,
+      back: handleBack,
+      launch: (id: string, opts?: any) => openApp(id as any, undefined, undefined, opts),
+    };
+    const offs = [
+      registerBack('wizard', 90, () => isWizardOpen && (setIsWizardOpen(false), true)),
+      registerBack('assistant', 80, () => isAssistantOpen && (setIsAssistantOpen(false), true)),
+      registerBack('shade', 70, () => isShadeOpen && (setIsShadeOpen(false), true)),
+      registerBack('drawer', 60, () => isAppDrawerOpen && (setIsAppDrawerOpen(false), true)),
+      registerBack('recents', 50, () => isRecentsOpen && (setIsRecentsOpen(false), true)),
+      registerBack('windows', 40, () => (activeWindowId ? (minimizeWindow(activeWindowId), true) : false)),
+      registerBack('home', 10, () => (goBack(), true)),
+    ];
+    return () => {
+      offs.forEach((f) => f());
+    };
+  }, [
+    isWizardOpen,
+    isAssistantOpen,
+    isShadeOpen,
+    isAppDrawerOpen,
+    isRecentsOpen,
+    activeWindowId,
+    handleHome,
+    handleRecents,
+    handleBack,
+    setIsWizardOpen,
+    setIsAssistantOpen,
+    setIsShadeOpen,
+    setIsAppDrawerOpen,
+    setIsRecentsOpen,
+    minimizeWindow,
+    goBack,
+  ]);
+
+  // When device is locked, suppress navigation chrome
+  if (isLocked) return null;
 
   const navStyle = persona.navigationStyle || 'android_buttons';
   const isAccessible = persona.uiDensity === 'accessible_large';
@@ -106,7 +178,7 @@ export const NavigationBar: React.FC = () => {
   // 2. Android Modern Gesture Pill
   if (navStyle === 'android_gestures') {
     return (
-      <footer className="w-full h-11 px-6 flex items-center justify-between bg-black/40 backdrop-blur-md text-white/80 shrink-0 z-50 relative select-none border-t border-white/5 touch-manipulation">
+      <footer data-lrd-gesture className="lrd-gesture-bar w-full h-11 px-6 flex items-center justify-between bg-black/40 backdrop-blur-md text-white/80 shrink-0 z-50 relative select-none border-t border-white/5 touch-manipulation">
         <button
           onClick={handleBack}
           className="p-2 text-xs text-white/80 hover:text-white flex items-center gap-1.5 hover:bg-white/10 active:scale-90 rounded-xl transition-all touch-manipulation min-w-[50px] min-h-[40px] justify-center"
@@ -137,7 +209,7 @@ export const NavigationBar: React.FC = () => {
   // 3. Desktop Taskbar Navigation Style (when enabled via Developer/Power User Persona)
   if (navStyle === 'desktop_taskbar') {
     return (
-      <footer className="w-full h-12 px-4 flex items-center justify-between bg-neutral-950/90 backdrop-blur-xl text-white shrink-0 z-50 relative border-t border-white/10 select-none touch-manipulation">
+      <footer data-lrd-dock className="lrd-dock w-full h-12 px-4 flex items-center justify-between bg-neutral-950/90 backdrop-blur-xl text-white shrink-0 z-50 relative border-t border-white/10 select-none touch-manipulation">
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
@@ -182,7 +254,7 @@ export const NavigationBar: React.FC = () => {
 
   // 4. Classic 3-Button Navigation (Default with Full Accessible Hitboxes)
   return (
-    <footer className={`w-full flex items-center justify-around bg-black/50 backdrop-blur-md text-white/90 shrink-0 z-50 relative border-t border-white/10 select-none touch-manipulation ${
+    <footer data-lrd-gesture className={`lrd-gesture-bar w-full flex items-center justify-around bg-black/50 backdrop-blur-md text-white/90 shrink-0 z-50 relative border-t border-white/10 select-none touch-manipulation ${
       isAccessible ? 'h-16 px-6 bg-black/80' : 'h-12 px-8'
     }`}>
       {/* Back button */}

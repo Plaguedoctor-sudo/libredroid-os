@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# surface crashes to the shell and to lrd-report, without phoning home
+set -uo pipefail
+if command -v coredumpctl >/dev/null; then
+  n="$(coredumpctl list --no-pager --since '1 day ago' 2>/dev/null | tail -n +2 | wc -l)"
+  [ "$n" -gt 0 ] && {
+    lrd-emit lifecycle "{\"crashes\":$n}" 2>/dev/null || true
+    echo "  $n core dumps in the last day — see 'coredumpctl list'"
+  }
+fi

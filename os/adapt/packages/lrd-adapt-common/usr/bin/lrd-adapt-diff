@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# lrd-adapt-diff — show what a change does, before it can hurt.
+#   lrd-adapt-diff                  show the working tree vs the last snapshot
+#   lrd-adapt-diff <file>           simulate one file's effect
+#   lrd-adapt-diff --apply          snapshot, apply, validate, auto-revert on regression
+set -uo pipefail
+log() { echo "$*"; }
+WARN=0
+w() { printf '  \033[33mrisk\033[0m %s\n' "$*"; WARN=$((WARN+1)); }
+o() { printf '  \033[32mok\033[0m   %s\n' "$*"; }
+b() { printf '  \033[31mfail\033[0m %s\n' "$*"; WARN=$((WARN+1)); }
+
+sim_display() {
+  local f="$1"; log "simulating $f"
+  . "$f" 2>/dev/null || true
+  local v="${backend:-}"
+  local cards=0; for c in /dev/dri/card*; do [ -e "$c" ] && cards=$((cards+1)); done
+  local conn=0; for s in /sys/class/drm/card*-*; do [ -e "$s/status" ] && [ "$(cat "$s/status" 2>/dev/null)" = connected ] && conn=$((conn+1)); done
+  local hwc=""; for d in /vendor/lib64/hw /odm/lib64/hw; do for x in "$d"/hwcomposer*.so; do [ -e "$x" ] && hwc="$x"; done; done
+  local fb=0; ls /dev/fb* /dev/graphics/fb* >/dev/null 2>&1 && fb=1
+  [ "$cards" -gt 0 ] && o "$cards DRM card(s), $conn connected" || w "no DRM card"
+  [ -n "$hwc" ] && o "hwcomposer blob present" || w "no hwcomposer blob"
+  [ "$fb" = 1 ] && o "framebuffer present" || true
+  case "$v" in
+    drm)   [ "$cards" -gt 0 ] && [ "$conn" -gt 0 ] && o "backend=drm is viable" || b "backend=drm but no connected output" ;;
+    hwc2)  [ -n "$hwc" ] && o "backend=hwc2 is viable" || b "backend=hwc2 but no hwcomposer blob" ;;
+    fbdev) o "backend=fbdev always starts (software rendering)"; w "no GPU acceleration" ;;
+    "")    w "no backend= line" ;;
+    *)     w "unknown backend '$v'" ;;
+  esac
+}
+
+sim_hybris() {
+  local f="$1"; log "simulating $f"
+  . "$f" 2>/dev/null || true
+  local miss=0
+  for var in GRALLOC_IMPL EGL_LIBS HWCOMPOSER_IMPL AUDIO_IMPL RIL_IMPL SENSORS_IMPL; do
+    local v="${!var:-}"
+    [ -z "$v" ] && { w "$var unset"; continue; }
+    local found=""
+    for d in /vendor/lib64/hw /vendor/lib64 /odm/lib64/hw /odm/lib64 /vendor/lib/hw; do [ -e "$d/$v" ] && { found="$d/$v"; break; }; done
+    [ -n "$found" ] && o "$var -> $found" || { b "$var -> $v NOT FOUND"; miss=$((miss+1)); }
+  done
+  local mode; mode="$(/usr/lib/lrd/adapt/propset --check 2>/dev/null && echo compiled || echo fallback)"
+  [ "$mode" = compiled ] && o "property backend: compiled helper" || w "property backend: $mode (ro.* may not stick)"
+  [ "$miss" -gt 2 ] && b "$miss blobs missing — expect a black screen"
+}
+
+sim_modules() {
+  local f="$1"; log "simulating $f"
+  local kver; kver="$(uname -r)"
+  local bad=0 tot=0
+  while IFS= read -r m; do
+    case "$m" in ''|\#*) continue ;; esac
+    m="${m%.ko}"; tot=$((tot+1))
+    if lsmod | awk '{print $1}' | grep -qx "$m"; then o "$m already loaded"
+    elif find "/lib/modules/$kver" -name "$m.ko*" 2>/dev/null | grep -q .; then o "$m present"
+    else w "$m has no module for $kver"; bad=$((bad+1)); fi
+  done < "$f"
+  [ "$tot" -eq 0 ] && w "empty list — autoload will be used"
+}
+
+case "${1:-}" in
+  --apply)
+    lrd-adapt-txn begin "lrd-adapt-diff --apply"
+    echo ":: applying"
+    /usr/lib/lrd/adapt/validate
+    echo
+    lrd-adapt-report
+    echo
+    echo ":: snapshot open. Reboot twice to commit, or run: lrd-adapt-txn rollback"
+    ;;
+  "")
+    lrd-adapt-txn show
+    ;;
+  *)
+    f="$1"; [ -r "$f" ] || { echo "cannot read $f"; exit 1; }
+    case "$(basename "$f")" in
+      display.conf|display.variants) sim_display "$f" ;;
+      hybris.conf)                   sim_hybris "$f" ;;
+      modules-load.lrd)              sim_modules "$f" ;;
+      audio.conf)                    . "$f"; o "audio card=${AUDIO_CARD:-primary} (proven empirically at apply)" ;;
+      *)                             echo "no simulator for $(basename "$f")" ;;
+    esac
+    echo
+    [ "$WARN" -eq 0 ] && echo "verdict: safe" || echo "verdict: $WARN risk(s) — read them before applying"
+    ;;
+esac

@@ -1,0 +1,7 @@
+[Slice]
+CPUWeight=50
+MemoryHigh=60%
+MemoryMax=75%
+TasksMax=2048
+IOWeight=50
+# domains must not starve the shell

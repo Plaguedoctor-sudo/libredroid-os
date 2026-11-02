@@ -1,0 +1,18 @@
+polkit.addRule(function(action, subject) {
+  // the shell may do these without a prompt; everything else prompts
+  var quiet = [
+    'org.freedesktop.NetworkManager.network-control',
+    'org.freedesktop.NetworkManager.wifi.scan',
+    'org.freedesktop.udisks2.filesystem-mount',
+    'org.freedesktop.udisks2.filesystem-unmount-others',
+    'org.freedesktop.UPower.Suspend',
+    'org.freedesktop.login1.power-off',
+    'org.freedesktop.login1.reboot'
+  ];
+  if (subject.isInGroup('lrd') && quiet.indexOf(action.id) >= 0)
+    return polkit.Result.YES;
+  // mounting the encrypted store, changing the time, and installing packages prompt
+  if (action.id.indexOf('org.freedesktop.packagekit') === 0)
+    return polkit.Result.AUTH_ADMIN_KEEP;
+  return null;
+});

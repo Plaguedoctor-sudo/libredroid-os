@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Send, X, ShieldCheck, Box, HardDrive } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { useSecurity } from '../../context/SecurityContext';
 import { useWindow } from '../../context/WindowContext';
 import { useVirtualKeyboard } from '../../context/KeyboardContext';
 
@@ -11,8 +12,18 @@ export const OmniAssistant: React.FC = () => {
     setDeviceMode, 
     batteryLevel, 
     quickSettings, 
+    toggleQuickSetting,
     account 
   } = useSystem();
+  const {
+    cameraKillswitch,
+    setCameraKillswitch,
+    micKillswitch,
+    setMicKillswitch,
+    locationKillswitch,
+    setLocationKillswitch,
+    executePenetrationTest
+  } = useSecurity();
   const { openApp } = useWindow();
   const { openKeyboard, closeKeyboard } = useVirtualKeyboard();
 
@@ -20,7 +31,7 @@ export const OmniAssistant: React.FC = () => {
   const [messages, setMessages] = useState<Array<{ sender: 'user' | 'assistant'; text: string }>>([
     {
       sender: 'assistant',
-      text: "Hello! I am your Sovereign Local AI Assistant. I run 100% on-device with zero telemetry sent to Big Tech clouds. How can I assist your system today?",
+      text: "Hello! I am your Sovereign Command Assistant. Powered by a zero-weight deterministic intent engine with zero cloud telemetry and zero battery overhead. How can I assist your system today?",
     },
   ]);
 
@@ -31,7 +42,7 @@ export const OmniAssistant: React.FC = () => {
       value: input,
       onChange: (val) => setInput(val),
       onEnter: () => handleSend(),
-      placeholder: "Ask local model or give system command...",
+      placeholder: "Enter system command or action (e.g. 'kill camera', 'desktop mode')...",
     });
   };
 
@@ -48,20 +59,76 @@ export const OmniAssistant: React.FC = () => {
     setMessages(newMessages);
     setInput('');
 
-    // Handle smart triggers
+    // Handle smart triggers via zero-weight deterministic parser
     const lower = userText.toLowerCase();
     setTimeout(() => {
-      let reply = "Processed via local on-device quantized model (Llama-3-8B-Q4_K_M).";
+      let reply = "Executed via Sovereign Intent Engine (0ms latency • 0 MB neural RAM • Zero battery impact).";
       
-      if (lower.includes('desktop') || lower.includes('dex')) {
+      // 1. Device Modes
+      if (lower.includes('desktop') || lower.includes('dex') || lower.includes('pc mode')) {
         setDeviceMode('desktop');
-        reply = "Switching to Desktop/DeX mode with freeform resizable windows!";
+        reply = "🖥️ Switched to Desktop/DeX mode with freeform resizable windows!";
       } else if (lower.includes('phone') || lower.includes('mobile')) {
         setDeviceMode('phone');
-        reply = "Switching to Compact Phone mode with gesture navigation!";
-      } else if (lower.includes('tablet')) {
+        reply = "📱 Switched to Compact Phone mode with gesture navigation!";
+      } else if (lower.includes('tablet') || lower.includes('foldable')) {
         setDeviceMode('tablet');
-        reply = "Switching to Tablet layout mode with high-DPI dock!";
+        reply = "📟 Switched to Tablet layout mode with high-DPI dock!";
+      // 2. Hardware Killswitches
+      } else if (lower.includes('kill camera') || lower.includes('disable camera')) {
+        setCameraKillswitch(true);
+        reply = "📷 Camera hardware killswitch ENGAGED. Optical sensor disconnected.";
+      } else if (lower.includes('kill mic') || lower.includes('mute mic') || lower.includes('disable mic')) {
+        setMicKillswitch(true);
+        reply = "🎙️ Microphone hardware killswitch ENGAGED. Audio bus muted at ALSA level.";
+      } else if (lower.includes('kill location') || lower.includes('disable location') || lower.includes('kill gps')) {
+        setLocationKillswitch(true);
+        reply = "📍 Location & GPS hardware killswitch ENGAGED. Zero geolocation leaks.";
+      } else if (lower.includes('restore sensor') || lower.includes('unmute mic') || lower.includes('enable camera')) {
+        setCameraKillswitch(false);
+        setMicKillswitch(false);
+        setLocationKillswitch(false);
+        reply = "✅ All hardware sensor killswitches RESTORED to user-authorized mode.";
+      // 3. Quick Settings & Radios
+      } else if (lower.includes('airplane') || lower.includes('flight mode')) {
+        toggleQuickSetting('airplane');
+        reply = `✈️ Airplane Mode ${!quickSettings.airplane ? 'ENABLED' : 'DISABLED'}. Baseband transmitters isolated.`;
+      } else if (lower.includes('flashlight') || lower.includes('torch')) {
+        toggleQuickSetting('flashlight');
+        reply = `🔦 Flashlight ${!quickSettings.flashlight ? 'TURNED ON' : 'TURNED OFF'}.`;
+      } else if (lower.includes('battery saver') || lower.includes('power save')) {
+        toggleQuickSetting('batterySaver');
+        reply = `🔋 Battery Saver ${!quickSettings.batterySaver ? 'ACTIVATED' : 'DEACTIVATED'}. Conservative CPU governor active.`;
+      } else if (lower.includes('wifi') || lower.includes('wi-fi')) {
+        toggleQuickSetting('wifi');
+        reply = `📶 Wi-Fi radio ${!quickSettings.wifi ? 'CONNECTED' : 'DISCONNECTED'}.`;
+      } else if (lower.includes('bluetooth') || lower.includes('bt')) {
+        toggleQuickSetting('bluetooth');
+        reply = `🫐 Bluetooth controller ${!quickSettings.bluetooth ? 'ENABLED' : 'DISABLED'}.`;
+      } else if (lower.includes('rotate') || lower.includes('orientation')) {
+        toggleQuickSetting('autoRotate');
+        reply = `🔄 Screen Auto-Rotate ${!quickSettings.autoRotate ? 'ENABLED' : 'LOCKED'}.`;
+      } else if (lower.includes('5g') || lower.includes('cellular') || lower.includes('modem')) {
+        openApp('network_5g');
+        reply = "📶 Opening 5G Network Adaptor & Simulator. Managing 3GPP Rel-17 NR bands, carrier profiles, and network slices.";
+      // 4. Notes & Search Intents
+      } else if (lower.startsWith('note:') || lower.startsWith('note ') || lower.startsWith('take note')) {
+        const content = userText.replace(/^(note:|note|take note)[:\s]*/i, '').trim();
+        openApp('notes', 'Joplin Notes', undefined, { title: 'Quick Note', content });
+        reply = `📝 Saved note to encrypted Joplin vault: "${content}"`;
+      } else if (lower.startsWith('browse ') || lower.startsWith('search ') || lower.startsWith('ddg ')) {
+        const query = userText.replace(/^(browse|search|ddg)[:\s]*/i, '').trim();
+        openApp('browser', 'LibreBrowse', undefined, { url: query });
+        reply = `🌐 Searching "${query}" in LibreBrowse with privacy shield.`;
+      } else if (lower.startsWith('call ') || lower.startsWith('dial ')) {
+        const num = userText.replace(/^(call|dial)[:\s]*/i, '').trim();
+        openApp('phone', 'Phone Dialer', 'hardened-android', { dial: num, callNow: true });
+        reply = `📞 Dialing ${num} via Android Telephony HAL.`;
+      // 5. Pentest & Security
+      } else if (lower.includes('pentest') || lower.includes('penetration') || lower.includes('exploit test')) {
+        const incident = executePenetrationTest('pegasus_zero_click');
+        reply = `🛡️ Live penetration test executed: Intercepted by ${incident.interceptedBy}. Outcome: ${incident.status.toUpperCase()}.`;
+      // 6. Apps
       } else if (lower.includes('apk') || lower.includes('install app')) {
         openApp('apk_installer');
         reply = "Opening APK Package Installer & Waydroid Runner. You can sideload any Android .apk file.";
@@ -79,7 +146,7 @@ export const OmniAssistant: React.FC = () => {
         reply = "Opening System Settings.";
       } else if (lower.includes('ai') || lower.includes('universal') || lower.includes('gemini') || lower.includes('assistant')) {
         openApp('universal_ai');
-        reply = "Opening Universal AI — your sovereign on-device intelligence platform.";
+        reply = "Opening Universal Command Assistant.";
       } else if (lower.includes('chat') || lower.includes('matrix') || lower.includes('briar')) {
         openApp('chats');
         reply = "Opening Sovereign Chats with Matrix & Briar E2EE protocol.";
@@ -87,31 +154,28 @@ export const OmniAssistant: React.FC = () => {
         openApp('terminal');
         reply = "Launching Termux bash environment.";
       } else if (lower.includes('battery')) {
-        reply = `Battery level is ${batteryLevel}%. Running under power governor 'conservative' with zero background tracking analytics.`;
+        reply = `Battery level is ${batteryLevel}%. Running under power governor 'conservative' with zero background neural drain.`;
       } else if (lower.includes('telemetry') || lower.includes('false') || lower.includes('poison') || lower.includes('spyware') || lower.includes('tracking')) {
         openApp('predatory_shield');
-        reply = "Opening Anti-Predatory Shield & False Telemetry Feeder. When apps demand tracking consent, LibreDroid feeds synthetic randomized noise to analytics beacons and returns HTTP 200 OK.";
+        reply = "Opening Anti-Predatory Shield & False Telemetry Feeder. Feeding synthetic randomized noise to analytics beacons.";
       } else if (lower.includes('source') || lower.includes('repository') || lower.includes('repo') || lower.includes('store') || lower.includes('market') || lower.includes('f-droid')) {
         openApp('store');
-        reply = "Opening Sovereign App Store. You can install verified applications across multiple safe sources: F-Droid, IzzyOnDroid, Guardian Project, Flathub, and AltStore.";
+        reply = "Opening Sovereign App Store. You can install verified applications across F-Droid, IzzyOnDroid, and Flathub.";
       } else if (lower.includes('apple') || lower.includes('ios') || lower.includes('ipa') || lower.includes('darwin') || lower.includes('cocoa') || lower.includes('iphone') || lower.includes('mac')) {
         openApp('darwin_bridge');
-        reply = "Opening Apple Darwin & CocoaTouch Bridge. LibreDroid can natively execute Apple iOS (.ipa) and macOS (.app) binaries using Darling XNU emulation and touchHLE UIKit translation.";
-      } else if (lower.includes('apk') || lower.includes('android') || lower.includes('waydroid') || lower.includes('sideload')) {
-        openApp('apk_installer');
-        reply = "Opening Universal Package Hub. You can sideload and run both Android APKs (via Waydroid AOSP) and Apple IPAs (via Darwin CocoaTouch) without proprietary app stores.";
+        reply = "Opening Apple Darwin & CocoaTouch Bridge.";
       } else if (lower.includes('hypervisor') || lower.includes('qubes') || lower.includes('whonix') || lower.includes('vault') || lower.includes('domain')) {
         openApp('hypervisor');
-        reply = "Opening Multi-OS Hypervisor Matrix. You can inspect or operate inside the 5 specialized OS domains: seL4 Vault, Whonix Tor, GrapheneOS Android, Disposable Alpine, and Debian Workstation.";
+        reply = "Opening Multi-OS Hypervisor Matrix (5 isolated OS domains).";
       } else if (lower.includes('security') || lower.includes('guardrail') || lower.includes('firewall')) {
         openApp('security');
         reply = "Opening Hardened Security Guardrails & Hardware Killswitches.";
       } else if (lower.includes('sandbox') || lower.includes('cgroup') || lower.includes('namespace') || lower.includes('seccomp')) {
         openApp('linux_sandbox');
-        reply = "Opening Linux 35-Year Evolution Sandbox Engine.";
+        reply = "Opening Linux Sandbox Engine.";
       } else if (lower.includes('predatory') || lower.includes('subscription') || lower.includes('dark pattern')) {
         openApp('predatory_shield');
-        reply = "Opening Anti-Predatory Shield. Analyzing dark patterns and active subscriptions.";
+        reply = "Opening Anti-Predatory Shield.";
       } else if (lower.includes('hardware') || lower.includes('cpu') || lower.includes('gpu') || lower.includes('hal')) {
         openApp('hardware');
         reply = "Opening Hardware HAL Manager.";
@@ -121,7 +185,7 @@ export const OmniAssistant: React.FC = () => {
       }
 
       setMessages((prev) => [...prev, { sender: 'assistant', text: reply }]);
-    }, 350);
+    }, 60);
   };
 
   return (
@@ -141,12 +205,12 @@ export const OmniAssistant: React.FC = () => {
             </div>
             <div>
               <div className="text-sm font-bold flex items-center gap-1.5">
-                Sovereign Local AI
+                Sovereign Command Assistant
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono">
-                  100% On-Device
+                  0 MB Weights
                 </span>
               </div>
-              <div className="text-xs text-neutral-400">Zero Cloud Dependency • Private</div>
+              <div className="text-xs text-neutral-400">Zero-Weight Intent Engine • Max Battery</div>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -191,10 +255,12 @@ export const OmniAssistant: React.FC = () => {
         {/* Quick Suggestion Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           {[
-            { label: 'Sideload APK', cmd: 'how do i sideload apk' },
-            { label: 'Install to Hardware', cmd: 'install system to hardware' },
-            { label: 'F-Droid Store', cmd: 'open f-droid' },
-            { label: 'Switch to Desktop', cmd: 'switch to desktop' },
+            { label: '🖥️ Desktop Mode', cmd: 'switch to desktop' },
+            { label: '📷 Kill Camera', cmd: 'kill camera' },
+            { label: '🔦 Flashlight', cmd: 'flashlight' },
+            { label: '🔋 Battery Health', cmd: 'check battery status' },
+            { label: '📦 Sideload APK', cmd: 'sideload apk' },
+            { label: '🛡️ Pentest', cmd: 'execute penetration test' },
           ].map((chip) => (
             <button
               key={chip.label}
@@ -215,7 +281,7 @@ export const OmniAssistant: React.FC = () => {
         >
           <input
             type="text"
-            placeholder="Ask local model or give system command..."
+            placeholder="Enter system command or action (e.g. 'kill camera', 'desktop mode')..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onClick={handleInputTap}

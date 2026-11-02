@@ -46,36 +46,173 @@ export const WaydroidAppRunner: React.FC<WaydroidAppRunnerProps> = ({ appId, tit
   }
 
   // Generic Sideloaded APK Runner Sandbox
+  return <GenericWaydroidRunnerView appId={appId} title={title} />;
+};
+
+const GenericWaydroidRunnerView: React.FC<{ appId: string; title: string }> = ({ appId, title }) => {
+  const [isRunning, setIsRunning] = useState(true);
+  const [activeTab, setActiveTab] = useState<'view' | 'permissions' | 'logs'>('view');
+  const [perms, setPerms] = useState<Record<string, boolean>>({
+    STORAGE: true,
+    NETWORK: true,
+    CAMERA: false,
+    MICROPHONE: false,
+    LOCATION: false,
+  });
+  const [logs, setLogs] = useState<string[]>([
+    `[Waydroid-Init] Mounting LXC container overlay for ${appId}...`,
+    `[Security-Enforcing] SELinux domain: u:r:untrusted_app:s0:c12,c256`,
+    `[Graphics-HAL] Initializing Mesa Gallium EGL context (Wayland / zero-copy)...`,
+    `[Binder-IPC] Handshake established with ServiceManager and microG GmsCore...`,
+    `[ActivityManager] Start proc 14028:${appId}/u0a142 for activity {${appId}/.MainActivity}`,
+  ]);
+
+  const togglePerm = (key: string) => {
+    setPerms(prev => ({ ...prev, [key]: !prev[key] }));
+    setLogs(prev => [...prev, `[PermissionManager] Dynamic toggle: ${key} -> ${!perms[key]}`]);
+  };
+
+  const handleRestart = () => {
+    setIsRunning(false);
+    setLogs(prev => [...prev, `[ActivityManager] Sending SIGTERM to ${appId}...`]);
+    setTimeout(() => {
+      setIsRunning(true);
+      setLogs(prev => [...prev, `[ActivityManager] Relaunching proc for ${appId}...`]);
+    }, 600);
+  };
+
   return (
-    <div className="flex-1 w-full h-full bg-neutral-950 text-white flex flex-col items-center justify-center p-6 text-center select-none">
-      <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-600 to-teal-700 flex items-center justify-center shadow-2xl mb-4 border border-emerald-500/30">
-        <Play size={28} className="text-white ml-1" />
-      </div>
-      <h2 className="text-lg font-bold">{title}</h2>
-      <p className="text-xs text-neutral-400 mt-1 font-mono">{appId}</p>
+    <div className="flex-1 w-full h-full bg-neutral-950 text-white flex flex-col select-none overflow-hidden">
+      {/* Top App Bar */}
+      <div className="p-3 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between text-xs shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-emerald-600/30 text-emerald-400 flex items-center justify-center font-bold">
+            <Play size={12} />
+          </div>
+          <div>
+            <div className="font-bold flex items-center gap-1.5">
+              <span>{title}</span>
+              <span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
+            </div>
+            <div className="text-[10px] text-neutral-400 font-mono truncate max-w-[200px]">{appId}</div>
+          </div>
+        </div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 mt-6 max-w-sm w-full text-left space-y-2 text-xs">
-        <div className="flex justify-between text-neutral-400">
-          <span>Container Runtime:</span>
-          <span className="text-emerald-400 font-mono">Waydroid AOSP 13</span>
-        </div>
-        <div className="flex justify-between text-neutral-400">
-          <span>Hardware Graphics:</span>
-          <span className="text-purple-300 font-mono">Mesa Gallium / VirGL</span>
-        </div>
-        <div className="flex justify-between text-neutral-400">
-          <span>Google Play Services:</span>
-          <span className="text-emerald-400 font-mono">microG Emulated</span>
-        </div>
-        <div className="flex justify-between text-neutral-400">
-          <span>App Sandbox:</span>
-          <span className="text-blue-400 font-mono">LXC Isolated / Enforcing</span>
+        {/* Tab Controls */}
+        <div className="flex items-center gap-1 bg-neutral-950 p-1 rounded-xl border border-neutral-800 text-[11px]">
+          <button
+            onClick={() => setActiveTab('view')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+              activeTab === 'view' ? 'bg-emerald-600 text-white' : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            Container
+          </button>
+          <button
+            onClick={() => setActiveTab('permissions')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+              activeTab === 'permissions' ? 'bg-emerald-600 text-white' : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            Permissions
+          </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+              activeTab === 'logs' ? 'bg-emerald-600 text-white' : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            Logs
+          </button>
         </div>
       </div>
 
-      <div className="mt-6 flex items-center gap-2 text-xs text-neutral-500">
-        <ShieldCheck size={14} className="text-emerald-400" />
-        <span>Execution status: Active & Responsive</span>
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center justify-center">
+        {activeTab === 'view' && (
+          <div className="max-w-md w-full flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-600 to-teal-700 flex items-center justify-center shadow-2xl mb-4 border border-emerald-500/30">
+              <Play size={28} className="text-white ml-1" />
+            </div>
+            <h2 className="text-base font-bold">{title}</h2>
+            <p className="text-xs text-neutral-400 mt-1 font-mono">{appId}</p>
+
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 mt-5 w-full text-left space-y-2.5 text-xs">
+              <div className="flex justify-between text-neutral-400">
+                <span>Container Runtime:</span>
+                <span className="text-emerald-400 font-mono">Waydroid AOSP 13 (LineageOS 20)</span>
+              </div>
+              <div className="flex justify-between text-neutral-400">
+                <span>Hardware Graphics:</span>
+                <span className="text-purple-300 font-mono">Mesa Gallium VirGL / DRI3</span>
+              </div>
+              <div className="flex justify-between text-neutral-400">
+                <span>Google Play Services:</span>
+                <span className="text-emerald-400 font-mono">microG Emulated & Sandboxed</span>
+              </div>
+              <div className="flex justify-between text-neutral-400">
+                <span>Isolation Boundary:</span>
+                <span className="text-blue-400 font-mono">LXC Namespaces + AppArmor Enforcing</span>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center gap-2 w-full">
+              <button
+                onClick={handleRestart}
+                className="flex-1 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <RotateCcw size={13} />
+                <span>Restart Container Process</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'permissions' && (
+          <div className="max-w-md w-full space-y-3">
+            <div className="text-xs font-bold text-neutral-300">Container Runtime Permissions</div>
+            <p className="text-[11px] text-neutral-400">
+              Control granular hardware access granted to this application sandbox.
+            </p>
+            <div className="space-y-2 pt-2">
+              {Object.entries(perms).map(([perm, granted]) => (
+                <div
+                  key={perm}
+                  onClick={() => togglePerm(perm)}
+                  className="flex items-center justify-between p-3 bg-neutral-900 border border-neutral-800 rounded-xl cursor-pointer hover:bg-neutral-850"
+                >
+                  <span className="text-xs font-mono text-neutral-300">android.permission.{perm}</span>
+                  <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${granted ? 'bg-emerald-600' : 'bg-neutral-700'}`}>
+                    <div className={`w-3 h-3 rounded-full bg-white transition-transform ${granted ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'logs' && (
+          <div className="w-full h-full flex flex-col max-w-2xl bg-black rounded-2xl border border-neutral-800 p-3 font-mono text-[11px] text-neutral-300 overflow-y-auto">
+            <div className="text-[10px] text-neutral-500 pb-2 border-b border-neutral-800 mb-2 flex justify-between">
+              <span>Waydroid logcat stream: {appId}</span>
+              <span className="text-emerald-400">● LIVE</span>
+            </div>
+            <div className="space-y-1 overflow-y-auto flex-1">
+              {logs.map((log, i) => (
+                <div key={i} className="leading-relaxed">{log}</div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Status */}
+      <div className="p-2.5 bg-neutral-950 border-t border-neutral-800 flex items-center justify-between text-[11px] text-neutral-400 shrink-0">
+        <div className="flex items-center gap-1.5">
+          <ShieldCheck size={13} className="text-emerald-400" />
+          <span>LXC Container Security Active</span>
+        </div>
+        <span className="font-mono text-emerald-400">PID: 14028</span>
       </div>
     </div>
   );

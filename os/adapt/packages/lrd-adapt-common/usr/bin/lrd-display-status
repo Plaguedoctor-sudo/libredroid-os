@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -uo pipefail
+echo "current:  $(cat /var/lib/lrd/display.variant 2>/dev/null || echo none)"
+echo "force:    $(cat /run/lrd/display.force 2>/dev/null || echo none)"
+echo
+echo "variant attempts (variant  result):"
+tail -n 30 /var/lib/lrd/display.attempts 2>/dev/null | awk '{printf "  %-12s %s\n",$1,$3}' || echo "  none"
+echo
+echo "feasible now:"
+jq -r '.feasible[]? | "  \(.)"' /run/lrd/display.state 2>/dev/null || echo "  unknown"
+echo
+echo "to pin:  lrd-display-set <variant>   (writes /run/lrd/display.force, restarts cage)"

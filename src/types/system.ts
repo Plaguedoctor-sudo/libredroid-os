@@ -1,4 +1,5 @@
 export type DeviceMode = 'phone' | 'tablet' | 'foldable' | 'desktop' | 'auto';
+export type InterfaceMode = 'standard_android' | 'qubes_matrix';
 
 export interface DeviceConfig {
   mode: DeviceMode;
@@ -42,6 +43,7 @@ export interface QuickSettingsState {
   location: boolean;
   volume: number; // 0 - 100
   brightness: number; // 10 - 100
+  network5g?: boolean;
 }
 
 export interface SystemWallpaper {
@@ -61,3 +63,12 @@ export interface VFile {
   content?: string;
   icon?: string;
 }
+
+export interface LockSettings {
+  isLocked: boolean;
+  pin: string;
+  autoLockTimeoutSeconds: number;
+  showNotificationsOnLockScreen: boolean;
+  biometricsEnabled: boolean;
+}
+

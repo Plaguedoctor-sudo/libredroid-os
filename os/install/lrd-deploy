@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# lrd-deploy — get it onto a device, then prove it boots.
+#   iso <usb-device>              write the ISO to a USB stick
+#   device --boot B --root R      flash an ARM device to the inactive slot
+#   verify [--wait]               wait for the device, pull the acceptance report
+#   status | rollback | restore
+set -Eeuo pipefail
+if [ ! -w "${HOME:-}" ] 2>/dev/null; then
+  export HOME=/tmp
+fi
+export ANDROID_USER_HOME="${ANDROID_USER_HOME:-/tmp/.android}"
+mkdir -p "$ANDROID_USER_HOME" 2>/dev/null || true
+BK="${LRD_BACKUP_DIR:-$HOME/lrd-backups}"
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+die(){ printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
+
+case "${1:-status}" in
+
+iso)
+  dev="${2:?usage: lrd-deploy iso /dev/sdX}"
+  img="${3:?path to .iso}"
+  [ -b "$dev" ] || die "$dev is not a block device"
+  command -v lsblk >/dev/null || die "lsblk missing"
+  say "target:"
+  lsblk -o NAME,SIZE,MODEL,MOUNTPOINT "$dev" | sed 's/^/  /'
+  echo
+  printf 'EVERYTHING ON %s WILL BE ERASED. continue? [y/N] ' "$dev"; read -r a
+  [ "$a" = y ] || exit 0
+  umount "${dev}"* 2>/dev/null || true
+  say "writing $(du -h "$img" | cut -f1)"
+  dd if="$img" of="$dev" bs=4M status=progress conv=fsync
+  sync
+  say "done. boot from it, then run: lrd-verify"
+  ;;
+
+device)
+  boot=""; root=""; slot=""
+  while [ $# -gt 0 ]; do case "$1" in
+    --boot) boot="$2"; shift 2 ;; --root) root="$2"; shift 2 ;;
+    --slot) slot="${2#_}"; shift 2 ;; *) shift ;;
+  esac; done
+  [ -n "$boot" ] && [ -f "$boot" ] || die "--boot <boot.img> required"
+  [ -n "$root" ] && [ -f "$root" ] || die "--root <rootfs.img> required"
+  command -v fastboot >/dev/null || die "fastboot missing"
+
+  fastboot getvar product >/dev/null 2>&1 || die "no device in fastboot mode"
+  product="$(fastboot getvar product 2>&1 | sed -n 's/^product: //p' | head -1)"
+  cur="$(fastboot getvar current-slot 2>&1 | sed -n 's/^current-slot: //p' | head -1)"
+  cur="${cur:-a}"; other=$([ "$cur" = a ] && echo b || echo a)
+  target="${slot:-$other}"
+
+  say "device $product, active slot $cur, target $target"
+  locked="$(fastboot getvar unlocked 2>&1 | sed -n 's/^unlocked: //p' | head -1)"
+  [ "$locked" = "no" ] && die "bootloader locked. run: fastboot flashing unlock && fastboot flashing unlock_critical"
+
+  mkdir -p "$BK"
+  if [ ! -f "$BK/boot_${target}.img" ]; then
+    say "backing up the stock boot images for slot $target"
+    for p in boot dtbo vbmeta; do
+      fastboot fetch "${p}_${target}" "$BK/${p}_${target}.img" 2>/dev/null || \
+        say "  could not fetch ${p}_${target}"
+    done
+    fastboot getvar all > "$BK/getvar.txt" 2>&1 || true
+  fi
+
+  root_mb=$(( $(stat -c %s "$root") / 1024 / 1024 ))
+  sys_mb="$(fastboot getvar "partition-size:system_${target}" 2>&1 | sed -n 's/.*: //p' | head -1)"
+  [ -n "$sys_mb" ] && {
+    sys_mb=$(( sys_mb / 1024 / 1024 ))
+    say "system_$target is ${sys_mb}MB, rootfs needs ${root_mb}MB"
+    if [ "$root_mb" -gt "$sys_mb" ]; then
+      say "resizing (this wipes Android's slot $target)"
+      fastboot delete-logical-partition "system_${target}" || true
+      fastboot create-logical-partition "system_${target}" $(( root_mb + 256 )) || die "resize failed"
+    fi
+  }
+
+  printf 'flash to slot %s? [y/N] ' "$target"; read -r a; [ "$a" = y ] || exit 0
+
+  say "flashing"
+  fastboot flash "boot_${target}" "$boot" || die "boot flash failed"
+  [ -f "$BK/vbmeta_${target}.img" ] && \
+    fastboot --disable-verity --disable-verification flash "vbmeta_${target}" "$BK/vbmeta_${target}.img" 2>/dev/null || true
+  fastboot flash "system_${target}" "$root" || die "rootfs flash failed"
+  fastboot --set-active="$target" || say "set_active failed — switch manually"
+  say "flashed. booting."
+  fastboot reboot
+  echo
+  say "waiting for the device to come up, then verifying"
+  "$0" verify --wait
+  ;;
+
+verify)
+  wait=0; [ "${2:-}" = --wait ] && wait=1
+  say "waiting for the device"
+  for _ in $(seq 1 120); do
+    adb get-state >/dev/null 2>&1 && break
+    sleep 2
+  done
+  adb get-state >/dev/null 2>&1 || die "device never appeared on adb"
+  sleep 5
+
+  # give it time to reach the desktop, then run the acceptance test
+  say "waiting for the shell"
+  for _ in $(seq 1 90); do
+    adb shell 'curl -fsS --max-time 3 http://127.0.0.1:3001/healthz' >/dev/null 2>&1 && break
+    sleep 2
+  done
+
+  say "running the acceptance test on the device"
+  adb shell 'lrd-verify --json 2>/dev/null | tail -1' > /tmp/lrd-verify.json 2>/dev/null || true
+  if [ ! -s /tmp/lrd-verify.json ]; then
+    # fall back to pulling the file the service wrote
+    adb pull /var/lib/lrd/verify.json /tmp/lrd-verify.json 2>/dev/null || \
+      { say "no report yet — the verify service may still be running"; \
+        adb shell 'cat /var/lib/lrd/verify.json' > /tmp/lrd-verify.json 2>/dev/null || true; }
+  fi
+
+  [ -s /tmp/lrd-verify.json ] || die "could not obtain a verify report"
+  jq -e . /tmp/lrd-verify.json >/dev/null 2>&1 || die "report is not valid json"
+
+  verdict="$(jq -r .verdict /tmp/lrd-verify.json)"
+  score="$(jq -r .score /tmp/lrd-verify.json)"
+  fails="$(jq -r .fail /tmp/lrd-verify.json)"
+  echo
+  echo "══════════════════════════════════════════════════════════"
+  printf '  DEVICE VERDICT: %s   score %s   failures %s\n' "$verdict" "$score" "$fails"
+  echo "══════════════════════════════════════════════════════════"
+  [ "$fails" -gt 0 ] && jq -r '.failures[]|"    \(.id) — \(.detail|split("\n")[0])"' /tmp/lrd-verify.json
+  cp /tmp/lrd-verify.json "$BK/verify-$(date +%Y%m%d-%H%M%S).json" 2>/dev/null || true
+  echo
+  echo "  report saved to $BK/"
+  [ "$verdict" = broken ] && exit 1
+  ;;
+
+status)
+  echo "fastboot:"; fastboot devices 2>/dev/null | sed 's/^/  /' || true
+  echo "adb:";      adb devices 2>/dev/null | sed 's/^/  /' || true
+  echo "backups:";  { [ -d "$BK" ] && ls -la "$BK" 2>/dev/null || echo "  (none)"; } | tail -10 | sed 's/^/  /'
+  ;;
+
+rollback)
+  fastboot getvar product >/dev/null 2>&1 || die "no device in fastboot"
+  target="$(fastboot getvar current-slot 2>&1 | sed -n 's/^current-slot: //p' | head -1)"
+  other=$([ "$target" = a ] && echo b || echo a)
+  say "switching from slot $target to $other (the other OS)"
+  fastboot --set-active="$other" && fastboot reboot
+  ;;
+
+restore)
+  # put the stock boot images back
+  fastboot getvar product >/dev/null 2>&1 || die "no device in fastboot"
+  for p in boot dtbo vbmeta; do
+    f="$BK/${p}_b.img"; [ -f "$f" ] || f="$BK/${p}_a.img"
+    [ -f "$f" ] && { say "restoring $p from $f"; fastboot flash "$p" "$f"; }
+  done
+  say "done"
+  ;;
+
+*) echo "usage: lrd-deploy {iso <dev> <iso>|device --boot B --root R [--slot b]|verify [--wait]|status|rollback|restore}"; exit 2 ;;
+esac

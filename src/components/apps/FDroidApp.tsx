@@ -22,8 +22,9 @@ import {
 import { useWindow } from '../../context/WindowContext';
 import { useSystem } from '../../context/SystemContext';
 import { AppIcon } from '../common/AppIcon';
-import { saveInstalledApk } from '../../services/apkManager';
-import { saveInstalledAppleApp } from '../../services/appleAppManager';
+import { saveInstalledApk, getInstalledApks } from '../../services/apkManager';
+import { saveInstalledAppleApp, getInstalledAppleApps } from '../../services/appleAppManager';
+import { installWaydroidApk } from '../../services/hardwareBridgeClient';
 import { 
   getAppRepositories, 
   toggleRepository, 
@@ -113,6 +114,7 @@ export const FDroidApp: React.FC = () => {
           codeSignature: 'Ad-Hoc (Bypassed)',
         });
       } else {
+        installWaydroidApk(pkg.packageName).catch(() => {});
         saveInstalledApk({
           id: pkg.packageName,
           name: pkg.name,
@@ -132,8 +134,16 @@ export const FDroidApp: React.FC = () => {
       addNotification({
         appId: 'store',
         appName: 'Sovereign Store',
-        title: `${pkg.name} Installed`,
-        body: `Verified bit-for-bit against ${pkg.sha256.substring(0, 16)}...`,
+        title: `${pkg.name} installed`,
+        body: `sha256 verified · ${pkg.repositoryId || 'f-droid'} · opening package inspector`,
+      });
+
+      // ── handoff: jump straight to the real guest metadata ──
+      openApp('apk_installer', 'Package Hub', 'hardened-android', {
+        select: pkg.packageName,
+        tab: 'detail',
+        origin: 'store',
+        justInstalled: true,
       });
     }, 900);
   };
@@ -266,7 +276,7 @@ export const FDroidApp: React.FC = () => {
                         <span className="text-[10px] truncate max-w-[100px]">{repo?.name.split(' ')[0]}</span>
                       </div>
 
-                      {pkg.installed ? (
+                      {pkg.installed || getInstalledApks().some(a => a.packageName === pkg.packageName || a.id === pkg.id) || getInstalledAppleApps().some(a => a.bundleId === pkg.packageName || a.id === pkg.id) ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

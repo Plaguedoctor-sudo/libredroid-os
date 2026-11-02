@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Search, Lock, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, Search, Lock, ShieldCheck, Bot, Share2, MessageSquare } from 'lucide-react';
+import { useWindow } from '../../context/WindowContext';
+import type { AppIntent } from '../../types/apps';
 
 interface Note {
   id: string;
@@ -17,7 +19,13 @@ const COLORS = [
   'bg-amber-900/40 border-amber-600/50',
 ];
 
-export const NotesApp: React.FC = () => {
+interface Props extends Partial<AppIntent> {
+  intent?: AppIntent;
+}
+
+export const NotesApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
+  const effectiveIntent = intent || (params ? { params, paramSeq } : undefined);
+  const { openApp } = useWindow();
   const [notes, setNotes] = useState<Note[]>(() => {
     const saved = localStorage.getItem('libredroid_notes');
     if (saved) {
@@ -49,6 +57,24 @@ export const NotesApp: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('libredroid_notes', JSON.stringify(notes));
   }, [notes]);
+
+  /* Consume Intent (e.g. create note from Browser, AI, or Files) */
+  useEffect(() => {
+    const p = effectiveIntent?.params;
+    if (!p) return;
+    if (typeof p.title === 'string' || typeof p.content === 'string') {
+      const title = (p.title as string) || 'New Note';
+      const content = (p.content as string) || '';
+      const newNote: Note = {
+        id: `intent-${Date.now()}`,
+        title,
+        content,
+        color: selectedColor,
+        createdAt: 'Just now'
+      };
+      setNotes(prev => [newNote, ...prev]);
+    }
+  }, [effectiveIntent?.paramSeq]);
 
   const addNote = () => {
     if (!newTitle.trim() && !newContent.trim()) return;
@@ -151,7 +177,43 @@ export const NotesApp: React.FC = () => {
                 {note.content}
               </p>
             </div>
-            <div className="text-[10px] text-neutral-400 mt-3">{note.createdAt}</div>
+            <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-white/10 text-[10px] text-neutral-400">
+              <span>{note.createdAt}</span>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Ask AI */}
+                <button
+                  onClick={() => openApp('universal_ai', 'Universal AI', 'vault-airgap', {
+                    initialPrompt: `Help me expand and summarize this note:\n\nTitle: ${note.title}\n\n${note.content}`
+                  })}
+                  className="p-1 hover:bg-white/10 text-violet-300 rounded-md transition-colors"
+                  title="Ask Universal AI"
+                >
+                  <Bot size={13} />
+                </button>
+
+                {/* Share via Chats */}
+                <button
+                  onClick={() => openApp('chats', 'Sovereign Chats', 'anonymity-whonix', {
+                    message: `Note: ${note.title}\n\n${note.content}`
+                  })}
+                  className="p-1 hover:bg-white/10 text-emerald-300 rounded-md transition-colors"
+                  title="Share in Sovereign Chats"
+                >
+                  <Share2 size={13} />
+                </button>
+
+                {/* Share via SMS */}
+                <button
+                  onClick={() => openApp('messages', 'Messages & SMS', undefined, {
+                    text: `${note.title}: ${note.content}`
+                  })}
+                  className="p-1 hover:bg-white/10 text-blue-300 rounded-md transition-colors"
+                  title="Send via SMS"
+                >
+                  <MessageSquare size={13} />
+                </button>
+              </div>
+            </div>
           </div>
         ))}
       </div>

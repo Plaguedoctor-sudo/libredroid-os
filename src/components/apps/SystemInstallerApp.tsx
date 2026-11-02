@@ -41,9 +41,24 @@ export const SystemInstallerApp: React.FC = () => {
   ];
 
   const androidTargets = [
-    { id: 'kiosk-standalone', name: 'Zero-Risk Standalone Kiosk (Safe Suppressed Stock)', desc: 'Replaces stock OEM launcher with LibreDroid OS without partition wipe. Restorable anytime.' },
-    { id: 'gsi-baremetal', name: 'Bare-Metal Hardened GSI (Clean De-Googled)', desc: 'Direct fastboot flash system image for Treble-compatible Android devices (ARM64 A/B).' },
-    { id: 'termux-chroot', name: 'Containerized Linux + Wayland chroot', desc: 'Runs full desktop environment and Waydroid within unrooted Termux environment.' },
+    { 
+      id: 'gsi-baremetal', 
+      name: 'Project Treble ARM64 GSI (Preserves Vendor HAL & Kernel)', 
+      desc: 'Flashes LibreDroid onto /system while keeping your phone\'s Snapdragon/MediaTek kernel (/boot) and Vendor HAL (/vendor for Camera, VoLTE, Display) 100% intact.',
+      shielded: true
+    },
+    { 
+      id: 'kiosk-standalone', 
+      name: 'Zero-Risk Standalone Kiosk (Safe Suppressed Stock)', 
+      desc: 'Replaces stock OEM launcher with LibreDroid OS without partition wipe. Restorable anytime.',
+      shielded: false
+    },
+    { 
+      id: 'termux-chroot', 
+      name: 'Containerized Linux + Wayland chroot', 
+      desc: 'Runs full desktop environment and Waydroid within unrooted Termux environment.',
+      shielded: false
+    },
   ];
 
   const copyToClipboard = (cmd: string) => {
@@ -249,7 +264,7 @@ export const SystemInstallerApp: React.FC = () => {
 
             {/* Android Options */}
             {deviceType === 'android' && (
-              <div className="space-y-2 mt-4">
+              <div className="space-y-3 mt-4">
                 {androidTargets.map((t) => (
                   <div
                     key={t.id}
@@ -261,12 +276,59 @@ export const SystemInstallerApp: React.FC = () => {
                     }`}
                   >
                     <Smartphone size={20} className={selectedDisk === t.id ? 'text-purple-400 shrink-0 mt-0.5' : 'text-neutral-400 shrink-0 mt-0.5'} />
-                    <div>
-                      <div className="text-sm font-semibold text-white">{t.name}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-white">{t.name}</span>
+                        {t.shielded && (
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            HAL Shield Active
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-neutral-400 mt-1 leading-relaxed">{t.desc}</div>
                     </div>
                   </div>
                 ))}
+
+                {/* Hardware Partition Protection Visual */}
+                <div className="p-4 bg-neutral-950 border border-neutral-800 rounded-2xl space-y-2 text-xs">
+                  <div className="font-bold text-white flex items-center gap-1.5">
+                    <CheckCircle size={15} className="text-emerald-400" />
+                    <span>Android Hardware Partition Isolation:</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
+                    <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300">
+                      <div className="font-bold">/vendor & /odm</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">Camera, VoLTE, Display HAL</div>
+                      <div className="text-[9px] font-bold mt-1 text-emerald-400">✔ 100% PRESERVED</div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300">
+                      <div className="font-bold">/boot & kernel</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">Snapdragon / MediaTek</div>
+                      <div className="text-[9px] font-bold mt-1 text-emerald-400">✔ 100% PRESERVED</div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30 text-purple-300">
+                      <div className="font-bold">/system</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">LibreDroid OS Framework</div>
+                      <div className="text-[9px] font-bold mt-1 text-purple-400">⚡ REPLACED (Sovereign)</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Terminal 1-Click Flash Command */}
+                <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-2xl flex items-center justify-between text-xs">
+                  <div>
+                    <div className="text-neutral-400 text-[10px]">Direct USB Fastboot Command:</div>
+                    <code className="text-purple-300 font-mono text-[11px]">./installer/flash-treble-device.sh</code>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard('./installer/flash-treble-device.sh')}
+                    className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-white rounded-xl text-xs flex items-center gap-1 transition-colors"
+                  >
+                    <Copy size={12} />
+                    <span>{copiedCmd === './installer/flash-treble-device.sh' ? 'Copied!' : 'Copy'}</span>
+                  </button>
+                </div>
               </div>
             )}
 

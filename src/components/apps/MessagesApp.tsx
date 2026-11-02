@@ -8,10 +8,14 @@ import {
   Search, 
   ShieldCheck, 
   CheckCheck,
-  Smartphone
+  Smartphone,
+  Phone,
+  Paperclip
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { useWindow } from '../../context/WindowContext';
 import { useVirtualKeyboard } from '../../context/KeyboardContext';
+import type { AppIntent } from '../../types/apps';
 import { sendSmsMessage, fetchDeviceContacts, DeviceContact } from '../../services/hardwareBridgeClient';
 
 export interface MessageThread {
@@ -27,8 +31,14 @@ export interface MessageThread {
   }>;
 }
 
-export const MessagesApp: React.FC = () => {
+interface Props extends Partial<AppIntent> {
+  intent?: AppIntent;
+}
+
+export const MessagesApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
+  const effectiveIntent = intent || (params ? { params, paramSeq } : undefined);
   const { addNotification } = useSystem();
+  const { openApp } = useWindow();
   const { openKeyboard, closeKeyboard } = useVirtualKeyboard();
 
   const [threads, setThreads] = useState<MessageThread[]>([
@@ -74,6 +84,26 @@ export const MessagesApp: React.FC = () => {
       if (contacts && contacts.length > 0) setDeviceContacts(contacts);
     });
   }, []);
+
+  /* Consume Deep Link / Intent */
+  useEffect(() => {
+    const p = effectiveIntent?.params;
+    if (!p) return;
+    const recipient = (p.recipient || p.number) as string | undefined;
+    if (recipient) {
+      const match = threads.find(t => t.number === recipient || t.name.toLowerCase() === recipient.toLowerCase());
+      if (match) {
+        setActiveThreadId(match.id);
+        setIsComposingNew(false);
+      } else {
+        setIsComposingNew(true);
+        setNewRecipientNumber(recipient);
+      }
+    }
+    if (typeof p.text === 'string' && p.text.trim()) {
+      setInputText(p.text.trim());
+    }
+  }, [effectiveIntent?.paramSeq]);
 
   const activeThread = threads.find((t) => t.id === activeThreadId);
 
@@ -178,6 +208,19 @@ export const MessagesApp: React.FC = () => {
           </div>
         </div>
 
+        {activeThread && (
+          <button
+            onClick={() => {
+              openApp('phone', 'Phone Dialer', 'hardened-android', { dial: activeThread.number, callNow: true });
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold transition-all active:scale-95"
+            title="Call Contact"
+          >
+            <Phone size={14} />
+            <span className="hidden sm:inline">Call</span>
+          </button>
+        )}
+
         {!activeThread && !isComposingNew && (
           <button
             onClick={() => setIsComposingNew(true)}
@@ -222,6 +265,17 @@ export const MessagesApp: React.FC = () => {
               onClick={handleInputTap}
               className="p-3 bg-neutral-950 border-t border-neutral-800 flex items-center gap-2 cursor-pointer"
             >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openApp('photos', 'Immich Gallery');
+                }}
+                className="p-2.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-2xl transition-colors shrink-0"
+                title="Attach Photo"
+              >
+                <Paperclip size={16} />
+              </button>
               <input
                 type="text"
                 placeholder="Type SMS or encrypted message..."

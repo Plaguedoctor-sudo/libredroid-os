@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -uo pipefail
+echo "== storage health =="
+for d in /sys/block/mmcblk* /sys/block/nvme* /sys/block/sd*; do
+  [ -e "$d" ] || continue
+  n="$(basename "$d")"
+  case "$n" in
+    mmcblk*)
+      # eMMC life: 0x01-0x0A = 10%-100% used, 0x0B = exceeded
+      life="$(cat "$d/device/life_time" 2>/dev/null || echo '? ?')"
+      pre="$(cat "$d/device/pre_eol_info" 2>/dev/null || echo ?)"
+      echo "$n  eMMC  life_a=$(echo "$life"|awk '{print $1}') life_b=$(echo "$life"|awk '{print $2}') pre_eol=$pre"
+      ;;
+    nvme*)
+      if command -v smartctl >/dev/null; then
+        smartctl -H "/dev/$n" 2>/dev/null | grep -E 'overall|Temperature' | sed "s/^/$n  /"
+        smartctl -A "/dev/$n" 2>/dev/null | awk '/Percentage Used|Data Units Written|Power On Hours/{printf "%s  %s\n","'"$n"'",$0}'
+      fi
+      ;;
+    sd*)
+      command -v smartctl >/dev/null && smartctl -H "/dev/$n" 2>/dev/null | grep -E 'overall' | sed "s/^/$n  /"
+      ;;
+  esac
+done
+echo
+echo "== filesystem usage =="
+df -h / /overlay /store /data 2>/dev/null | grep -v tmpfs || true

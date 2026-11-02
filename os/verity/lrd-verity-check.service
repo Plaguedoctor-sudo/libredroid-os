@@ -1,0 +1,25 @@
+[Unit]
+Description=LibreDroid — re-verify the rootfs at boot
+DefaultDependencies=no
+After=sysinit.target
+Before=cage.service
+ConditionPathExists=/dev/mapper/lrdroot-a
+ConditionPathExists=/dev/mapper/lrdroot-b
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# signature + metadata sanity only; the full hash walk is too slow for every boot
+ExecStart=/bin/sh -c 'slot=$$(sed -n "s/.*androidboot.slot_suffix=_\\([ab]\\).*/\\1/p" /proc/cmdline); \
+  meta=/store/verity/lrd-verity_$$slot.json; \
+  test -f "$$meta" || exit 1; \
+  openssl dgst -sha256 -verify /etc/lrd/keys/verity.pub.pem -signature "$$meta.sig" "$$meta" >/dev/null || exit 1; \
+  jq -nc --arg slot "$$slot" --arg rh "$$(jq -r .rootHash "$$meta")" \
+     --arg tier "$$(jq -r .tier /run/lrd/verity.json 2>/dev/null || echo 0)" \
+     --arg build "$$(jq -r .buildId "$$meta")" --arg at "$$(date -Is)" \
+     "{\\"verified\\":true, \\"slot\\":\$$slot, \\"rootHash\\":\$$rh, \\"tier\\":(\$$tier|tonumber), \\"buildId\\":\$$build, \\"at\\":\$$at}" \
+     > /run/lrd/verity.json'
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=sysinit.target

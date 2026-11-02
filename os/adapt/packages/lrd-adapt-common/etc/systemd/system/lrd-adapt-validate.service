@@ -1,0 +1,16 @@
+[Unit]
+Description=LibreDroid adaptation — validate and publish facts
+After=multi-user.target lrd-adapt-late.service
+Wants=lrd-adapt-late.service
+Before=cage.service lrd-bootgate.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/lrd/adapt/validate
+TimeoutStartSec=90
+# publish to the bridge
+ExecStartPost=/usr/bin/install -m644 /run/lrd/adapt.json /var/lib/lrd/adapt.json
+
+[Install]
+WantedBy=multi-user.target

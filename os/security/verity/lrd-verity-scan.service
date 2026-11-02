@@ -1,0 +1,14 @@
+[Unit]
+Description=LibreDroid — full rootfs hash walk
+After=multi-user.target
+
+[Service]
+Type=oneshot
+# ~20-40s for 4GB. Reads the whole rootfs, so run it idle.
+ExecStart=/usr/bin/lrd-verity verify
+Nice=15
+IOSchedulingClass=idle
+TimeoutStartSec=600
+# a failure here is informational; the running rootfs is already verified
+SuccessExitStatus=0 1
+ExecStartPost=/bin/sh -c 'jq -r .verified /run/lrd/verity.json 2>/dev/null || true'

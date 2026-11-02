@@ -1,8 +1,29 @@
 {
-  "name": "omni-android-system",
-  "private": true,
+  "name": "libredroid-os",
   "version": "1.0.0",
+  "description": "LibreDroid OS - Sovereign Universal Operating Environment for Phone, Tablet, Foldable, and Desktop",
   "type": "module",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Plaguedoctor-sudo/libredroid-os.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Plaguedoctor-sudo/libredroid-os/issues"
+  },
+  "homepage": "https://github.com/Plaguedoctor-sudo/libredroid-os#readme",
+  "keywords": [
+    "libredroid",
+    "android",
+    "qubes",
+    "sel4",
+    "waydroid",
+    "sovereign-os",
+    "grapheneos",
+    "foss",
+    "privacy",
+    "operating-system"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

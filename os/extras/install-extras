@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# os/extras/install-extras — packages for full desktop, polkit, portals, notifications, IM
+set -Eeuo pipefail
+
+apt-get update -qq || true
+apt-get install -y --no-install-recommends \
+  polkitd pkexec lxpolkit \
+  xdg-desktop-portal xdg-desktop-portal-wlr \
+  mako-notifier \
+  fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-qt5 \
+  wvkbd squeekboard \
+  pipewire pipewire-pulse wireplumber \
+  bluez bluez-tools blueman \
+  chrony \
+  cups cups-pk-helper system-config-printer \
+  sane-utils simple-scan \
+  network-manager network-manager-gnome \
+  wireguard-tools network-manager-openvpn network-manager-wireguard \
+  xdg-user-dirs \
+  grim slurp wf-recorder \
+  brightnessctl wlr-randr \
+  pavucontrol \
+  fonts-noto fonts-noto-color-emoji \
+  plymouth plymouth-themes \
+  zram-tools systemd-oomd earlyoom \
+  orca espeak-ng 2>/dev/null || true
+
+# portals need a session bus and a portal config
+mkdir -p /etc/xdg/xdg-desktop-portal
+cat > /etc/xdg/xdg-desktop-portal/portals.conf <<'EOF'
+[preferred]
+default=wlr
+org.freedesktop.impl.portal.Screenshot=wlr
+org.freedesktop.impl.portal.ScreenCast=wlr
+org.freedesktop.impl.portal.FileChooser=wlr
+EOF

@@ -1,0 +1,11 @@
+Package: @PKG@
+Version: @VER@
+Architecture: @ARCH@
+Maintainer: LibreDroid <adapt@lrd.local>
+Section: admin
+Priority: optional
+Depends: libhybris, libhybris-utils, lrd-adapt-common
+Description: LibreDroid device adaptation for @MODEL@
+ Generated from a live probe. Support level: @LEVEL@.
+ Contains vendor blobs, kernel modules, firmware, hybris properties,
+ display backend selection and udev rules for this exact device.

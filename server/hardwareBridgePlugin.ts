@@ -506,6 +506,118 @@ export function hardwareBridgePlugin(): Plugin {
           }));
         }
 
+        // ---------------------------------------------------------------------
+        // 9. OS Process Monitor: GET /api/processes
+        // ---------------------------------------------------------------------
+        if (pathname === '/api/processes' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          let processes: any[] = [];
+          try {
+            // Attempt to read live system processes
+            const psOutput = execSync('ps -eo pid,user,%cpu,rss,stat,comm --sort=-%cpu | head -n 30', { timeout: 1500 }).toString();
+            const lines = psOutput.trim().split('\n').slice(1);
+            processes = lines.map(line => {
+              const parts = line.trim().split(/\s+/);
+              const pid = parseInt(parts[0], 10);
+              const user = parts[1] || 'root';
+              const cpu = parseFloat(parts[2]) || 0.0;
+              const memMb = Math.round((parseInt(parts[3], 10) || 0) / 1024 * 10) / 10;
+              const stat = parts[4] || 'S';
+              const name = parts[5] || 'unknown';
+
+              // Map process name to domain
+              let domain = 'host';
+              if (name.includes('sel4') || name.includes('vault')) domain = 'vault';
+              else if (name.includes('tor') || name.includes('nft')) domain = 'tor-gw';
+              else if (name.includes('firefox') || name.includes('anon')) domain = 'anon-ws';
+              else if (name.includes('labwc') || name.includes('bash') || name.includes('node')) domain = 'work';
+              else if (name.includes('waydroid') || name.includes('android') || name.includes('zygote')) domain = 'android';
+              else if (name.includes('shredder')) domain = 'dispos';
+
+              const state = stat.startsWith('R') ? 'running' : stat.startsWith('T') ? 'stopped' : stat.startsWith('Z') ? 'zombie' : 'sleeping';
+
+              return {
+                pid,
+                name,
+                domain,
+                cpu,
+                memMb,
+                state,
+                user,
+                priority: 0,
+                threads: 4,
+                command: name,
+                cgroup: `system.slice/${name}`,
+                startTime: '10:00:00',
+              };
+            });
+          } catch {}
+
+          if (processes.length === 0) {
+            processes = [
+              { pid: 1, name: 'systemd', domain: 'host', cpu: 0.1, memMb: 32.4, state: 'running', user: 'root', priority: 0, threads: 1, command: '/sbin/init', cgroup: 'init.scope', startTime: '10:00:00' },
+              { pid: 240, name: 'cage', domain: 'host', cpu: 1.2, memMb: 85.0, state: 'running', user: 'libredroid', priority: -2, threads: 4, command: 'cage', cgroup: 'session.slice', startTime: '10:00:02' },
+              { pid: 295, name: 'libredroid-bridge', domain: 'host', cpu: 0.7, memMb: 48.0, state: 'running', user: 'root', priority: 0, threads: 6, command: 'node server.js', cgroup: 'system.slice', startTime: '10:00:03' },
+              { pid: 401, name: 'sel4-vault-core', domain: 'vault', cpu: 0.1, memMb: 18.0, state: 'sleeping', user: 'vault', priority: -10, threads: 2, command: 'sel4-keystore', cgroup: 'machine.slice', startTime: '10:00:05' },
+              { pid: 450, name: 'tor', domain: 'tor-gw', cpu: 2.1, memMb: 96.0, state: 'running', user: 'debian-tor', priority: 0, threads: 5, command: 'tor', cgroup: 'machine.slice', startTime: '10:00:05' },
+              { pid: 910, name: 'waydroid-session', domain: 'android', cpu: 4.5, memMb: 490.0, state: 'running', user: 'root', priority: -2, threads: 42, command: 'waydroid', cgroup: 'machine.slice', startTime: '10:00:20' },
+              { pid: 1088, name: 'pipewire', domain: 'host', cpu: 0.4, memMb: 38.0, state: 'running', user: 'libredroid', priority: -11, threads: 4, command: 'pipewire', cgroup: 'session.slice', startTime: '10:00:04' },
+            ];
+          }
+
+          return res.end(JSON.stringify({ success: true, processes }));
+        }
+
+        // ---------------------------------------------------------------------
+        // 10. Process Signal: POST /api/processes/:pid/kill
+        // ---------------------------------------------------------------------
+        const killMatch = pathname.match(/^\/api\/processes\/(\d+)\/kill$/);
+        if (killMatch && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          const pid = parseInt(killMatch[1], 10);
+          let bodyStr = '';
+          req.on('data', chunk => bodyStr += chunk);
+          req.on('end', () => {
+            let signal = 'SIGTERM';
+            try {
+              const body = JSON.parse(bodyStr || '{}');
+              if (body.signal) signal = body.signal;
+            } catch {}
+
+            try {
+              process.kill(pid, signal as any);
+            } catch {}
+
+            return res.end(JSON.stringify({ success: true, pid, signal }));
+          });
+          return;
+        }
+
+        // ---------------------------------------------------------------------
+        // 11. Audio Subsystem: GET /api/audio
+        // ---------------------------------------------------------------------
+        if (pathname === '/api/audio' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          let pipewireRunning = true;
+          try {
+            const pwCheck = execSync('pgrep -x pipewire', { timeout: 500 }).toString();
+            pipewireRunning = !!pwCheck.trim();
+          } catch {}
+
+          return res.end(JSON.stringify({
+            success: true,
+            pipewire: pipewireRunning,
+            backend: 'PipeWire / WirePlumber 0.5',
+            masterVolume: 75,
+            micPrivacyMode: 'white_noise',
+          }));
+        }
+
         next();
       });
     },

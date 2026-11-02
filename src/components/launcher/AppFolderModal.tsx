@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Plus, Trash2, Edit2, Check, Folder } from 'lucide-react';
 import { SYSTEM_APPS } from '../../constants/apps';
+import { getInstalledApks } from '../../services/apkManager';
+import { getInstalledAppleApps } from '../../services/appleAppManager';
 import { AppIcon } from '../common/AppIcon';
 import { AppId } from '../../types/apps';
 
@@ -34,11 +36,29 @@ export const AppFolderModal: React.FC<AppFolderModalProps> = ({
 
   if (!isOpen) return null;
 
+  const allKnownApps = [
+    ...SYSTEM_APPS,
+    ...getInstalledApks().map((apk) => ({
+      id: apk.id,
+      name: apk.name,
+      icon: apk.iconName,
+      color: apk.iconBg,
+      category: apk.category as any,
+    })),
+    ...getInstalledAppleApps().map((app) => ({
+      id: app.id,
+      name: app.name,
+      icon: app.iconName,
+      color: app.iconBg,
+      category: app.category as any,
+    })),
+  ];
+
   const containedApps = folder.appIds
-    .map(id => SYSTEM_APPS.find(app => app.id === id))
+    .map(id => allKnownApps.find(app => app.id === id))
     .filter(Boolean) as typeof SYSTEM_APPS;
 
-  const availableToAdd = SYSTEM_APPS.filter(
+  const availableToAdd = allKnownApps.filter(
     app => !folder.appIds.includes(app.id)
   );
 
@@ -184,7 +204,7 @@ export const AppFolderModal: React.FC<AppFolderModalProps> = ({
                     <AppIcon appId={app.id} size="sm" />
                     <div>
                       <div className="text-xs font-bold text-white">{app.name}</div>
-                      <div className="text-[10px] text-neutral-400">{app.author || 'System FOSS'}</div>
+                      <div className="text-[10px] text-neutral-400">{'author' in app ? (app as any).author : 'System FOSS'}</div>
                     </div>
                   </div>
                   <Plus size={16} className="text-emerald-400" />

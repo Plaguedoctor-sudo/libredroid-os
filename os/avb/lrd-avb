@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# lrd-avb — AVB for boot.img with OUR key, plus avb_custom_key.
+#   key | sign <boot.img> <vbmeta.img> | flash | verify | unlock-key
+set -Eeuo pipefail
+KEYS="${LRD_VERITY_KEYS:-/etc/lrd/keys}"
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+die(){ printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
+need(){ command -v "$1" >/dev/null || die "missing $1 (apt install android-sdk-libsparse-utils or avbtool)"; }
+
+case "${1:-verify}" in
+key)
+  need openssl
+  [ -f "$KEYS/verity.key.pem" ] || die "run lrd-verity keygen first"
+  need avbtool
+  avbtool extract_public_key --key "$KEYS/verity.key.pem" --output "$KEYS/avb.pubkey"
+  say "avb public key: $KEYS/avb.pubkey"
+  say "enrolling it (one-time, requires a compatible bootloader):"
+  echo "  fastboot flash avb_custom_key $KEYS/avb.pubkey"
+  echo "  fastboot flashing lock"
+  echo
+  echo "  support is device-specific. On devices without avb_custom_key, AVB still"
+  echo "  works but the bootloader stays unlocked and you keep Tier 2 only."
+  ;;
+
+sign)
+  boot="${2:?boot.img}"; out="${3:-vbmeta.img}"
+  need avbtool
+  [ -f "$KEYS/verity.key.pem" ] || die "no key"
+  part_size="${LRD_BOOT_PARTITION_SIZE:?set LRD_BOOT_PARTITION_SIZE (bytes)}"
+  ri="${LRD_ROLLBACK_INDEX:-1}"
+
+  say "hash footer on the boot image"
+  avbtool add_hash_footer \
+    --image "$boot" --partition_name boot \
+    --partition_size "$part_size" \
+    --algorithm SHA256_RSA4096 --key "$KEYS/verity.key.pem" \
+    --rollback_index "$ri"
+
+  say "vbmeta with the boot descriptor"
+  avbtool make_vbmeta_image \
+    --output "$out" \
+    --include_descriptors_from_image "$boot" \
+    --algorithm SHA256_RSA4096 --key "$KEYS/verity.key.pem" \
+    --rollback_index "$ri" \
+    --flags 0
+
+  say "vbmeta at $out"
+  avbtool info_image --image "$out" | head -30
+  cat <<EOF
+
+  flash:
+    fastboot --disable-verity --disable-verification flash vbmeta $out
+    fastboot flash boot $boot
+    fastboot flash avb_custom_key $KEYS/avb.pubkey     # if supported
+    fastboot flashing lock
+
+  --disable-verity here refers to AVB's hashashtree on /system, which we do not
+  use; our verity is dm-verity on our own rootfs image. Keep the flags.
+EOF
+  ;;
+
+verify)
+  need avbtool
+  for p in /dev/block/by-name/vbmeta /dev/block/by-name/vbmeta_a /dev/block/by-name/vbmeta_b; do
+    [ -r "$p" ] || continue
+    say "reading $p"
+    if avbtool info_image --image "$p" 2>/dev/null | head -20; then
+      echo
+      echo "rollback index and descriptor present means AVB is active."
+      echo "bootloader verified state: $(sed -n 's/.*androidboot.verifiedbootstate=\([^ ]*\).*/\1/p' /proc/cmdline)"
+      echo "flash locked:              $(sed -n 's/.*androidboot.flash.locked=\([^ ]*\).*/\1/p' /proc/cmdline)"
+    fi
+  done
+  ;;
+
+unlock-key)
+  say "enrolling the custom key then relocking — THIS WIPES NOTHING but can soft-brick"
+  echo "  1. fastboot flash avb_custom_key $KEYS/avb.pubkey"
+  echo "  2. fastboot flashing lock"
+  echo "  3. if it refuses to boot: fastboot flashing unlock, then investigate"
+  echo
+  echo "  the custom key must be enrolled BEFORE locking, and boot.img must already"
+  echo "  carry a hash footer signed with the same key, or the bootloader rejects it."
+  ;;
+*) echo "usage: lrd-avb {key|sign <boot.img> [vbmeta.img]|verify|unlock-key}"; exit 2 ;;
+esac

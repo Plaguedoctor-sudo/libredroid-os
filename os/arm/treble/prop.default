@@ -1,0 +1,52 @@
+# ==============================================================================
+# LibreDroid OS - Project Treble Default System Properties
+# Designed to run on any ARM64 Treble-compliant device while preserving /vendor HAL
+# ==============================================================================
+
+# Core Treble Compliance
+ro.treble.enabled=true
+ro.vndk.lite=false
+ro.vndk.version=current
+
+# Hardware HAL Preservation: Display & SurfaceFlinger
+debug.sf.latch_unsignaled=1
+ro.surface_flinger.has_wide_color_display=true
+ro.surface_flinger.has_HDR_display=true
+ro.surface_flinger.use_color_management=true
+
+# Hardware HAL Preservation: Camera & Computational Pipeline
+persist.camera.HAL3.enabled=1
+persist.vendor.camera.HAL3.enabled=1
+ro.hardware.camera2=true
+persist.sys.phh.camera.force_hal3=1
+persist.sys.phh.camera.raw_streams=1
+
+# Hardware HAL Preservation: Audio & Dolby Atmos / Spatial
+persist.sys.phh.audio.fix=1
+ro.audio.flinger_standbytime_ms=300
+
+# Hardware HAL Preservation: Cellular Radio & VoLTE / VoWiFi IMS
+persist.sys.phh.volte.enabled=1
+persist.dbg.volte_avail_ovr=1
+persist.dbg.vt_avail_ovr=1
+persist.dbg.wfc_avail_ovr=1
+persist.sys.phh.ims.enable=true
+telephony.lteOnCdmaDevice=1
+
+# Hardware HAL Preservation: Biometrics & Fingerprint
+persist.sys.phh.fingerprint.force_hal=1
+ro.hardware.fingerprint=auto
+
+# Widevine L1 Modular DRM & Media
+drm.service.enabled=true
+media.mediadrmservice.enable=true
+vendor.media.vdec.av1.enable=true
+
+# Play Integrity Certified Identity (Pixel 8 Pro / Galaxy S24 Ultra)
+ro.product.model=Pixel 8 Pro
+ro.product.brand=google
+ro.product.manufacturer=Google
+ro.build.type=user
+ro.build.tags=release-keys
+ro.boot.flash.locked=1
+ro.boot.verifiedbootstate=green

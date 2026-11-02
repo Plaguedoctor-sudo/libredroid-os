@@ -1,0 +1,8 @@
+# /etc/udev/rules.d/99-lrd-hotplug.rules
+# instant, kernel-triggered events — no polling on Linux
+SUBSYSTEM=="power_supply", ACTION=="change", RUN+="/usr/local/bin/lrd-emit power '{\"reason\":\"uevent\"}'"
+SUBSYSTEM=="backlight",   ACTION=="change", RUN+="/usr/local/bin/lrd-emit display '{\"reason\":\"uevent\"}'"
+SUBSYSTEM=="drm",         ACTION=="change", RUN+="/usr/local/bin/lrd-emit display '{\"reason\":\"hotplug\"}'"
+SUBSYSTEM=="thermal",     ACTION=="change", RUN+="/usr/local/bin/lrd-emit thermal '{\"reason\":\"uevent\"}'"
+SUBSYSTEM=="net",         ACTION=="change", RUN+="/usr/local/bin/lrd-emit net '{\"reason\":\"uevent\"}'"
+KERNEL=="event*",         SUBSYSTEM=="input", RUN+="/usr/local/bin/lrd-emit input '{\"reason\":\"key\"}'"

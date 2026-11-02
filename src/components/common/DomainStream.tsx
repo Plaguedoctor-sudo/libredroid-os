@@ -26,11 +26,25 @@ import { OsDomainId, MULTI_OS_DOMAINS } from '../../services/multiOsHypervisor';
 import { controlDomain, rotateTorIdentity, fetchSystemBridgeStatus } from '../../services/hardwareBridgeClient';
 
 export interface DomainStreamProps {
-  domainId: OsDomainId;
+  domainId?: OsDomainId;
+  domain?: string;
+  slot?: number;
+  title?: string;
+  dedicated?: boolean;
   onClose?: () => void;
   className?: string;
   autoConnect?: boolean;
 }
+
+export const normalizeDomain = (d: string): OsDomainId => {
+  if (d === 'vault' || d === 'vault-airgap') return 'vault-airgap';
+  if (d === 'anon-ws' || d === 'anonymity-whonix' || d === 'tor-gw') return 'anonymity-whonix';
+  if (d === 'work' || d === 'workstation-debian') return 'workstation-debian';
+  if (d === 'dispos' || d === 'disposable-alpine') return 'disposable-alpine';
+  if (d === 'android' || d === 'hardened-android') return 'hardened-android';
+  if (d === 'darwin-apple') return 'darwin-apple';
+  return (d as OsDomainId) || 'workstation-debian';
+};
 
 export const DOMAIN_BRIDGE_NAME_MAP: Record<OsDomainId, string> = {
   'vault-airgap': 'vault',
@@ -52,11 +66,16 @@ export const DOMAIN_PORT_MAP: Record<string, number> = {
 type StreamStatus = 'idle' | 'connecting' | 'connected' | 'error' | 'disconnected' | 'simulated';
 
 export const DomainStream: React.FC<DomainStreamProps> = ({
-  domainId,
+  domainId: rawDomainId,
+  domain,
+  slot,
+  title,
+  dedicated,
   onClose,
   className = '',
   autoConnect = true,
 }) => {
+  const domainId: OsDomainId = rawDomainId || (domain ? normalizeDomain(domain) : 'workstation-debian');
   const containerRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<any>(null);
   const reconnectTimeoutRef = useRef<any>(null);

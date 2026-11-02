@@ -1,0 +1,104 @@
+#!/bin/busybox sh
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+mount -t proc none /proc 2>/dev/null
+mount -t sysfs none /sys 2>/dev/null
+mount -t devtmpfs none /dev 2>/dev/null
+mkdir -p /dev/pts && mount -t devpts none /dev/pts 2>/dev/null
+mount -t tmpfs none /run 2>/dev/null
+busybox --install -s /bin 2>/dev/null
+
+CMDLINE="$(cat /proc/cmdline)"
+get() { printf '%s' "$CMDLINE" | tr ' ' '\n' | sed -n "s/^$1=//p" | head -1; }
+SLOT="$(get androidboot.slot_suffix)"
+SLOTC="${SLOT#_}"
+log() { echo "[lrd-init] $*"; echo "[lrd-init] $*" > /dev/kmsg 2>/dev/null; }
+die() { log "FATAL: $*"; echo "=== initramfs shell — type 'lrd-recovery' for tools ==="; exec sh; }
+
+for m in overlay loop ext4 dm-mod dm-crypt dm-verity; do modprobe "$m" 2>/dev/null; done
+
+# --- vendor partitions stay where the blobs expect them ---
+for p in vendor odm product; do
+  node="$(find /dev/block -name "${p}${SLOT}" 2>/dev/null | head -1)"
+  [ -z "$node" ] && node="$(find /dev/block -name "$p" 2>/dev/null | head -1)"
+  [ -n "$node" ] || continue
+  mkdir -p "/$p"; mount -o ro "$node" "/$p" 2>/dev/null && log "mounted $p ro"
+done
+mkdir -p /dev/binderfs; mount -t binder binder /dev/binderfs 2>/dev/null
+
+# --- the store partition holds our rootfs images and the recovery flag ---
+STORE=""
+for n in $(find /dev/block -name "lrdstore*" 2>/dev/null); do STORE="$n"; break; done
+[ -z "$STORE" ] && STORE="$(blkid -L LRDSTORE 2>/dev/null)"
+mkdir -p /lrdstore
+[ -n "$STORE" ] && mount -o rw "$STORE" /lrdstore 2>/dev/null && log "store mounted"
+
+# --- recovery: explicit flag, or three failed boots ---
+enter_recovery() {
+  log "entering recovery mode"
+  rm -f /lrdstore/ENTER_RECOVERY
+  exec sh /sbin/lrd-recovery
+}
+[ -f /lrdstore/ENTER_RECOVERY ] && enter_recovery
+[ -f /lrdstore/FORCE_RECOVERY ] && enter_recovery
+
+# --- pick the rootfs for THIS slot ---
+ROOTIMG=""
+[ -n "$SLOTC" ] && [ -f "/lrdstore/lrd-rootfs_${SLOTC}.raw" ] && ROOTIMG="/lrdstore/lrd-rootfs_${SLOTC}.raw"
+[ -z "$ROOTIMG" ] && for f in /lrdstore/lrd-rootfs_a.raw /lrdstore/lrd-rootfs_b.raw; do
+  [ -f "$f" ] && { ROOTIMG="$f"; break; }
+done
+[ -z "$ROOTIMG" ] && ROOTIMG="$(find /dev/block -name "system${SLOT}" 2>/dev/null | head -1)"
+[ -z "$ROOTIMG" ] && ROOTIMG="$(blkid -L LRDROOT 2>/dev/null)"
+[ -n "$ROOTIMG" ] || die "no rootfs found (store=$STORE slot=$SLOTC)"
+
+# ---- replace the plain mount with a verified open ----
+if [ -f /sbin/verity-open.sh ]; then
+  . /sbin/verity-open.sh
+  ROOTDEV=""
+  if crypt_then_verity_open "$ROOTIMG" "$SLOTC"; then
+    log "rootfs: LUKS2 unlocked, dm-verity verified — mounting read-only"
+    MOUNT_OPTS="ro"
+  elif [ $? = 2 ]; then
+    log "refused — dropping to recovery"
+    enter_recovery
+  else
+    log "UNVERIFIED — booting flagged"
+    case "$ROOTIMG" in
+      *.raw) LOOP="$(losetup -f)"; losetup "$LOOP" "$ROOTIMG" || die "losetup failed"; ROOTDEV="$LOOP" ;;
+      *)     ROOTDEV="$ROOTIMG" ;;
+    esac
+    MOUNT_OPTS="ro"
+  fi
+else
+  case "$ROOTIMG" in
+    *.raw) LOOP="$(losetup -f)"; losetup "$LOOP" "$ROOTIMG" || die "losetup failed"; ROOTDEV="$LOOP" ;;
+    *)     ROOTDEV="$ROOTIMG" ;;
+  esac
+  MOUNT_OPTS="ro"
+fi
+mkdir -p /lower
+mount -o ro "$ROOTDEV" /lower || die "rootfs mount failed"
+
+mkdir -p /overlay/upper /overlay/work
+if [ -f /lrdstore/lrd-overlay_${SLOTC}.img ]; then
+  OV="$(losetup -f)"; losetup "$OV" "/lrdstore/lrd-overlay_${SLOTC}.img" && \
+    mount -o rw "$OV" /overlay && log "persistent overlay"
+else
+  mount -t tmpfs -o size=70% none /overlay && log "tmpfs overlay (ephemeral)"
+fi
+
+mkdir -p /newroot
+mount -t overlay overlay -o "lowerdir=/lower,upperdir=/overlay/upper,workdir=/overlay/work" /newroot || die "overlay failed"
+
+for d in dev proc sys run; do mkdir -p "/newroot/$d"; mount --move "/$d" "/newroot/$d" 2>/dev/null; done
+mkdir -p /newroot/lrdstore /newroot/vendor /newroot/odm
+mountpoint -q /lrdstore && mount --move /lrdstore /newroot/lrdstore
+for p in vendor odm; do mountpoint -q "/$p" && mount --move "/$p" "/newroot/$p"; done
+
+mkdir -p /newroot/run/lrd
+cat > /newroot/run/lrd/boot.json <<EOF
+{"slot":"${SLOT:-none}","root":"$ROOTIMG","overlay":"$(mountpoint -q /overlay && echo mounted)","persistent":"$([ -n "$OV" ] && echo yes || echo no)","verity":"$([ -n "$VERITY_DEV" ] && echo enforced || echo disabled)","at":"$(date -Is)"}
+EOF
+
+log "switch_root -> $ROOTIMG"
+exec switch_root /newroot /sbin/init

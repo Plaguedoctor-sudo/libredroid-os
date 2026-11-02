@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# lrd-snapshot — snapshot / restore the overlay upper (the whole writable OS state).
+#   take [label] | list | restore <name|latest> | prune | status
+set -Eeuo pipefail
+DEST="${LRD_SNAPSHOT_DIR:-/store/snapshots}"
+UPPER="${LRD_UPPER:-/overlay/upper}"
+KEEP="${LRD_SNAPSHOT_KEEP:-5}"
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+die(){ printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
+[ "$(id -u)" = 0 ] || die "run as root"
+mkdir -p "$DEST"
+
+case "${1:-take}" in
+take)
+  label="${2:-manual}"
+  ts="$(date +%Y%m%d-%H%M%S)"
+  name="lrd-${ts}-${label}"
+  out="$DEST/$name.tar.zst"
+  say "snapshotting $UPPER -> $out"
+  # exclude volatile paths; keep everything that is actually state
+  tar --one-file-system -C "$UPPER" \
+      --exclude='./var/cache/*' --exclude='./var/tmp/*' --exclude='./tmp/*' \
+      --exclude='./var/log/journal/*' --exclude='./run/*' \
+      -cf - . 2>/dev/null | zstd -q -T0 -10 -o "$out"
+
+  # manifest: enough to know what this snapshot is without unpacking it
+  cat > "$out.meta" <<EOF
+{
+  "name": "$name",
+  "at": "$(date -Is)",
+  "label": "$label",
+  "version": "$(sed -n 's/^VERSION_ID="\(.*\)"/\1/p' /etc/os-release)",
+  "slot": "$(sed -n 's/.*androidboot.slot_suffix=\([^ ]*\).*/\1/p' /proc/cmdline)",
+  "adapt": "$(jq -r '.level' /run/lrd/adapt.json 2>/dev/null || echo unknown)",
+  "size": $(stat -c %s "$out"),
+  "sha256": "$(sha256sum "$out" | cut -d' ' -f1)"
+}
+EOF
+  say "$(du -h "$out" | cut -f1)  $name"
+  "$0" prune
+  ;;
+
+list)
+  for m in $(ls -1 "$DEST"/*.meta 2>/dev/null | sort -r); do
+    jq -r '"\(.at)  \(.size/1048576|floor)MB  \(.version)  \(.label)  \(.name)"' "$m"
+  done
+  ;;
+
+restore)
+  want="${2:-latest}"
+  if [ "$want" = latest ]; then
+    meta="$(ls -1t "$DEST"/*.meta 2>/dev/null | head -1)"
+  else
+    meta="$(ls -1 "$DEST"/*"$want"*.meta 2>/dev/null | head -1)"
+  fi
+  [ -n "$meta" ] || die "no snapshot matching '$want'"
+  src="${meta%.meta}"
+  say "restoring $src"
+  jq -r '"  from \(.at)  version \(.version)"' "$meta"
+  expected="$(jq -r .sha256 "$meta")"
+  actual="$(sha256sum "$src" | cut -d' ' -f1)"
+  [ "$expected" = "$actual" ] || die "sha256 mismatch — snapshot is corrupt"
+  say "hash ok"
+  printf 'this replaces the entire writable layer. continue? [y/N] '; read -r a
+  [ "$a" = y ] || exit 0
+  lrd-adapt-txn begin "snapshot restore $want" 2>/dev/null || true
+  mkdir -p "$UPPER.old"
+  rm -rf "$UPPER.new"; mkdir -p "$UPPER.new"
+  tar -I zstd -xf "$src" -C "$UPPER.new"
+  # swap: the overlay must be remounted, so do it in the initramfs on next boot
+  echo "$src" > /var/lib/lrd/restore.pending
+  say "unpacked. reboot to activate (the overlay is remounted by the initramfs)"
+  ;;
+
+prune)
+  ls -1t "$DEST"/*.tar.zst 2>/dev/null | tail -n +$((KEEP+1)) | while read -r f; do
+    say "prune $(basename "$f")"; rm -f "$f" "$f.meta"
+  done
+  ;;
+
+status)
+  echo "destination: $DEST"
+  echo "upper:       $UPPER ($(du -sh "$UPPER" 2>/dev/null | cut -f1 || echo missing))"
+  echo "snapshots:   $(ls -1 "$DEST"/*.tar.zst 2>/dev/null | wc -l)  (keeping $KEEP)"
+  echo "free:        $(df -h "$DEST" 2>/dev/null | awk 'NR==2{print $4}')"
+  ;;
+*) echo "usage: lrd-snapshot {take [label]|list|restore <name|latest>|prune|status}"; exit 2 ;;
+esac

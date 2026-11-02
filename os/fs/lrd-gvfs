@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+# gvfs gives MTP (phones), trash, smb, sftp, and the portal's file chooser
+apt-get install -y --no-install-recommends \
+  gvfs gvfs-backends gvfs-fuse \
+  gvfs-daemons gvfs-common \
+  udisks2 udisks2-btrfs \
+  exfatprogs exfat-fuse ntfs-3g \
+  libmtp-runtime jmtpfs 2>/dev/null || true
+# gvfsd needs the session bus and a fuse mount
+modprobe fuse 2>/dev/null || true
+# the shell's Files app can browse gvfs mounts under /run/user/*/gvfs
+mkdir -p /etc/systemd/user/gvfs-daemon.service.d 2>/dev/null || true
+cat > /etc/systemd/user/gvfs-daemon.service.d/10-lrd.conf <<'EOF'
+[Service]
+EnvironmentFile=-/run/lrd/session.env
+EOF
+echo "gvfs installed — phones and network shares now appear in Files"

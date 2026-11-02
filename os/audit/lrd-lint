@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# lrd-lint — static verification of the whole source tree.
+# Nothing here has ever been built. This is the cheapest possible proof that it can be.
+#
+#   lint [root] [--category X] [--strict]
+#
+# exit 0 clean, 1 findings, 2 tooling missing
+set -uo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+STRICT=0; CATS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --strict) STRICT=1; shift ;;
+    --category) CATS="$2"; shift 2 ;;
+    *) [ -d "$1" ] && ROOT="$(cd "$1" && pwd)"; shift ;;
+  esac
+done
+
+PASS=0; FAIL=0; WARN=0; MISSING_TOOLS=()
+FINDINGS=()
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+have(){ command -v "$1" >/dev/null || { MISSING_TOOLS+=("$1"); return 1; }; }
+
+rec(){ # severity category file message
+  local sev="$1" cat="$2" f="$3" msg="$4"
+  case "$sev" in
+    fail) FAIL=$((FAIL+1)) ;;
+    warn) WARN=$((WARN+1)) ;;
+    pass) PASS=$((PASS+1)) ;;
+  esac
+  FINDINGS+=("$(jq -nc --arg s "$sev" --arg c "$cat" --arg f "${f#$ROOT/}" --arg m "$msg" \
+    '{severity:$s,category:$c,file:$f,message:$m}')")
+  [ "$sev" != pass ] && printf '  %-4s %-12s %s\n    %s\n' "$sev" "$cat" "${f#$ROOT/}" "$msg"
+  return 0
+}
+
+want(){ [ -z "$CATS" ] && return 0; case ",$CATS," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }
+
+# ---------- collect ----------
+mapfile -t ALL < <(cd "$ROOT" && find . -type f \
+  -not -path './node_modules/*' -not -path './.git/*' -not -path '*/dist/*' \
+  -not -path './build-out/*' -not -path '*/adapt-out/*' -not -path '*/out-pad-go/*' | sed 's|^\./||' | sort)
+
+echo "lrd-lint — $ROOT"
+echo "  $(printf '%s\n' "${ALL[@]}" | wc -l) files"
+echo
+
+# ---------- 1. shell syntax ----------
+if want syntax; then
+say "shell syntax"
+n=0
+for f in "${ALL[@]}"; do
+  case "$f" in *.sh|*/run|*/finish) ;;
+    *) head -c 60 "$ROOT/$f" 2>/dev/null | grep -q '^#!' || continue ;;
+  esac
+  shebang="$(head -1 "$ROOT/$f" 2>/dev/null)"
+  case "$shebang" in
+    *bash*) shell=bash ;;
+    */sh|*busybox\ sh*) shell=sh ;;
+    *) continue ;;
+  esac
+  if $shell -n "$ROOT/$f" 2>/tmp/lrd-lint.err; then
+    n=$((n+1))
+  else
+    rec fail syntax "$f" "$($shell -n "$ROOT/$f" 2>&1 | head -2 | tr '\n' ' ')"
+  fi
+  # every script should fail fast
+  case "$f" in
+    */init|*/lrd-recovery.sh) ;;
+    *)
+      head -20 "$ROOT/$f" | grep -qE '^set -.*e' || rec warn style "$f" "no 'set -e' — failures will be silent"
+      ;;
+  esac
+  # executable bit
+  [ -x "$ROOT/$f" ] || rec warn style "$f" "not executable but has a shebang"
+done
+[ "$n" -gt 0 ] && say "  $n scripts parsed"
+fi
+
+# ---------- 2. js / ts ----------
+if want syntax; then
+say "javascript"
+have node && for f in "${ALL[@]}"; do
+  case "$f" in *.js) node --check "$ROOT/$f" 2>/tmp/e || rec fail syntax "$f" "$(head -1 /tmp/e 2>/dev/null || echo syntax error)";; esac
+done
+have npx && [ -f "$ROOT/tsconfig.json" ] && {
+  say "typescript"
+  ( cd "$ROOT" && npx --no-install tsc --noEmit 2>&1 | head -40 | while read -r l; do
+      [ -n "$l" ] && rec fail typescript "$(echo "$l" | cut -d'(' -f1)" "$l"
+    done )
+}
+fi
+
+# ---------- 3. python / c ----------
+if want syntax; then
+say "python + c"
+have python3 && for f in "${ALL[@]}"; do
+  case "$f" in *.py) python3 -m py_compile "$ROOT/$f" 2>/tmp/e || rec fail syntax "$f" "$(head -1 /tmp/e 2>/dev/null || echo python error)";; esac
+done
+have gcc && for f in "${ALL[@]}"; do
+  case "$f" in *.c)
+    if gcc -fsyntax-only -Wall -Wextra -Wno-unused-parameter "$ROOT/$f" 2>/tmp/e; then :;
+    else rec fail syntax "$f" "$(head -3 /tmp/e 2>/dev/null | tr '\n' ' ')"; fi
+    ;;
+  esac
+done
+fi
+
+# ---------- 4. json ----------
+if want data; then
+say "json"
+have jq && for f in "${ALL[@]}"; do
+  case "$f" in
+    *.json) jq empty "$ROOT/$f" 2>/tmp/e || rec fail data "$f" "$(head -1 /tmp/e 2>/dev/null || echo json error)";;
+    *.jsonl) awk 'NF' "$ROOT/$f" | while IFS= read -r l; do
+        printf '%s' "$l" | jq empty 2>/dev/null || echo "bad line"; done | grep -q bad && rec fail data "$f" "invalid jsonl";;
+    *.webmanifest) jq empty "$ROOT/$f" 2>/dev/null || rec fail data "$f" "invalid manifest";;
+  esac
+done
+# systemd units are ini-ish; jq cannot help. validated separately below.
+fi
+
+# ---------- 5. systemd units ----------
+if want units; then
+say "systemd units"
+have systemd-analyze && for f in "${ALL[@]}"; do
+  case "$f" in
+    *.service|*.target|*.timer|*.slice|*.socket|*.mount)
+      out="$(systemd-analyze verify "$ROOT/$f" 2>&1 | grep -v '^$')"
+      [ -n "$out" ] && rec fail units "$f" "$(echo "$out" | head -3 | tr '\n' ' ')"
+      # units that want to be enabled need [Install]
+      case "$f" in
+        *lrd-harden.conf|*/lrd-*.service.d/*) ;;
+        *)
+          if ! grep -q '^\[Install\]' "$ROOT/$f" 2>/dev/null; then
+            case "$f" in
+              *.target|*firstboot-gate*) ;;
+              *) rec warn units "$f" "no [Install] — will never be enabled" ;;
+            esac
+          fi
+          ;;
+      esac
+      # a service without a harden drop-in is a smell
+      case "$f" in
+        *lrd-adapt-apply*|*lrd-adapt-late*|*lrd-props*) ;;
+        *lrd-*.service) grep -qE 'NoNewPrivileges|ProtectSystem' "$ROOT/$f" || \
+          rec warn hardening "$f" "no sandboxing directives" ;;
+      esac
+      ;;
+  esac
+done
+fi
+
+# ---------- 6. nftables ----------
+if want net; then
+say "nftables"
+have nft && for f in "${ALL[@]}"; do
+  case "$f" in
+    *.nft) nft -c -f "$ROOT/$f" 2>/tmp/e || rec fail net "$f" "$(head -2 /tmp/e 2>/dev/null | tr '\n' ' ')"
+           # every chain must state a policy or it silently inherits accept
+           grep -qE 'policy (accept|drop)' "$ROOT/$f" || rec warn net "$f" "chain without an explicit policy"
+           ;;
+  esac
+done
+fi
+
+# ---------- 7. the things that actually break at runtime ----------
+if want runtime; then
+say "runtime hazards"
+for f in "${ALL[@]}"; do
+  case "$f" in *.sh|*/run|*/finish) ;; *) continue ;; esac
+  body="$(cat "$ROOT/$f" 2>/dev/null)"
+
+  # unquoted rm -rf with a variable: the classic disaster
+  grep -nE 'rm -rf \$[A-Za-z_][A-Za-z0-9_]*([^"]|$)' "$ROOT/$f" 2>/dev/null | \
+    grep -vE 'rm -rf "\$|rm -rf \$\{[^}]*\}"' | head -3 | while read -r l; do
+      rec warn runtime "$f" "unquoted rm -rf: $l"
+    done
+
+  # cd without a guard
+  grep -nE '^\s*cd [^|&;]+$' "$ROOT/$f" 2>/dev/null | grep -v '||' | grep -v '&&' | head -2 | while read -r l; do
+    rec warn runtime "$f" "unguarded cd: $l"
+  done
+
+  # hardcoded Termux home leaking into Linux paths
+  grep -n 'data/data/com.termux' "$ROOT/$f" 2>/dev/null | head -1 | while read -r l; do
+    case "$f" in *termux*|*initramfs*) ;; *) rec warn portability "$f" "hardcoded Termux path: $l" ;; esac
+  done
+
+  # runit run scripts must exec, not fork
+  case "$f" in */run)
+    grep -qE '^exec ' "$ROOT/$f" || rec fail runtime "$f" "runit run script does not exec"
+    ;;
+  esac
+
+  # a service that pipes into a while loop loses variables
+  grep -nE '\| *while read' "$ROOT/$f" 2>/dev/null | head -1 | while read -r l; do
+    rec warn runtime "$f" "pipeline into while: $l (subshell — variables will not escape)"
+  done
+
+  # set -u plus an unset array expansion
+  grep -nE '\$\{[A-Za-z_][A-Za-z0-9_]*\[@\]\}' "$ROOT/$f" 2>/dev/null | head -1 >/dev/null && \
+    grep -q 'set -.*u' "$ROOT/$f" && \
+    grep -qE '\$\{[A-Za-z_][A-Za-z0-9_]*\[@\]\}' "$ROOT/$f" && \
+    grep -qvE '\$\{[A-Za-z_][A-Za-z0-9_]*\[@\]:-' "$ROOT/$f" && \
+    rec warn runtime "$f" "unset array under set -u without :- default"
+done
+fi
+
+# ---------- 8. hygiene ----------
+if want hygiene; then
+say "hygiene"
+for f in "${ALL[@]}"; do
+  file "$ROOT/$f" 2>/dev/null | grep -q CRLF && rec warn hygiene "$f" "CRLF line endings"
+done
+# our own files should say what they are
+head -5 "$ROOT/README.md" 2>/dev/null | grep -qi libredroid || rec warn hygiene README.md "no project readme"
+[ -f "$ROOT/LICENSE" ] || rec warn legal LICENSE "no licence for our own code"
+[ -f "$ROOT/CHANGELOG.md" ] || rec warn legal CHANGELOG.md "no changelog"
+# no secrets committed
+grep -rIl --exclude-dir=node_modules 'BEGIN.*PRIVATE KEY' "$ROOT" 2>/dev/null | while read -r f; do
+  rec warn hygiene "${f#$ROOT/}" "private key in the tree — fine for dev, note it"
+done
+fi
+
+# ---------- 9. tooling availability ----------
+if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
+  say "missing lint tooling (checks skipped)"
+  printf '  %s\n' "$(printf '%s\n' "${MISSING_TOOLS[@]}" | sort -u | tr '\n' ' ')"
+  echo "  install: apt install shellcheck jq systemd nftables gcc python3"
+fi
+
+# ---------- report ----------
+TOTAL=$((PASS+FAIL+WARN))
+cat <<EOF
+
+  pass $PASS  warn $WARN  fail $FAIL  of $TOTAL checks
+
+EOF
+if [ "$FAIL" -gt 0 ]; then
+  echo "  failures by category:"
+  printf '%s\n' "${FINDINGS[@]}" | jq -r 'select(.severity=="fail")|.category' | sort | uniq -c | sort -rn | sed 's/^/    /'
+fi
+
+mkdir -p "$ROOT/audit-out"
+printf '%s\n' "${FINDINGS[@]}" | jq -s '.' > "$ROOT/audit-out/lint.json" 2>/dev/null
+echo "  written audit-out/lint.json"
+
+[ "$FAIL" -eq 0 ] && exit 0
+[ "$STRICT" = 1 ] && exit 1
+exit 0

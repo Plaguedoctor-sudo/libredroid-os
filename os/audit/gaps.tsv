@@ -1,0 +1,112 @@
+# id	category	phase	weight	kind	check	fix	notes
+build.never-built	build	0	20	check	test -f /usr/share/lrd/.lint-passed	echo "run lrd-lint on the source tree"	the tree has never been compiled
+build.ci	build	0	12	check	test -f .github/workflows/build.yml	"add a pipeline: lint, build rootfs, boot in qemu, lrd-qa"	no CI at all
+build.reproducible	build	0	8	check	grep -q SOURCE_DATE_EPOCH /etc/lrd/build.env	"set SOURCE_DATE_EPOCH, sort file lists, strip timestamps"	builds differ run to run
+build.sbom	build	0	6	check	test -s /usr/share/lrd/sbom.json	"generate an SPDX SBOM from dpkg --get-selections"	no bill of materials
+build.crossbuild	build	0	8	check	command -v sbuild >/dev/null	"set up sbuild/multistrap for arm64 from x86"	needs a device to build today
+build.qemu-target	build	0	10	check	command -v qemu-system-x86_64 >/dev/null	"add a qemu boot test to the pipeline"	untested boot path
+build.licence-audit	build	0	4	check	test -f /usr/share/lrd/licenses.json	"collect licences, note our own"	Debian main is fine; our files have none
+compat.negotiation	runtime	1	12	check	curl -fsS http://127.0.0.1:3001/api/version | jq -e .compat	"bridge exposes /api/version; shell refuses a mismatch"	shell+bridge skew is guaranteed otherwise
+compat.config-record	runtime	1	12	check	test -s /var/lib/lrd/config.json	"bridge owns config.json; localStorage is a cache"	clearing site data is currently a factory reset
+compat.schema-migration	runtime	1	8	check	test -d /usr/share/lrd/schemas	"versioned config schemas with forward migrations"	no upgrade path for configs
+runtime.signal-handling	runtime	1	8	check	grep -q SIGTERM /opt/lrd/app/server.js	"trap SIGTERM; kill job groups; flush state"	orphaned jobs on restart
+runtime.boot-ordering	runtime	1	10	check	systemd-analyze dot cage.service >/dev/null	"assert the ordering, then test it under load"	adaptation/cage race is unverified
+runtime.shell-rollback	runtime	1	8	check	test -d /var/lib/lrd/shell-versions	"keep the last N shell builds; pin and roll back"	TCB catches tampering, not a broken build
+runtime.logrotate	runtime	1	4	check	test -f /etc/logrotate.d/lrd	"rotate our logs"	unbounded growth
+runtime.journald-cap	runtime	1	6	check	grep -q SystemMaxUse /etc/systemd/journald.conf.d/lrd.conf	"cap the journal at 5% of the overlay"	a runaway journal fills the writable layer
+runtime.tmpfiles	runtime	1	4	check	test -f /etc/tmpfiles.d/lrd.conf	"declare /run/lrd and friends"	missing dirs on a cold boot
+runtime.sysusers	runtime	1	6	check	test -f /etc/sysusers.d/lrd.conf	"declare lrd-bridge, lrd-adapt service users"	everything runs as root or the user
+runtime.service-users	runtime	1	8	check	grep -q '^User=lrd-bridge' /etc/systemd/system/lrd-bridge.service	"run the bridge as its own user with no login"	blast radius of a bridge bug
+runtime.limits-pam	runtime	1	4	check	test -f /etc/security/limits.d/lrd.conf	"raise rtprio and memlock for pipewire"	audio dropouts under load
+runtime.dbus-policy	runtime	1	6	check	test -f /etc/dbus-1/system.d/org.lrd.Bridge.conf	"allow only our uid to own the bridge name"	any process can claim it
+runtime.polkit-rules	runtime	1	6	check	test -f /etc/polkit-1/rules.d/50-lrd.rules	"scope what the desktop may escalate"	polkit defaults are broad
+runtime.hostnamectl	runtime	2	2	check	command -v hostnamectl >/dev/null	"wire hostnamectl/timedatectl/localectl"	expected on a desktop OS
+session.xdg-autostart	session	2	6	check	command -v systemd-xdg-autostart-generator >/dev/null	"enable xdg-autostart for portal helpers"	helpers never start otherwise
+session.mime-registration	session	2	8	check	command -v update-desktop-database >/dev/null	"register handlers; seed mimeapps.list"	portals have nothing to offer
+session.desktop-db	session	2	6	check	test -d /usr/share/applications	"install .desktop files for our tools"	nothing appears in any picker
+session.icon-cache	session	2	4	check	test -f /usr/share/icons/hicolor/index.theme	"icon theme + gtk-update-icon-cache"	missing icons everywhere
+session.cursor-theme	session	2	4	check	ls /usr/share/icons/*/cursors >/dev/null 2>&1	"ship a cursor theme"	blank cursor under some compositors
+session.dpms	session	2	6	check	command -v wlopm >/dev/null	"wire DPMS to lrd-powerd for Wayland"	brightness only, screen never powers off
+session.clipboard-history	session	2	4	check	command -v cliphist >/dev/null	"clipboard history for touch users"	one slot only
+session.lock-on-suspend	session	2	6	check	grep -q lock /etc/systemd/logind.conf.d/lrd.conf	"lock before suspend and on lid"	unlocked after resume
+session.idle-lock	session	2	4	check	grep -q IdleAction /etc/systemd/logind.conf.d/lrd.conf	"idle lock policy"	never locks
+session.display-layout	session	3	4	check	test -s /var/lib/lrd/display-layout.json	"persist monitor arrangement"	rearranged every boot
+apps.waydroid	apps	2	20	check	command -v waydroid >/dev/null	"image build, domain, GPU passthrough, launcher handoff"	the app ecosystem
+apps.flatpak	apps	2	12	check	command -v flatpak >/dev/null	"flatpak + flathub + portal integration"	sandboxed apps, the modern Linux answer
+apps.deb-ui	apps	2	8	check	test -f /opt/lrd/app/dist/assets/deb.js	"shell UI for apt install of a .deb"	store does APKs only
+apps.text-editor	apps	2	4	check	command -v mousepad >/dev/null	"a GUI editor"	nano only
+apps.image-viewer	apps	2	4	check	command -v imv >/dev/null	"a viewer for photos"	none
+apps.pdf	apps	2	6	check	command -v zathura >/dev/null	"a PDF viewer"	none
+apps.media-player	apps	2	6	check	command -v mpv >/dev/null	"video and audio playback"	none
+apps.screenshot	apps	2	6	check	command -v grim >/dev/null	"grim + slurp wired to the shell"	no screenshots
+apps.archive	apps	2	4	check	command -v file-roller >/dev/null	"archive extraction UI"	cli only
+apps.terminal-good	apps	2	4	check	test -x /opt/lrd/app/dist/assets/term.js	"the shell terminal exists"	present, listed for completeness
+fs.gvfs	fs	2	12	check	command -v gvfsd >/dev/null	"gvfs for MTP and trash"	plug in a phone, nothing sees it
+fs.udisks2	fs	2	10	check	command -v udisksctl >/dev/null	"automount removable media"	USB sticks do nothing
+fs.exfat-ntfs	fs	2	6	check	command -v mount.exfat-fuse >/dev/null || command -v mount.exfat >/dev/null	"exfat and ntfs3 support"	vendor sticks unreadable
+fs.trash	fs	2	4	check	test -d /home	"freedesktop trash spec in the file manager"	delete is permanent
+fs.quota	fs	3	4	check	grep -q usrquota /etc/fstab	"per-user quotas on /home"	one user can fill the disk
+fs.user-backup	fs	2	12	check	command -v restic >/dev/null	"restic/borg to external for USER DATA, not just snapshots"	OS snapshots only today
+fs.smartd	fs	3	4	check	systemctl is-active smartd	"SMART monitoring and alerts"	disk dies silently
+fs.fwupd	fs	3	8	check	command -v fwupd >/dev/null	"firmware updates (x86 UEFI works)"	blobs never updated
+net.inbound-fw	net	1	10	check	nft list ruleset | grep -q 'hook input'	"ship an input chain, default drop"	host is open
+net.ipv6-policy	net	1	8	check	grep -qE 'ipv6' /etc/sysctl.d/*lrd*	"decide IPv6: RA, privacy extensions, or disable"	undefined today
+net.resolver-decision	net	1	10	check	systemctl is-active systemd-resolved || systemctl is-active NetworkManager	"pick ONE resolver stack"	networkd and NM both installed
+net.dns-privacy	net	2	8	check	test -f /etc/systemd/resolved.conf.d/lrd.conf	"DoT or unbound in direct mode"	cleartext DNS outside Tor
+net.captive-portal	net	2	6	check	systemctl is-active NetworkManager	"captive portal detection and helper"	hotel wifi breaks silently
+net.vpn-killswitch	net	2	8	check	grep -q wireguard /etc/nftables.d/* 2>/dev/null	"VPN killswitch in lrd-netd"	VPN drops leak
+net.metered	net	2	6	check	test -s /var/lib/lrd/metered	"metered flag drives updates and backups"	updates on cellular
+net.qos	net	3	4	check	command -v tc >/dev/null	"bandwidth shaping"	none
+net.modemmanager	net	3	8	check	command -v ModemManager >/dev/null	"MM alongside ofono for SMS/data"	no SMS
+net.geoclue	net	3	6	check	command -v geoclue >/dev/null	"location service"	no location
+net.gpsd	net	3	4	check	command -v gpsd >/dev/null	"raw GPS"	none
+net.nfc	net	3	4	check	ls /sys/class/nfc >/dev/null 2>&1	"NFC stack"	none
+audio.rtkit	audio	2	8	check	systemctl is-active rtkit-daemon	"realtime priority for audio"	xruns under load
+audio.pipewire-policy	audio	2	10	check	test -f /etc/wireplumber/main.lua.d/90-lrd.lua	"per-domain sinks so anon audio cannot leak"	one global mixer
+audio.wireplumber-restart	audio	2	6	check	grep -q Restart=always /etc/systemd/user/wireplumber.service.d/*.conf	"survive a wireplumber crash"	silence forever
+audio.alsa-ucm	audio	2	6	check	ls /usr/share/alsa/ucm2 >/dev/null 2>&1	"UCM profiles for the codec"	wrong mixer mapping
+audio.hdmi	audio	3	4	check	command -v pactl >/dev/null	"switch output on hotplug"	manual only
+a11y.magnifier	a11y	3	8	check	command -v wl-mirror >/dev/null	"a magnifier for Wayland"	none
+a11y.osk-system	a11y	2	10	check	command -v wvkbd-mobintl >/dev/null	"a system on-screen keyboard for non-shell apps"	shell-only today
+a11y.sticky-keys	a11y	3	4	check	test -f /etc/environment.d/60-lrd-a11y.conf	"sticky/slow/bounce keys"	partial
+a11y.at-spi	a11y	2	8	check	pgrep -c at-spi-bus-launcher >/dev/null	"AT-SPI bus so Orca can work"	installed, not running
+a11y.speech-dispatcher	a11y	2	6	check	systemctl is-active speech-dispatcher	"speech backend for the reader"	Orca silent
+a11y.contrast	a11y	3	4	check	grep -q HighContrast /etc/environment.d/*	"high contrast theme wired"	partial
+i18n.fcitx5	i18n	2	10	check	pgrep -c fcitx5 >/dev/null	"start fcitx5 and set IM modules"	installed, never started
+i18n.im-modules	i18n	2	6	check	grep -q GTK_IM_MODULE /etc/environment.d/*	"GTK_QT_XMODIFIERS env"	CJK untypable
+i18n.locales	i18n	3	4	check	test -s /etc/locale.gen	"generate the locales the user asked for"	en_US only
+i18n.timezones	i18n	3	2	check	test -d /usr/share/zoneinfo	"tzdata present and linked"	installer writes it, nothing else
+i18n.rtl	i18n	3	4	check	command -v fribidi >/dev/null	"RTL support"	unverified
+i18n.keymap	i18n	3	4	check	localectl status >/dev/null 2>&1	"keymap management"	none
+i18n.fonts-extra	i18n	3	2	check	fc-list | grep -q Noto	"fonts present"	listed for completeness
+sec.measured-boot	security	2	8	check	test -s /var/lib/lrd/measurements.log	"hash chain of every boot stage, written to the store"	advisory by nature, no TPM
+sec.shell-bundle	security	2	6	check	test -d /usr/share/lrd/shell	"signed, separately updatable shell"	shell only moves with the OS
+sec.swap-encrypt	security	2	4	check	swapon --show | grep -q /dev/	"encrypted swap if not zram-only"	zram is cleartext in RAM
+sec.apparmor-enforce	security	1	10	check	! aa-status --complaining | tail -n +2 | grep -q .	"triage then aa-enforce"	tooling done, work not
+sec.landlock-use	security	2	6	check	grep -q landlock /opt/lrd/app/server.js	"confine the bridge's exec children"	available, unused
+sec.seccomp-ours	security	2	6	check	grep -q SystemCallFilter /etc/systemd/system/lrd-*.service	"seccomp on our own services"	systemd baseline only
+sec.domain-apparmor	security	2	8	check	ls /etc/apparmor.d/lrd-domain-* >/dev/null 2>&1	"per-domain confinement"	domains share the host profile
+sec.pam-faillock	security	1	6	check	grep -q faillock /etc/pam.d/common-auth	"brute force lockout"	unlimited attempts
+sec.pwquality	security	2	4	check	grep -q pwquality /etc/pam.d/common-password	"password quality policy"	anything passes
+sec.sshd-hardened	security	1	8	check	test -f /etc/ssh/sshd_config.d/10-lrd.conf	"ship a hardened sshd config"	defaults are loose
+sec.ssh-keys	security	2	6	check	test -s /etc/ssh/ssh_host_ed25519_key.pub	"host keys generated and recorded"	TOFU warnings
+sec.session-timeout	security	2	4	check	grep -q TMOUT /etc/profile.d/*	"idle shell timeout"	shells live forever
+sec.sudo-policy	security	2	6	check	test -f /etc/sudoers.d/lrd	"scoped sudo, not blanket NOPASSWD"	everything or nothing
+sec.microcode	security	2	6	check	command -v intel-microcode >/dev/null || command -v amd64-microcode >/dev/null	"CPU microcode on x86"	mitigations incomplete
+sec.iommu	security	3	4	check	grep -q iommu /proc/cmdline	"IOMMU for DMA protection on x86"	thunderbolt DMA
+sec.mitigations-check	security	2	6	check	grep -q 'Mitigation' /proc/cpuinfo || test -s /sys/devices/system/cpu/vulnerabilities/spectre_v2	"verify mitigations are active"	unverified
+sec.usbguard-policy	security	2	6	check	test -s /etc/usbguard/rules.conf	"device authorization policy, not just installed"	partial
+ops.serial-console	ops	1	12	check	grep -q console=ttyS0 /proc/cmdline	"serial console for ARM porting"	essential for bringup
+ops.pstore	ops	1	10	check	ls /sys/fs/pstore >/dev/null 2>&1	"ramoops readback for kernel panics"	ARM crash logs are lost
+ops.panic-visible	ops	1	8	check	grep -q panic_print /proc/cmdline	"print a panic to the screen"	black screen on panic
+ops.kdump	ops	3	6	check	command -v kdumpctl >/dev/null	"x86 crash dump"	none
+ops.netconsole	ops	3	4	check	grep -q netconsole /proc/cmdline	"remote kernel log"	none
+ops.remote-access	ops	2	8	check	systemctl is-active sshd	"sshd reachable for support"	no remote help
+ops.recovery-runbook	ops	2	6	check	test -s /usr/share/doc/lrd/recovery.md	"the recovery steps, on the device"	documented in the repo only
+ops.safe-mode-gesture	ops	2	4	check	grep -q lrd-safe /etc/systemd/system/cage.service.d/*.conf	"a documented way into safe mode"	exists, listed for completeness
+ops.boot-menu	ops	2	6	check	command -v systemd-boot >/dev/null || test -s /store/lrd-boot-menu	"a boot menu when there is more than one OS"	fastboot only on ARM
+docs.privacy-policy	docs	3	4	check	test -f /usr/share/doc/lrd/privacy.md	"say plainly that there is no telemetry"	implied, never stated
+docs.trademark	docs	3	2	check	test -f /usr/share/doc/lrd/trademark.md	"trademark and redistribution policy"	none
+docs.contributing	docs	3	4	check	test -f CONTRIBUTING.md	"how to build and contribute"	none
+docs.architecture	docs	3	6	check	test -f /usr/share/doc/lrd/architecture.md	"the layer diagram and trust boundaries"	in the repo only
+docs.release-notes	docs	3	4	check	test -f /usr/share/doc/lrd/NEWS.md	"per-release notes"	none

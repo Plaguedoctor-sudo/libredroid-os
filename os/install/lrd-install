@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+# lrd-install — guided install to a disk. UEFI + BIOS, optional LUKS.
+set -Eeuo pipefail
+VERSION="$(sed -n 's/^VERSION_ID="\(.*\)"/\1/p' /etc/os-release)"
+SOURCE="${LRD_SOURCE:-/run/live/rootfs}"     # squashfs or a mounted ISO rootfs
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+err(){ printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; }
+die(){ err "$*"; exit 1; }
+ask(){ local p="$1" d="$2" v; printf '%s [%s]: ' "$p" "$d"; read -r v; echo "${v:-$d}"; }
+confirm(){ printf '%s [y/N] ' "$1"; local a; read -r a; [ "$a" = y ]; }
+
+[ "$(id -u)" = 0 ] || die "run as root"
+
+# ---------- 1. disk ----------
+mapfile -t DISKS < <(lsblk -dpno NAME,SIZE,TYPE,MODEL | awk '$3=="disk"{printf "%s %s %s\n",$1,$2,substr($0,index($0,$3)+length($3)+1)}')
+[ "${#DISKS[@]}" -gt 0 ] || die "no disks"
+echo "disks:"
+for i in "${!DISKS[@]}"; do printf '  %2d) %s\n' "$i" "${DISKS[$i]}"; done
+idx="$(ask "select disk number" 0)"
+DISK="$(echo "${DISKS[$idx]}" | awk '{print $1}')"
+[ -b "$DISK" ] || die "bad disk"
+SZ_GB=$(( $(blockdev --getsize64 "$DISK") / 1000 / 1000 / 1000 ))
+[ "$SZ_GB" -ge 12 ] || die "$DISK is ${SZ_GB}G — need at least 12G"
+
+# ---------- 2. options ----------
+HOST="$(ask hostname libredroid)"
+USERNAME="$(ask username lrd)"
+LUKS=0; confirm "encrypt the disk (LUKS2)?" && LUKS=1
+RECOVERY=1; confirm "add a recovery partition?" || RECOVERY=0
+LAYOUT="$(ask "layout (a/b slots|single)" single)"
+
+cat <<EOF
+
+  disk      $DISK  (${SZ_GB}G)  — EVERYTHING ON IT WILL BE ERASED
+  hostname  $HOST
+  user      $USERNAME
+  luks      $([ "$LUKS" = 1 ] && echo yes || echo no)
+  recovery  $([ "$RECOVERY" = 1 ] && echo yes || echo no)
+  layout    $LAYOUT
+
+EOF
+confirm "proceed?" || die "aborted"
+
+# ---------- 3. partition ----------
+say "partitioning"
+wipefs -a "$DISK"
+if [ "$LAYOUT" = "a/b slots" ]; then
+  sgdisk -Z "$DISK"
+  sgdisk -n 1:0:+512M   -t 1:ef00 -c 1:LRD-EFI     "$DISK"
+  sgdisk -n 2:0:+256M   -t 2:8300 -c 2:LRD-BOOT    "$DISK"
+  sgdisk -n 3:0:+4G     -t 3:8300 -c 3:LRD-ROOT-A  "$DISK"
+  sgdisk -n 4:0:+4G     -t 4:8300 -c 4:LRD-ROOT-B  "$DISK"
+  sgdisk -n 5:0:+8G     -t 5:8300 -c 5:LRD-STORE   "$DISK"
+  sgdisk -n 6:0:+2G     -t 6:8300 -c 6:LRD-OVERLAY "$DISK"
+  sgdisk -n 7:0:+4G     -t 7:8300 -c 7:LRD-RECOVERY "$DISK"
+  sgdisk -n 8:0:0       -t 8:8300 -c 8:LRD-DATA    "$DISK"
+else
+  sgdisk -Z "$DISK"
+  sgdisk -n 1:0:+512M   -t 1:ef00 -c 1:LRD-EFI     "$DISK"
+  sgdisk -n 2:0:+1G     -t 2:8300 -c 2:LRD-BOOT    "$DISK"
+  sgdisk -n 3:0:0       -t 3:8300 -c 3:LRD-ROOT    "$DISK"
+  sgdisk -n 4:0:+8G     -t 4:8300 -c 4:LRD-STORE   "$DISK"
+  sgdisk -n 5:0:+2G     -t 5:8300 -c 5:LRD-OVERLAY "$DISK"
+  sgdisk -n 6:0:+4G     -t 6:8300 -c 6:LRD-RECOVERY "$DISK"
+fi
+partprobe "$DISK"; sleep 1
+
+mkfs.vfat -F32 -n LRD-EFI "${DISK}1" >/dev/null
+mkfs.ext4 -q -F -L LRD-BOOT "${DISK}2"
+
+CRYPT=""
+if [ "$LUKS" = 1 ]; then
+  say "LUKS2 on the data partition"
+  echo -n "passphrase: "; read -rs PASS; echo
+  printf '%s' "$PASS" | cryptsetup luksFormat --type luks2 --batch-mode -q "${DISK}8" -
+  printf '%s' "$PASS" | cryptsetup open "${DISK}8" lrd-data -
+  CRYPT=/dev/mapper/lrd-data
+fi
+DATA="${CRYPT:-${DISK}8}"
+mkfs.ext4 -q -F -L LRD-DATA "$DATA"
+
+for p in 3 4; do
+  [ "$LAYOUT" = "a/b slots" ] || break
+  mkfs.ext4 -q -F -L "LRD-ROOT-$([ "$p" = 3 ] && echo A || echo B)" "${DISK}$p"
+done
+mkfs.ext4 -q -F -L LRD-STORE   "${DISK}5"
+mkfs.ext4 -q -F -L LRD-OVERLAY "${DISK}6"
+mkfs.ext4 -q -F -L LRD-RECOVERY "${DISK}7"
+
+# ---------- 4. rootfs ----------
+if [ "$LUKS" = 1 ]; then
+  say "encrypting the rootfs (LUKS2 outer, verity inner)"
+  echo -n "rootfs passphrase: "; read -rs RPASS; echo
+  echo -n "again:             "; read -rs RPASS2; echo
+  [ "$RPASS" = "$RPASS2" ] || die "passphrase mismatch"
+  printf '%s' "$RPASS" > /run/rpass
+
+  # stage the rootfs into the image, then format the crypto layer around it
+  IMG=/run/lrd-rootfs.img
+  cp "$SOURCE/lrd-rootfs.img" "$IMG" 2>/dev/null || unsquashfs -f -d /run/rootfs "$SOURCE/lrd-rootfs.squashfs" 2>/dev/null || true
+  if [ -d /run/rootfs ]; then
+    truncate -s 6G "$IMG"; mkfs.ext4 -q -F "$IMG"
+    mkdir -p /mnt/stage && mount -o loop "$IMG" /mnt/stage
+    rsync -aHAX /run/rootfs/ /mnt/stage/; umount /mnt/stage
+  fi
+  # now wrap it
+  LRD_VERITY_KEYS="${KEYS:-/etc/lrd/keys}" lrd-crypt format "$IMG" a
+  printf '%s' "$RPASS" > /run/rpass.key
+  lrd-crypt reseal "$IMG" /store/verity/lrd-verity_a.json /run/rpass.key
+  cp "$IMG" "$(blkid -L LRD-ROOT-A 2>/dev/null || blkid -L LRD-ROOT)" 2>/dev/null || \
+    dd if="$IMG" of="${DISK}3" bs=4M status=progress 2>/dev/null || true
+
+  # the key file goes on the store so the initramfs can find it, plus the header backup
+  mkdir -p /target/store/verity /target/store/keys
+  cp /store/verity/* /target/store/verity/ 2>/dev/null || true
+  cp "${KEYS:-/etc/lrd/keys}/verity.pub.pem" /target/etc/lrd/keys/ 2>/dev/null || true
+  lrd-crypt header-backup "$IMG" /target/store/keys/luks_header_a.img 2>/dev/null || true
+  printf '%s' "$RPASS" > /target/store/keys/luks_a.key
+  chmod 600 /target/store/keys/luks_a.key
+else
+  say "installing the rootfs (this takes a few minutes)"
+  ROOTPART="$(blkid -L LRD-ROOT-A 2>/dev/null || blkid -L LRD-ROOT)"
+  mkdir -p /target; mount "$ROOTPART" /target
+  if [ -f "$SOURCE/lrd-rootfs.squashfs" ]; then
+    unsquashfs -f -d /target "$SOURCE/lrd-rootfs.squashfs" >/dev/null
+  elif [ -d "$SOURCE" ]; then
+    rsync -aHAX --info=progress2 "$SOURCE/" /target/
+  else
+    die "no rootfs source at $SOURCE"
+  fi
+fi
+
+mkdir -p /target/{boot/efi,store,overlay,data,proc,sys,dev,run}
+mount "${DISK}1" /target/boot/efi
+mount "${DISK}2" /target/boot
+mount "$(blkid -L LRD-STORE)" /target/store
+mount "$(blkid -L LRD-OVERLAY)" /target/overlay
+mount "$DATA" /target/data
+
+# ---------- 5. identity + fstab ----------
+say "verity on the installed rootfs"
+if [ -f /usr/share/lrd/verity/lrd-verity_a.json ] && command -v veritysetup >/dev/null 2>&1; then
+  ROOTHASH="$(jq -r .rootHash /usr/share/lrd/verity/lrd-verity_a.json)"
+  DATA_BYTES="$(jq -r .hashOffset /usr/share/lrd/verity/lrd-verity_a.json)"
+  veritysetup open "$ROOTPART" lrdcheck "$ROOTHASH" --hash-offset="$DATA_BYTES" \
+    --data-blocks="$((DATA_BYTES/4096))" 2>&1 | tail -1 || true
+  mount -o ro /dev/mapper/lrdcheck /mnt 2>/dev/null && { say "verity opens — rootfs intact"; umount /mnt; } || true
+  veritysetup close lrdcheck 2>/dev/null || true
+  mkdir -p /target/store/verity /target/etc/lrd/keys
+  cp -a /usr/share/lrd/verity/* /target/store/verity/ 2>/dev/null || true
+  cp -a /etc/lrd/keys/verity.pub.pem /target/etc/lrd/keys/ 2>/dev/null || true
+  cp -a /usr/share/lrd/verity.pinned /target/etc/lrd/ 2>/dev/null || true
+fi
+
+say "identity"
+{
+  echo "$HOST" > /target/etc/hostname
+  printf '127.0.0.1\tlocalhost\n127.0.1.1\t%s\n' "$HOST" > /target/etc/hosts
+  echo "LRD_INSTALLED=$(date -Is)" > /target/etc/lrd/install.info
+  echo "LRD_LAYOUT=$LAYOUT" >> /target/etc/lrd/install.info
+  echo "LRD_LUKS=$LUKS" >> /target/etc/lrd/install.info
+} 2>/dev/null || true
+
+ROOTUUID="$(blkid -s UUID -o value "$ROOTPART")"
+BOOTUUID="$(blkid -s UUID -o value "${DISK}2")"
+EFIUUID="$(blkid -s UUID -o value "${DISK}1")"
+STOREUUID="$(blkid -s UUID -o value "$(blkid -L LRD-STORE)")"
+OVERUUID="$(blkid -s UUID -o value "$(blkid -L LRD-OVERLAY)")"
+DATAUUID="$(blkid -s UUID -o value "$DATA")"
+{
+  echo "UUID=$ROOTUUID  /          ext4  ro,noatime                0 1"
+  echo "UUID=$BOOTUUID  /boot      ext4  defaults,noatime          0 2"
+  echo "UUID=$EFIUUID   /boot/efi  vfat  umask=0077                0 2"
+  echo "UUID=$STOREUUID /store     ext4  defaults,noatime          0 2"
+  echo "UUID=$OVERUUID  /overlay   ext4  defaults,noatime          0 2"
+  echo "UUID=$DATAUUID  /data      ext4  defaults,noatime          0 2"
+  echo "tmpfs           /tmp       tmpfs defaults,nosuid,nodev,size=1G 0 0"
+} > /target/etc/fstab
+
+if [ "$LUKS" = 1 ]; then
+  DATAUUIDRAW="$(blkid -s UUID -o value "${DISK}8")"
+  mkdir -p /target/etc/cryptsetup
+  echo "lrd-data UUID=$DATAUUIDRAW none luks,discard" > /target/etc/crypttab
+fi
+
+# ---------- 6. bootloader ----------
+say "bootloader"
+mkdir -p /target/boot/efi/EFI/BOOT /target/boot/efi/EFI/libredroid
+for d in /target/usr/lib/systemd/boot/efi /usr/lib/systemd/boot/efi; do
+  [ -f "$d/systemd-bootx64.efi" ] && cp "$d/systemd-bootx64.efi" /target/boot/efi/EFI/BOOT/BOOTX64.EFI && break
+done
+ROOTARG="root=UUID=$ROOTUUID ro"
+[ "$LUKS" = 1 ] && ROOTARG="rd.luks.name=$DATAUUIDRAW=lrd-data root=UUID=$ROOTUUID ro"
+{
+  echo "title LibreDroid $VERSION"
+  echo "linux /vmlinuz"
+  echo "initrd /initramfs.img"
+  echo "options $ROOTARG quiet loglevel=3 lrd.root=UUID=$ROOTUUID"
+  echo
+  echo "title LibreDroid $VERSION (verbose)"
+  echo "linux /vmlinuz"
+  echo "initrd /initramfs.img"
+  echo "options $ROOTARG"
+  echo
+  echo "title LibreDroid $VERSION (safe mode)"
+  echo "linux /vmlinuz"
+  echo "initrd /initramfs.img"
+  echo "options $ROOTARG systemd.unit=lrd-safe.target"
+} > /target/boot/efi/loader/entries/libredroid.conf
+
+KIMG="$(ls /target/boot/vmlinuz-* 2>/dev/null | head -1)"
+[ -n "$KIMG" ] && cp "$KIMG" /target/boot/efi/vmlinuz
+[ -f /target/boot/initramfs.img ] || cp /target/boot/initrd.img-* /target/boot/efi/initramfs.img 2>/dev/null || true
+
+if [ -d /sys/firmware/efi ]; then
+  say "EFI variables (optional)"
+  for var in /sys/firmware/efi/efivars; do
+    efibootmgr --create --disk "$DISK" --part 1 --label "LibreDroid" \
+      --loader '\EFI\BOOT\BOOTX64.EFI' 2>/dev/null && say "efibootmgr entry created" || true
+  done
+fi
+
+# ---------- 7. user ----------
+say "creating user $USERNAME"
+chroot /target /usr/sbin/lrd-user create "$USERNAME" --admin --shell /bin/bash --autologin 2>/dev/null || \
+  { chroot /target useradd -m -G sudo,audio,video,render,input "$USERNAME"; }
+echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /target/etc/sudoers.d/lrd-user
+chmod 440 /target/etc/sudoers.d/lrd-user
+printf 'root:%s\n%s:%s\n' "$(head -c 12 /dev/urandom | base64)" "$USERNAME" "$(head -c 12 /dev/urandom | base64)" | chroot /target chpasswd 2>/dev/null || true
+
+# ---------- 8. recovery ----------
+if [ "$RECOVERY" = 1 ] && [ -d /target/usr/share/lrd/recovery ]; then
+  say "recovery partition"
+  mount "$(blkid -L LRD-RECOVERY)" /mnt 2>/dev/null || mkdir -p /mnt && mount "$(blkid -L LRD-RECOVERY)" /mnt
+  rsync -aHAX /target/usr/share/lrd/recovery/ /mnt/ 2>/dev/null || true
+  umount /mnt
+fi
+
+# ---------- 9. done ----------
+sync
+for m in /target/data /target/overlay /target/store /target/boot/efi /target/boot /target; do umount "$m" 2>/dev/null || true; done
+[ "$LUKS" = 1 ] && cryptsetup close lrd-data 2>/dev/null || true
+
+cat <<EOF
+
+  installed.
+
+  remove the install media and reboot.
+  first boot drops to a provisioning console for ~30s, then the shell starts.
+
+  recovery:  hold nothing — run 'lrd-slot recovery-once' or wait for 3 failed boots
+  rollback:  'lrd-update rollback'
+  safe mode: add systemd.unit=lrd-safe.target at the boot menu, or 6 taps in the top-right
+
+EOF

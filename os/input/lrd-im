@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# lrd-im — input method. fcitx5 as a Wayland input method, plus the env that makes
+# toolkits use it, plus the XWayland fallback for older apps.
+set -Eeuo pipefail
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+env_file() {
+  mkdir -p /etc/environment.d 2>/dev/null || true
+  cat > /etc/environment.d/70-lrd-input.conf <<'EOF'
+# input method: toolkits read these. Without them, CJK is untypable.
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+SDL_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+INPUT_METHOD=fcitx
+# glfw (some games) has no fcitx support and needs ibus
+GLFW_IM_MODULE=ibus
+# xkb: a compose key so accents work without a layout switch
+XKB_DEFAULT_OPTIONS=compose:ralt
+# virtual keyboard geometry
+LRD_OSK_HEIGHT=220
+EOF
+}
+
+case "${1:-setup}" in
+setup)
+  apt-get install -y --no-install-recommends \
+    fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5 \
+    fcitx5-chinese-addons fcitx5-table-extra fcitx5-japanese fcitx5-hangul \
+    fcitx5-config-qt fcitx5-modules 2>/dev/null || true
+  env_file
+  # a starting profile: keyboard-us + pinyin, switched with ctrl+space
+  mkdir -p /etc/xdg/fcitx5 2>/dev/null || true
+  cat > /etc/xdg/fcitx5/profile <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=keyboard-us
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=pinyin
+Layout=
+
+[GroupOrder]
+0=Default
+EOF
+  cat > /etc/xdg/fcitx5/config <<'EOF'
+[Hotkey]
+TriggerKeys=Control+space
+EnumerateForwardKeys=Control+Shift
+[Behavior]
+ActiveByDefault=True
+ShareInputState=All
+EOF
+  say "fcitx5 configured. ctrl+space switches, Super+K shows the touch keyboard."
+  ;;
+start)
+  [ -f /run/lrd/session.env ] && . /run/lrd/session.env 2>/dev/null || true
+  # the wayland frontend makes it an input-method-v2 IM, which is what native apps need
+  pgrep -x fcitx5 >/dev/null || { fcitx5 --enable wayland --replace -d 2>/dev/null || true; sleep 1; }
+  say "fcitx5 running as a wayland IM; X apps via XMODIFIERS"
+  ;;
+status)
+  echo "fcitx5:   $(pgrep -x fcitx5 >/dev/null && echo running || echo stopped)"
+  echo "wayland:  $(fcitx5-remote -t 2>/dev/null >/dev/null && echo frontend-active || echo 'n/a')"
+  echo "im:       $(fcitx5-remote 2>/dev/null || echo unknown)"
+  echo "gtk:      $(grep -h GTK_IM_MODULE /etc/environment.d/70-lrd-input.conf 2>/dev/null || echo unset)"
+  echo "osk:      $(lrd-osk status 2>/dev/null | head -2 | tr '\n' ' ' || echo none)"
+  ;;
+switch)
+  # cycle layouts, for a hardware key or the shell
+  fcitx5-remote -s "${2:-keyboard-us}" 2>/dev/null || true
+  ;;
+*) echo "usage: lrd-im {setup|start|status|switch <im>}"; exit 2 ;;
+esac

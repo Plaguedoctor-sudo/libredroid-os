@@ -1,0 +1,16 @@
+[Unit]
+Description=LibreDroid boot gate
+After=lrd-adapt-validate.service
+Requires=lrd-adapt-validate.service
+Before=cage.service
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# if the last three boots were bad, do not start the shell — start the console
+ExecStart=/bin/sh -c 'test -e /var/lib/lrd/force-safe && { echo "forcing safe target"; exec systemctl start lrd-safe.target; } || true'
+ExecStartPost=/bin/sh -c 'logger -t lrd-bootgate "level=$(jq -r .level /run/lrd/adapt.json 2>/dev/null)"'
+
+[Install]
+WantedBy=multi-user.target

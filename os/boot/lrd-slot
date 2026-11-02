@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# lrd-slot — slot control from inside the running OS, no fastboot needed.
+#   show | other | set <a|b> | boot <a|b> | boot-once-other | recovery-once
+set -uo pipefail
+BC=/usr/sbin/lrd-bootcount
+MISC=/dev/block/by-name/misc
+
+cur() {
+  local s; s="$(sed -n 's/.*androidboot.slot_suffix=\([^ ]*\).*/\1/p' /proc/cmdline)"
+  echo "${s:-_a}"
+}
+curidx() { [ "$(cur)" = "_b" ] && echo b || echo a; }
+other() { [ "$(curidx)" = "a" ] && echo b || echo a; }
+
+cmd="${1:-show}"
+case "$cmd" in
+  show)
+    echo "running from slot: $(cur)"
+    [ -w "$MISC" ] || [ "$(id -u)" = 0 ] || echo "(not root — writes will fail)"
+    $BC --status
+    ;;
+  other) echo "$(other)" ;;
+  set)
+    t="${2:?a|b}"
+    [ "$t" = "$(curidx)" ] && echo "already on $t" && exit 0
+    echo "switching to slot $t — Android/other OS may live there"
+    $BC --arm "$t" 6
+    echo "reboot to switch"
+    ;;
+  boot)
+    t="${2:?a|b}"
+    $BC --arm "$t" 6
+    sync; systemctl reboot
+    ;;
+  boot-once-other)
+    # arm the other slot with 1 try: it boots once, then the countdown returns us here
+    t="$(other)"
+    $BC --arm "$t" 1
+    echo "booting slot $t once, then back"
+    sync; systemctl reboot
+    ;;
+  recovery-once)
+    mkdir -p /lrdstore
+    mountpoint -q /lrdstore || mount /dev/disk/by-label/LRDSTORE /lrdstore 2>/dev/null || true
+    touch /lrdstore/ENTER_RECOVERY
+    sync; systemctl reboot
+    ;;
+  *) echo "usage: lrd-slot {show|other|set <a|b>|boot <a|b>|boot-once-other|recovery-once}"; exit 2 ;;
+esac

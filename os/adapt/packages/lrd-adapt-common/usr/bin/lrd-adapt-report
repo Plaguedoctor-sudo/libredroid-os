@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# lrd-adapt-report [--json] [--verify] — human or machine view of the real state.
+set -uo pipefail
+J=/run/lrd/adapt.json
+case "${1:-}" in
+  --json) exec cat "$J" 2>/dev/null || echo '{}' ;;
+  --verify)
+    /usr/lib/lrd/adapt/validate >/dev/null 2>&1
+    exec "$0" ;;
+esac
+[ -r "$J" ] || { echo "no report — run: lrd-adapt-report --verify"; exit 1; }
+jq -r '
+  "device      \(.device.model)  kernel \(.device.kernel)",
+  "support     \(.level)   score \(.score)/100   verdict \(.verdict)",
+  "",
+  "display     backend=\(.steps.display.backend // "?")  drm=\(.steps.display.drmAvailable // false)  connected=\((.steps.display.connected // [])|length)",
+  "hybris      mode=\(.steps.hybris.mode // "?")  missing=\((.steps.hybris.missing // [])|length)",
+  "modules     \(.steps.modules.loaded|length) loaded / \(.steps.modules.failed|length) failed",
+  "audio       \(if .steps.audio.ok then "ok (\(.steps.audio.hal))" else (.steps.audio.reason // "failed") end)",
+  "ril         \(if .steps.ril.ok then (if .steps.ril.present == false then "absent (wifi-only)" else "ok" end) else (.steps.ril.reason // "failed") end)",
+  "input       \(.steps.input.count // 0) touchscreen device(s)",
+  "",
+  "kernel tier nft_redirect=\(.tier.nft_redirect) landlock=\(.tier.landlock) cgroup2=\(.tier.cgroup2) userns=\(.tier.user_namespaces) overlayfs=\(.tier.overlayfs)",
+  "isolation   \(.isolation.detail)",
+  "",
+  (if (.blockers|length)>0 then "blockers    \(.blockers|join("\n            "))" else "blockers    none" end)
+' "$J"

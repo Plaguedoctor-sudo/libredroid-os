@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+# lrd-verity — format, sign, verify, inspect.
+#
+#   keygen [dir]                     RSA-4096 keypair + cert
+#   format <rootfs.img>              append a hash tree, emit signed metadata
+#   sign <meta.json>                 detached RSA-SHA256 signature
+#   p7s <roothash-hex> <out.p7s>     PKCS#7 signature of the raw root hash (Tier 1)
+#   verify [slot]                    full re-verification of the running rootfs
+#   status                           what is active right now
+#   rollback-check                   compare the metadata index against the counter
+#   pin                              write the running root hash to the pinned file
+set -Eeuo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+KEYS="${LRD_VERITY_KEYS:-/etc/lrd/keys}"
+STORE="${LRD_STORE:-/store}"
+CONF=/etc/lrd/verity.conf
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+die(){ printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
+need(){ command -v "$1" >/dev/null || die "missing $1"; }
+
+cur_slot(){ local s; s="$(sed -n 's/.*androidboot.slot_suffix=\([^ ]*\).*/\1/p' /proc/cmdline 2>/dev/null | sed 's/^_//' || true)"; echo "${s:-a}"; }
+policy(){ local p; p="$(sed -n 's/^policy=//p' "$CONF" 2>/dev/null || true)"; echo "${p:-warn}"; }
+
+case "${1:-status}" in
+
+keygen)
+  out="${2:-$KEYS}"; mkdir -p "$out"; chmod 700 "$out"
+  need openssl
+  [ -f "$out/verity.key.pem" ] && die "$out/verity.key.pem exists — refusing to overwrite"
+  say "generating RSA-4096"
+  openssl genrsa -out "$out/verity.key.pem" 4096 2>/dev/null
+  chmod 600 "$out/verity.key.pem"
+  openssl rsa -in "$out/verity.key.pem" -pubout -out "$out/verity.pub.pem" 2>/dev/null
+  openssl req -new -x509 -key "$out/verity.key.pem" -out "$out/verity.crt.pem" \
+    -days 3650 -subj "/CN=LibreDroid Verity/O=LibreDroid" 2>/dev/null
+  openssl rsa -in "$out/verity.key.pem" -pubout -outform DER -out "$out/verity.pub.der" 2>/dev/null
+  fp="$(openssl rsa -in "$out/verity.key.pem" -pubout -outform DER 2>/dev/null | sha256sum | cut -c1-32)"
+  echo "$fp" > "$out/verity.fingerprint"
+  say "key id $fp"
+  cat <<EOF
+
+  install the public key:
+    initramfs   cp $out/verity.pub.pem <initramfs>/etc/lrd/keys/
+    kernel      CONFIG_SYSTEM_TRUSTED_KEYS="$out/verity.pub.pem"
+                CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG=y
+    avb         avbtool extract_public_key --key $out/verity.key.pem --output $out/avb.pubkey
+EOF
+  ;;
+
+format)
+  img="${2:?rootfs.img}"; [ -f "$img" ] || die "no such file: $img"
+  need veritysetup
+  slot="${3:-$(cur_slot)}"; [ -n "$slot" ] || slot=a
+  ver="${LRD_VERSION:?set LRD_VERSION}"
+  build="${LRD_BUILD:-$(date -u +%Y%m%dT%H%M%SZ)}"
+  meta_dir="${LRD_VERITY_OUT:-$(dirname "$img")/verity}"
+  mkdir -p "$meta_dir"
+
+  # block-align, because the hash tree starts on a block boundary
+  sz=$(stat -c %s "$img")
+  pad=$(( (4096 - (sz % 4096)) % 4096 ))
+  [ "$pad" -gt 0 ] && { truncate -s $((sz+pad)) "$img"; say "padded $pad bytes"; }
+  DATA_BYTES=$(stat -c %s "$img")
+  DATA_BLOCKS=$(( DATA_BYTES / 4096 ))
+
+  # a 4GB rootfs needs ~33MB of hash tree; make sure there is room
+  say "formatting hash tree for $((DATA_BLOCKS)) blocks"
+  SALT="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  HT="$(mktemp)"; trap 'rm -f "$HT"' EXIT
+  OUT="$(veritysetup format --salt="$SALT" --data-blocks="$DATA_BLOCKS" \
+          --data-block-size=4096 --hash-block-size=4096 "$img" "$HT")"
+  ROOTHASH="$(sed -n 's/^Root hash:[[:space:]]*//p' <<<"$OUT")"
+  [ -n "$ROOTHASH" ] || die "veritysetup produced no root hash"
+  HTSZ=$(stat -c %s "$HT")
+  say "root hash $ROOTHASH"
+  say "hash tree $((HTSZ/1024/1024))MB"
+
+  # append: the data device now contains data || hashtree
+  cat "$HT" >> "$img"
+  FINAL=$(stat -c %s "$img")
+  ROOTFS_SHA="$(head -c "$DATA_BYTES" "$img" | sha256sum | cut -d' ' -f1)"
+
+  jq -nc \
+    --arg ver "$ver" --arg build "$build" --arg slot "$slot" \
+    --arg rh "$ROOTHASH" --arg salt "$SALT" --arg sha "$ROOTFS_SHA" \
+    --argjson ho "$DATA_BYTES" --argjson db "$DATA_BLOCKS" --argjson dbs 4096 --argjson hbs 4096 \
+    --argjson total "$FINAL" --argjson ri "${LRD_ROLLBACK_INDEX:-1}" \
+    --arg keyid "$(cat "$KEYS/verity.fingerprint" 2>/dev/null || echo unknown)" \
+    '{version:$ver, buildId:$build, slot:$slot,
+      rootHash:$rh, salt:$salt, hashOffset:$ho,
+      dataBlocks:$db, dataBlockSize:$dbs, hashBlockSize:$hbs,
+      imageBytes:$total, rootfsSha256:$sha, rollbackIndex:$ri,
+      keyId:$keyid, algorithm:"sha256", format:1}' \
+    > "$meta_dir/lrd-verity_${slot}.json"
+
+  say "signing metadata"
+  "$0" sign "$meta_dir/lrd-verity_${slot}.json"
+  # Tier 1: PKCS#7 over the raw root hash, for the kernel to check itself
+  "$0" p7s "$ROOTHASH" "$meta_dir/lrd-verity_${slot}.p7s" || true
+
+  say "written:"
+  ls -la "$meta_dir"
+  cat <<EOF
+
+  the metadata MUST travel with the image. An update without it fails to boot
+  under policy=strict and boots flagged under policy=warn.
+EOF
+  ;;
+
+sign)
+  f="${2:?file}"; key="${3:-$KEYS/verity.key.pem}"
+  need openssl
+  [ -f "$key" ] || die "no key at $key"
+  openssl dgst -sha256 -sign "$key" -out "$f.sig" "$f"
+  say "signed $(basename "$f")"
+  ;;
+
+p7s)
+  rh="${2:?root-hash-hex}"; out="${3:?output}"
+  need openssl
+  [ -f "$KEYS/verity.crt.pem" ] || { say "no cert — skipping p7s"; exit 0; }
+  printf '%s' "$rh" | xxd -r -p > "$out.raw"
+  openssl cms -sign -binary -noattr -nodetach -md sha256 \
+    -in "$out.raw" -signer "$KEYS/verity.crt.pem" -inkey "$KEYS/verity.key.pem" \
+    -outform DER -out "$out" 2>/dev/null && say "p7s written"
+  rm -f "$out.raw"
+  ;;
+
+verify)
+  slot="${2:-$(cur_slot)}"
+  meta="$STORE/verity/lrd-verity_${slot}.json"
+  [ -f "$meta" ] || die "no metadata at $meta"
+  need openssl
+
+  say "signature"
+  openssl dgst -sha256 -verify "$KEYS/verity.pub.pem" -signature "$meta.sig" "$meta" \
+    || die "SIGNATURE INVALID"
+  echo "  ok"
+
+  say "metadata sanity"
+  jq -e '.format==1 and .rootHash and .hashOffset and .dataBlocks' "$meta" >/dev/null \
+    || die "malformed metadata"
+
+  say "hash tree (full walk — this reads the whole rootfs)"
+  dev="/dev/mapper/lrdroot-${slot}"
+  if [ -e "$dev" ]; then
+    veritysetup verify --data-block-size="$(jq -r .dataBlockSize "$meta")" \
+      --hash-offset="$(jq -r .hashOffset "$meta")" \
+      "$(jq -r '.imagePath // "/lrdstore/lrd-rootfs_" + .slot + ".raw"' "$meta" 2>/dev/null || echo "/lrdstore/lrd-rootfs_${slot}.raw")" \
+      "$(jq -r .rootHash "$meta")" 2>&1 | tail -3
+    echo "  veritysetup verify: ok"
+  else
+    echo "  $dev not present — is verity active for this slot?"
+  fi
+
+  say "rootfs content hash"
+  jq -r .rootfsSha256 "$meta"
+  ;;
+
+status)
+  slot="$(cur_slot)"
+  meta="$STORE/verity/lrd-verity_${slot}.json"
+  dev="/dev/mapper/lrdroot-${slot}"
+  echo "policy:        $(policy || echo warn)"
+  echo "running slot:  ${slot:-?}"
+  echo "verity active: $([ -e "$dev" ] && echo YES || echo no)"
+  echo "kernel tier1:  $([ -r /sys/module/dm_verity/parameters/require_signatures ] && \
+        echo "$(cat /sys/module/dm_verity/parameters/require_signatures)" || echo unsupported)"
+  if [ -f "$meta" ]; then
+    echo "build:         $(jq -r .buildId "$meta")"
+    echo "version:       $(jq -r .version "$meta")"
+    echo "root hash:     $(jq -r .rootHash "$meta")"
+    echo "rollback idx:  $(jq -r .rollbackIndex "$meta")"
+    echo "key id:        $(jq -r .keyId "$meta")"
+    echo "signed:        $([ -f "$meta.sig" ] && echo yes || echo NO)"
+  else
+    echo "metadata:      MISSING for slot $slot"
+  fi
+  [ -r /run/lrd/verity.json ] && { echo; jq . /run/lrd/verity.json; } || true
+  ;;
+
+rollback-check)
+  slot="$(cur_slot)"; meta="$STORE/verity/lrd-verity_${slot}.json"
+  [ -f "$meta" ] || die "no metadata"
+  want="$(jq -r .rollbackIndex "$meta")"
+  counter_file="$STORE/lrd-rollback-index"
+  have="$(cat "$counter_file" 2>/dev/null || echo 0)"
+  echo "metadata index: $want"
+  echo "counter:        $have"
+  if [ "$want" -lt "$have" ]; then
+    echo "verdict: ROLLBACK — this rootfs is older than the counter says was installed"
+    echo "         (advisory: the counter lives on a writable partition)"
+    exit 1
+  fi
+  [ "$want" -gt "$have" ] && { echo "$want" > "$counter_file"; echo "counter advanced to $want"; }
+  echo "verdict: ok"
+  ;;
+
+pin)
+  slot="$(cur_slot)"; meta="$STORE/verity/lrd-verity_${slot}.json"
+  [ -f "$meta" ] || die "no metadata"
+  mkdir -p /etc/lrd
+  {
+    echo "# pinned root hashes — the initramfs accepts these without a signature"
+    echo "$(jq -r .version "$meta") $(jq -r .rootHash "$meta")"
+  } > /etc/lrd/verity.pinned
+  say "pinned $(jq -r .rootHash "$meta")"
+  ;;
+
+quick)
+  slot="$(cur_slot)"; meta="$STORE/verity/lrd-verity_${slot}.json"
+  [ -f "$meta" ] || die "no metadata"
+  openssl dgst -sha256 -verify "$KEYS/verity.pub.pem" -signature "$meta.sig" "$meta" || die "SIGNATURE INVALID"
+  off="$(jq -r .hashOffset "$meta")"
+  img="/lrdstore/lrd-rootfs_${slot}.raw"
+  # the root hash IS the hash of the first hash block, salted
+  block="$(dd if="$img" bs=4096 skip=$((off/4096)) count=1 2>/dev/null | sha256sum | cut -d' ' -f1 || echo unknown)"
+  echo "root hash:  $(jq -r .rootHash "$meta")"
+  echo "tree block: $block"
+  echo "note: shallow — the leaves are checked on read by dm-verity, and by"
+  echo "      'lrd-verity verify' on the weekly scan."
+  ;;
+
+*) cat <<EOF
+usage: lrd-verity {keygen [dir]|format <img> [slot]|sign <file>|p7s <hex> <out>|
+                   verify [slot]|quick|status|rollback-check|pin}
+EOF
+exit 2 ;;
+esac

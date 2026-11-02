@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+# faillock: 5 tries, 5 minute lockout
+if [ -f /etc/pam.d/common-auth ] && ! grep -q pam_faillock /etc/pam.d/common-auth 2>/dev/null; then
+  sed -i '1i auth    required                        pam_faillock.so preauth' /etc/pam.d/common-auth 2>/dev/null || true
+  sed -i '/^auth.*pam_unix.so/a auth    [default=die]                 pam_faillock.so authfail\nauth    sufficient                      pam_faillock.so authsucc' /etc/pam.d/common-auth 2>/dev/null || true
+fi
+# pwquality: 8 chars, no trivial
+if [ -f /etc/pam.d/common-password ] && ! grep -q pwquality /etc/pam.d/common-password 2>/dev/null; then
+  sed -i 's/^password.*pam_unix.so/password    requisite    pam_pwquality.so retry=3 minlen=8 difok=3\n&/' /etc/pam.d/common-password 2>/dev/null || true
+fi
+# a session timeout for interactive shells
+mkdir -p /etc/profile.d 2>/dev/null || true
+printf 'TMOUT=3600\nreadonly TMOUT\nexport TMOUT\n' > /etc/profile.d/lrd-timeout.sh 2>/dev/null || true
+echo "pam hardened"

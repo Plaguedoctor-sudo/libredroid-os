@@ -1,0 +1,22 @@
+[Unit]
+Description=LibreDroid desktop health gate
+After=labwc.service lrd-adapt-validate.service
+Requires=labwc.service
+Before=lrd-verify.service
+StartLimitIntervalSec=60
+StartLimitBurst=2
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# give the session time to settle, then judge it
+ExecStartPre=/bin/sleep 6
+ExecStart=/usr/bin/lrd-doctor --gate --quiet
+TimeoutStartSec=120
+# 0 healthy, 1 degraded (continue), 2 gate-critical (safe mode)
+SuccessExitStatus=0 1
+ExecStopPost=/bin/sh -c 'test $EXIT_STATUS -eq 2 && systemctl start lrd-safe.target || true'
+ExecStartPost=/bin/sh -c 'jq -r .score /run/lrd/doctor.json > /run/lrd/doctor.score 2>/dev/null || echo 0 > /run/lrd/doctor.score'
+
+[Install]
+WantedBy=graphical.target

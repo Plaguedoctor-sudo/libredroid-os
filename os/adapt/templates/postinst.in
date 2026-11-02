@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+echo "lrd-adapt: support level @LEVEL@"
+# load the vendor modules the device needs
+depmod -a 2>/dev/null || true
+# adopt hybris properties into the environment every service inherits
+install -d /etc/environment.d
+sed 's/^/LRD_HYB_/' /etc/lrd/hybris.conf > /etc/environment.d/50-lrd-hybris.conf || true
+# udev
+install -m644 /etc/lrd/70-lrd-hw.rules /etc/udev/rules.d/70-lrd-hw.rules 2>/dev/null || true
+# report what is missing, honestly
+missing=""
+for f in /etc/lrd/display.conf /etc/lrd/hybris.conf; do
+  [ -e "$f" ] || missing="$missing $f"
+done
+[ -n "$missing" ] && echo "lrd-adapt: MISSING$missing"
+exit 0

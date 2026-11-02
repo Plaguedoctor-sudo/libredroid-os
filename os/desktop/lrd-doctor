@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# lrd-doctor — verify the desktop is actually working, not merely installed.
+# "installed" and "started" are different things; that gap is the whole point.
+#
+#   doctor [--full] [--gate] [--json] [--fix] [--category X] [--quiet]
+#
+# exit 0 healthy, 1 findings, 2 gate-critical failure
+set -uo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+CHECKS="${LRD_DOCTOR_CHECKS:-$HERE/doctor-checks.tsv}"
+[ -f "$CHECKS" ] || CHECKS=/usr/share/lrd/doctor-checks.tsv
+
+MODE=full; JSON=0; FIX=0; QUIET=0; CAT=""
+for a in "$@"; do case "$a" in
+  --full) MODE=full ;; --gate) MODE=gate ;; --json) JSON=1 ;; --fix) FIX=1 ;;
+  --quiet|-q) QUIET=1 ;; --category) shift; CAT="${1:-}" ;;
+esac; done
+
+# attach to the session so the checks see what a user would
+[ -f /run/lrd/session.env ] && . /run/lrd/session.env 2>/dev/null || true
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/lrd/session}"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}"
+
+declare -A STATUS FIXED
+RESULTS=(); PASS=0; FAIL=0; WARN=0; SKIP=0; CRIT=0
+
+run_check() { bash -c "$1" >/dev/null 2>&1; }
+apply_fix()  { [ -n "$1" ] || return 1; bash -c "$1" >/dev/null 2>&1; }
+
+record() { # id cat weight mode status detail
+  RESULTS+=("$(jq -nc --arg id "$1" --arg c "$2" --argjson w "$3" --arg m "$4" --arg s "$5" --arg d "$6" \
+    '{id:$id,category:$c,weight:$w,mode:$m,status:$s,detail:$d}')")
+}
+
+while IFS=$'\t' read -r id cat weight mode needs check fix hint; do
+  case "$id" in ''|\#*) continue ;; esac
+  [ -n "$CAT" ] && [ "$cat" != "$CAT" ] && continue
+  [ "$MODE" = gate ] && [ "$mode" != gate ] && continue
+
+  # a failed dependency means skip, not a cascade of noise
+  if [ -n "$needs" ] && [ "$needs" != "-" ]; then
+    dep_ok=1
+    for n in $needs; do
+      case "${STATUS[$n]:-}" in pass|fixed) ;; *) dep_ok=0 ;; esac
+    done
+    if [ "$dep_ok" = 0 ]; then
+      STATUS[$id]=skip; SKIP=$((SKIP+1))
+      record "$id" "$cat" "$weight" "$mode" skip "depends on: $needs"
+      [ "$QUIET" = 0 ] && [ "$JSON" = 0 ] && printf '  \033[90mskip\033[0m %-26s %s\n' "$id" "needs $needs"
+      continue
+    fi
+  fi
+
+  if run_check "$check"; then
+    STATUS[$id]=pass; PASS=$((PASS+1))
+    record "$id" "$cat" "$weight" "$mode" pass ""
+    [ "$QUIET" = 0 ] && [ "$JSON" = 0 ] && printf '  \033[32m ok \033[0m %-26s %s\n' "$id" "$hint"
+    continue
+  fi
+
+  # failed. try to fix if asked.
+  if [ "$FIX" = 1 ] && [ -n "$fix" ]; then
+    if apply_fix "$fix" && run_check "$check"; then
+      STATUS[$id]=fixed; FIXED[$id]=1; PASS=$((PASS+1))
+      record "$id" "$cat" "$weight" "$mode" fixed "$fix"
+      [ "$JSON" = 0 ] && printf '  \033[36mfixd\033[0m %-26s %s\n' "$id" "$hint"
+      continue
+    fi
+  fi
+
+  STATUS[$id]=fail; FAIL=$((FAIL+1))
+  [ "$mode" = gate ] && CRIT=$((CRIT+1))
+  record "$id" "$cat" "$weight" "$mode" fail "$hint"
+  [ "$JSON" = 0 ] && printf '  \033[31mFAIL\033[0m %-26s %s\n' "$id" "$hint"
+  [ "$JSON" = 0 ] && [ -n "$fix" ] && printf '       \033[90mfix: %s\033[0m\n' "$fix"
+done < "$CHECKS"
+
+TOTAL=$((PASS+FAIL))
+SCORE=$(( TOTAL ? (PASS*100 + SKIP*50) / (TOTAL+SKIP ? TOTAL+SKIP : 1) : 0 ))
+
+if [ "$JSON" = 1 ]; then
+  printf '%s\n' "${RESULTS[@]}" | jq -s \
+    --argjson pass "$PASS" --argjson fail "$FAIL" --argjson skip "$SKIP" \
+    --argjson crit "$CRIT" --argjson score "$SCORE" --arg mode "$MODE" --arg at "$(date -Is)" \
+    '{at:$at, mode:$mode, score:$score, pass:$pass, fail:$fail, skip:$skip, gateFailures:$crit,
+      verdict: (if $crit>0 then "gate-failed" elif $fail>0 then "degraded" else "healthy" end),
+      findings:[.[]|select(.status=="fail")], results:.}'
+  exit $([ "$CRIT" -gt 0 ] && echo 2 || { [ "$FAIL" -gt 0 ] && echo 1 || echo 0; })
+fi
+
+echo
+if [ "$FAIL" = 0 ]; then
+  printf '  \033[1;32mhealthy\033[0m  %d checks, score %d\n' "$PASS" "$SCORE"
+else
+  printf '  \033[1;31m%d failed\033[0m (%d gate-critical)  %d passed  %d skipped  score %d\n' \
+    "$FAIL" "$CRIT" "$PASS" "$SKIP" "$SCORE"
+fi
+if mkdir -p /run/lrd 2>/dev/null; then
+  echo "  written /run/lrd/doctor.json"
+  printf '%s\n' "${RESULTS[@]}" | jq -s --argjson s "$SCORE" --argjson c "$CRIT" \
+    '{score:$s, gateFailures:$c, findings:[.[]|select(.status=="fail")], results:.}' \
+    > /run/lrd/doctor.json 2>/dev/null || true
+fi
+
+if [ "$CRIT" -gt 0 ]; then
+  echo
+  echo "  gate-critical failures (the shell will not be usable):"
+  printf '%s\n' "${RESULTS[@]}" | jq -r 'select(.mode=="gate" and .status=="fail")|"    \(.id) — \(.detail)"'
+fi
+
+[ "$CRIT" -gt 0 ] && exit 2
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

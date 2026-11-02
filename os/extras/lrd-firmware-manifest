@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# The vendor blobs are the least-verified thing on the device. At minimum,
+# record where each came from so a re-port is reproducible.
+set -Eeuo pipefail
+OUT="${1:-/usr/share/lrd/firmware-manifest.json}"
+mkdir -p "$(dirname "$OUT")" 2>/dev/null || true
+jq -nc --arg at "$(date -Is)" --arg src "${LRD_ADAPT_PKG:-unknown}" --arg kernel "$(uname -r)" \
+  --argjson files "$(
+    find /lib/firmware -type f 2>/dev/null | while read -r f; do
+      printf '{"path":%s,"sha256":%s,"size":%s}\n' \
+        "$(printf '%s' "$f" | jq -Rs .)" "$(sha256sum "$f" 2>/dev/null | cut -d' ' -f1)" "$(stat -c %s "$f" 2>/dev/null || echo 0)"
+    done | jq -s . )" \
+  --argjson modules "$(
+    find /lib/modules -name '*.ko' 2>/dev/null | while read -r m; do
+      printf '{"path":%s,"signer":%s,"sha256":%s}\n' \
+        "$(printf '%s' "$m" | jq -Rs .)" "$(modinfo -F signer "$m" 2>/dev/null | jq -Rs . || echo '""')" \
+        "$(sha256sum "$m" 2>/dev/null | cut -d' ' -f1)"
+    done | jq -s . )" \
+  '{generatedAt:$at, source:$src, kernel:$kernel, firmware:$files, modules:$modules,
+    note:"firmware has no signature chain; this records provenance only"}' > "$OUT"
+echo "wrote $OUT  ($(jq '.firmware|length' "$OUT") firmware, $(jq '.modules|length' "$OUT") modules)"

@@ -1,0 +1,13 @@
+// /etc/polkit-1/rules.d/50-lrd-storage.rules
+polkit.addRule(function(action, subject) {
+  var mountActions = [
+    'org.freedesktop.udisks2.filesystem-mount',
+    'org.freedesktop.udisks2.filesystem-unmount-others',
+    'org.freedesktop.udisks2.filesystem-mount-system',
+    'org.freedesktop.udisks2.eject-media',
+    'org.freedesktop.udisks2.power-off-drive'
+  ];
+  if (mountActions.indexOf(action.id) >= 0 && subject.isInGroup('lrd'))
+    return polkit.Result.YES;
+  return null;
+});

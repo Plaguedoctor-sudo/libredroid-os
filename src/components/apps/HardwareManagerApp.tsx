@@ -16,12 +16,15 @@ import {
   Smartphone,
   Radio,
   Camera,
-  Mic
+  Mic,
+  Terminal
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
+import { useWindow } from '../../context/WindowContext';
 import { fetchHardwareStatus, PhysicalHardwareStatus } from '../../services/hardwareBridgeClient';
 
 export const HardwareManagerApp: React.FC = () => {
+  const { openApp } = useWindow();
   const { 
     hardwareSpecs, 
     adaptivePolicy, 
@@ -283,6 +286,60 @@ export const HardwareManagerApp: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* HAL Subsystem Diagnostics & Tooling */}
+        <div className="bg-neutral-950/80 p-4 rounded-3xl border border-neutral-800 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">HAL Subsystem Testing & Tooling</span>
+            <span className="text-[10px] text-neutral-500 font-mono">Kernel 6.6.21</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <button
+              onClick={() => openApp('terminal', 'Termux', undefined, { initialCommand: 'python3 os/arm/scripts/dtree-to-dts.py /proc/device-tree' })}
+              className="p-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-xl flex flex-col gap-1 transition-all text-left"
+            >
+              <div className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                <Terminal size={14} />
+                <span>Device Tree</span>
+              </div>
+              <span className="text-[10px] text-neutral-400">Dump & parse FDT nodes</span>
+            </button>
+
+            <button
+              onClick={() => openApp('camera', 'Open Camera')}
+              className="p-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-xl flex flex-col gap-1 transition-all text-left"
+            >
+              <div className="flex items-center gap-1.5 text-rose-400 font-semibold">
+                <Camera size={14} />
+                <span>Camera Sensor</span>
+              </div>
+              <span className="text-[10px] text-neutral-400">Test V4L2 & HAL stream</span>
+            </button>
+
+            <button
+              onClick={() => openApp('phone', 'Phone Dialer')}
+              className="p-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-xl flex flex-col gap-1 transition-all text-left"
+            >
+              <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                <Smartphone size={14} />
+                <span>RIL Telephony</span>
+              </div>
+              <span className="text-[10px] text-neutral-400">Test modem & dialer bus</span>
+            </button>
+
+            <button
+              onClick={() => openApp('files', 'Nextcloud Files', undefined, { source: 'physical' })}
+              className="p-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-xl flex flex-col gap-1 transition-all text-left"
+            >
+              <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
+                <HardDrive size={14} />
+                <span>Storage /sdcard</span>
+              </div>
+              <span className="text-[10px] text-neutral-400">Direct physical storage</span>
+            </button>
+          </div>
+        </div>
 
         {/* Manual Hardware Profile Simulation */}
         <div>

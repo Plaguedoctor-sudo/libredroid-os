@@ -1,0 +1,11 @@
+[Unit]
+Description=LibreDroid services
+DefaultDependencies=no
+Before=slices.target
+
+[Slice]
+CPUWeight=90
+MemoryHigh=80%
+MemoryMax=95%
+TasksMax=4096
+IOWeight=90

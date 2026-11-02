@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# firstboot — render to tty1 WITHOUT holding the graphical target, then get out.
+set -uo pipefail
+TTY=/dev/tty1
+DEADLINE=$(( $(date +%s) + ${LRD_FIRSTBOOT_SECS:-6} ))
+
+# attach straight to the console; no systemd tty juggling
+exec < "$TTY" > "$TTY" 2>&1 || exec > "$TTY" 2>&1
+
+[ -r /run/lrd/adapt.json ] || /usr/lib/lrd/adapt/validate >/dev/null 2>&1
+
+clear
+printf '\n  \033[1mL I B R E D R O I D\033[0m  first boot\n\n'
+
+if [ -r /run/lrd/adapt.json ]; then
+  jq -r '
+    "  device     \(.device.model)  (\(.device.kernel))",
+    "  support    \(.level)   score \(.score)/100",
+    "  display    \(.steps.display.variant // "?")\(if .steps.display.degraded then "  (degraded)" else "" end)",
+    "  hybris     \(.steps.hybris.mode // "not run")",
+    "  props      \(.steps.props.mode // "n/a")  applied \(.steps.props.applied // 0)",
+    "  modules    \(.steps.modules.loaded|length) ok / \(.steps.modules.failed|length) failed",
+    "  audio      \(if .steps.audio.ok then "ok (\(.steps.audio.droid_card))" else (.steps.audio.reason // "failed") end)",
+    "  touch      \(.steps.input.count // 0) device(s)",
+    "  isolation  nft=\(.tier.nft_redirect) landlock=\(.tier.landlock) cgroup2=\(.tier.cgroup2)",
+    "",
+    (if (.blockers|length)>0 then "  blockers   \(.blockers|join(", "))" else "  blockers   none" end)
+  ' /run/lrd/adapt.json
+fi
+
+if [ -r /run/lrd/revert.txt ]; then
+  printf '\n  \033[33mthe last change was auto-reverted\033[0m\n'
+  sed 's/^/    /' /run/lrd/revert.txt | head -12
+  rm -f /run/lrd/revert.txt
+fi
+
+printf '\n  ────────────────────────────────────────────\n'
+printf '  ctrl+alt+F2 for a shell. any key skips the wait.\n\n'
+
+# countdown, interruptible, but never longer than the deadline
+while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+  printf '\r  starting in %ss  ' "$(( DEADLINE - $(date +%s) ))"
+  read -r -t 1 -n 1 && break
+done
+printf '\r                        \n'
+touch /var/lib/lrd/firstboot.done
+exit 0

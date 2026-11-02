@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# validate — the boot gate's evidence. Runs every step, writes facts, decides.
+set -uo pipefail
+log() { echo "[validate] $*"; logger -t lrd-adapt "$*" 2>/dev/null || true; }
+
+for s in props hybris display modules input audio ril camera sensors; do
+  log "step: $s"
+  case "$s" in
+    props) /usr/lib/lrd/adapt/propset /etc/lrd/device.props >/dev/null 2>&1 ;;
+    *)     "/usr/lib/lrd/adapt/apply-$s" || log "$s returned non-zero" ;;
+  esac
+done
+
+score="$(/usr/lib/lrd/adapt/facts 2>/dev/null || echo 0)"
+level="$(jq -r .level /run/lrd/adapt.json 2>/dev/null || echo unsupported)"
+blockers="$(jq -r '.blockers|join(", ")' /run/lrd/adapt.json 2>/dev/null || echo unknown)"
+
+log "score=$score level=$level blockers=[$blockers]"
+
+/usr/bin/lrd-adapt-txn check || true
+
+# the gate: three consecutive bad boots means the last change was wrong
+mkdir -p /var/lib/lrd
+if [ "$score" -lt 35 ]; then
+  n=$(( $(cat /var/lib/lrd/badboots 2>/dev/null || echo 0) + 1 ))
+  echo "$n" > /var/lib/lrd/badboots
+  log "bad boot #$n"
+  if [ "$n" -ge 3 ]; then
+    log "3 strikes — arming safe target"
+    touch /var/lib/lrd/force-safe
+  fi
+else
+  echo 0 > /var/lib/lrd/badboots
+fi
+exit 0
