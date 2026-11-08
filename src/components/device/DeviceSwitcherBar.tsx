@@ -21,6 +21,7 @@ import { useWindow } from '../../context/WindowContext';
 import { usePersona } from '../../context/PersonaContext';
 import { useSecurity } from '../../context/SecurityContext';
 import { DeviceMode } from '../../types/system';
+import { hardwareHalBridge } from '../../services/hardwareHalBridge';
 
 export const DeviceSwitcherBar: React.FC = () => {
   const { 
@@ -183,6 +184,20 @@ export const DeviceSwitcherBar: React.FC = () => {
             </button>
           );
         })}
+
+        {/* Samsung Galaxy M14 Dedicated Profile Switcher */}
+        <button
+          onClick={() => {
+            if (navigator.vibrate) navigator.vibrate([15, 20]);
+            setDeviceMode('phone');
+            hardwareHalBridge.applySamsungM14Profile();
+          }}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-gradient-to-r from-blue-600/40 to-cyan-600/40 text-cyan-300 border border-cyan-500/40 hover:from-blue-600/60 hover:to-cyan-600/60 transition-all active:scale-95 min-h-[36px]"
+          title="Samsung Galaxy M14 5G (Exynos 1330 • 6000mAh Monster Battery)"
+        >
+          <Smartphone size={13} className="text-cyan-400" />
+          <span>Galaxy M14 5G</span>
+        </button>
       </div>
 
       {/* Foldable state toggle if foldable is active */}

@@ -1,0 +1,25 @@
+[Unit]
+Description=LibreDroid Native Sovereign System Daemon
+After=network.target local-fs.target dbus.service lrdd.socket
+Requires=lrdd.socket
+DefaultDependencies=no
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lrdd
+Restart=always
+RestartSec=1s
+User=root
+Group=root
+RuntimeDirectory=libredroid
+RuntimeDirectoryMode=0775
+StandardOutput=journal
+StandardError=journal
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_ADMIN CAP_DAC_OVERRIDE
+AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_ADMIN
+LimitNOFILE=65536
+MemoryMax=32M
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

@@ -7,10 +7,32 @@ DEADLINE=$(( $(date +%s) + ${LRD_FIRSTBOOT_SECS:-6} ))
 # attach straight to the console; no systemd tty juggling
 exec < "$TTY" > "$TTY" 2>&1 || exec > "$TTY" 2>&1
 
+# check locked bootloader — degrade honestly instead of failing
+if command -v fastboot >/dev/null 2>&1; then
+  if ! fastboot getvar unlocked 2>&1 | grep -q 'unlocked: yes'; then
+    mkdir -p /etc/lrd/flags; touch /etc/lrd/flags/locked-bootloader
+  fi
+elif grep -q 'androidboot.verifiedbootstate=orange' /proc/cmdline 2>/dev/null; then
+  : # unlocked
+elif grep -q 'androidboot.verifiedbootstate=green' /proc/cmdline 2>/dev/null || grep -q 'androidboot.verifiedbootstate=yellow' /proc/cmdline 2>/dev/null; then
+  mkdir -p /etc/lrd/flags; touch /etc/lrd/flags/locked-bootloader
+fi
+
+# Apply hardware device-tree overlays for ARM platforms
+if command -v lrd-dtbo-apply >/dev/null 2>&1; then
+  lrd-dtbo-apply >/dev/null 2>&1 || true
+elif [ -x /usr/bin/lrd-dtbo-apply ]; then
+  /usr/bin/lrd-dtbo-apply >/dev/null 2>&1 || true
+fi
+
 [ -r /run/lrd/adapt.json ] || /usr/lib/lrd/adapt/validate >/dev/null 2>&1
 
 clear
 printf '\n  \033[1mL I B R E D R O I D\033[0m  first boot\n\n'
+
+if [ -f /etc/lrd/flags/locked-bootloader ]; then
+  printf '  \033[1;31mBlocker:\033[0m Bootloader locked — verity cannot use this device'\''s key.\n\n'
+fi
 
 if [ -r /run/lrd/adapt.json ]; then
   jq -r '

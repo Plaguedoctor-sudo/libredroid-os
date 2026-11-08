@@ -1,0 +1,17 @@
+[Unit]
+Description=LibreDroid Cellular Telephony & Voice/SMS Engine
+After=network.target ModemManager.service
+Wants=ModemManager.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lrd-telephonyd
+Restart=always
+RestartSec=2
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/libredroid /tmp/libredroid
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

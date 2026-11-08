@@ -1,0 +1,56 @@
+#!/bin/bash
+# ==============================================================================
+# LibreDroid Unified Settings Controller CLI (lrd-settings)
+# os/settings/lrd-settings
+#
+# Dispatcher hub linking Wi-Fi, Bluetooth, HiDPI Display, Security, and Audio subsystems.
+# ==============================================================================
+
+set -euo pipefail
+
+MODULE="${1:-status}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+WIFI_BIN="$SCRIPT_DIR/net/lrd-wifi"
+BT_BIN="$SCRIPT_DIR/bluetooth/lrd-bluetooth"
+DISPLAY_BIN="$SCRIPT_DIR/display/lrd-display"
+SECURITY_BIN="$SCRIPT_DIR/security/lrd-security"
+
+# Fallback to system path
+if [ -x "/usr/bin/lrd-wifi" ]; then WIFI_BIN="/usr/bin/lrd-wifi"; fi
+if [ -x "/usr/bin/lrd-bluetooth" ]; then BT_BIN="/usr/bin/lrd-bluetooth"; fi
+if [ -x "/usr/bin/lrd-display" ]; then DISPLAY_BIN="/usr/bin/lrd-display"; fi
+if [ -x "/usr/bin/lrd-security" ]; then SECURITY_BIN="/usr/bin/lrd-security"; fi
+
+case "$MODULE" in
+    wifi)
+        shift
+        "$WIFI_BIN" "$@"
+        ;;
+    bluetooth|bt)
+        shift
+        "$BT_BIN" "$@"
+        ;;
+    display)
+        shift
+        "$DISPLAY_BIN" "$@"
+        ;;
+    security)
+        shift
+        "$SECURITY_BIN" "$@"
+        ;;
+    status)
+        echo "=== LibreDroid Unified Settings Suite ==="
+        "$WIFI_BIN" status
+        echo ""
+        "$BT_BIN" status
+        echo ""
+        "$DISPLAY_BIN" status
+        echo ""
+        "$SECURITY_BIN" status
+        ;;
+    *)
+        echo "Usage: $0 {wifi|bluetooth|display|security|status} [args...]"
+        exit 1
+        ;;
+esac

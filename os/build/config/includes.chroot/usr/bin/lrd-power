@@ -1,0 +1,77 @@
+#!/bin/bash
+# ==============================================================================
+# LibreDroid Mobile Power & Wake-Lock Controller CLI (lrd-power)
+# os/power/lrd-power
+# ==============================================================================
+
+set -euo pipefail
+
+SOCK="/run/libredroid/power.sock"
+if [ ! -S "$SOCK" ]; then
+    SOCK="/tmp/libredroid/power.sock"
+fi
+
+cmd="${1:-status}"
+
+send_cmd() {
+    local request="$1"
+    python3 -c '
+import socket, sys
+sock_path = sys.argv[1]
+cmd = sys.argv[2] + "\n"
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+try:
+    s.connect(sock_path)
+    s.sendall(cmd.encode())
+    data = s.recv(2048)
+    print(data.decode().strip())
+except Exception as e:
+    print(f"Error connecting to wakelockd: {e}")
+    sys.exit(1)
+finally:
+    s.close()
+' "$SOCK" "$request"
+}
+
+case "$cmd" in
+    status)
+        send_cmd "status"
+        ;;
+    lock|wakelock-acquire)
+        name="${2:-generic_task}"
+        send_cmd "wakelock-acquire $name"
+        ;;
+    unlock|wakelock-release)
+        name="${2:-generic_task}"
+        send_cmd "wakelock-release $name"
+        ;;
+    screen)
+        state="${2:-on}"
+        if [ "$state" = "off" ]; then
+            send_cmd "screen-off"
+        else
+            send_cmd "screen-on"
+        fi
+        ;;
+    suspend)
+        send_cmd "suspend"
+        ;;
+    charge-limit)
+        limit="${2:-80}"
+        send_cmd "set-charge-limit $limit"
+        ;;
+    irq-status)
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [ -x "$script_dir/lrd-irq-wake.sh" ]; then
+            "$script_dir/lrd-irq-wake.sh" status
+        elif [ -x "/usr/bin/lrd-irq-wake" ]; then
+            /usr/bin/lrd-irq-wake status
+        else
+            echo "IRQ wake script unavailable."
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {status|lock <name>|unlock <name>|screen <on|off>|suspend|charge-limit <80|100>|irq-status}"
+        exit 1
+        ;;
+esac

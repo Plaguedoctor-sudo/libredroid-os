@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- LibreDroid Sovereign AOSP Manifest (Android 14 Base) -->
+<manifest>
+  <remote name="aosp"
+          fetch="https://android.googlesource.com"
+          review="android-review.googlesource.com" />
+
+  <remote name="libredroid"
+          fetch="https://github.com/Plaguedoctor-sudo" />
+
+  <default revision="refs/tags/android-14.0.0_r50"
+           remote="aosp"
+           sync-j="4" />
+
+  <!-- Core Platforms & Runtimes -->
+  <project path="build/make" name="platform/build" groups="pdk" >
+    <copyfile src="core/root.mk" dest="Makefile" />
+  </project>
+  <project path="build/soong" name="platform/build/soong" groups="pdk,tradefed" />
+  <project path="frameworks/base" name="platform/frameworks/base" groups="pdk-cw-fs,pdk-fs" />
+  <project path="system/core" name="platform/system/core" groups="pdk" />
+  <project path="system/netd" name="platform/system/netd" groups="pdk" />
+
+  <!-- LibreDroid Sovereign Additions (Replacing Big Tech Bloat) -->
+  <!-- 1. LibreDroid Convergent Launcher (Replaces Launcher3 & Google Quicksearch) -->
+  <remove-project name="platform/packages/apps/Launcher3" />
+  <project path="packages/apps/LibreDroidLauncher"
+           name="libredroid-os"
+           remote="libredroid"
+           revision="master" />
+
+  <!-- 2. MicroG Sovereign Play Integrity & Services Passthrough -->
+  <project path="packages/apps/GmsCore"
+           name="microg/GmsCore"
+           remote="libredroid"
+           revision="master" />
+
+  <!-- 3. F-Droid Sovereign Application Repository -->
+  <project path="packages/apps/FDroid"
+           name="fdroid/fdroidclient"
+           remote="libredroid"
+           revision="master" />
+</manifest>

@@ -1,0 +1,7 @@
+[Unit]
+Description=Collect pstore/ramoops after a crash
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'mkdir -p /persist/pstore; mountpoint -q /sys/fs/pstore && cp -a /sys/fs/pstore/. /persist/pstore/ 2>/dev/null; true'

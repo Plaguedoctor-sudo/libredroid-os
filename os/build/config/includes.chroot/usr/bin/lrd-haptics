@@ -1,0 +1,88 @@
+#!/bin/bash
+# ==============================================================================
+# LibreDroid Haptic Feedback & Vibrator HAL Controller
+# os/hardware/lrd-haptics
+#
+# Interfaces with Linux vibrator sysfs nodes (/sys/class/leds/vibrator, timed_output)
+# to generate tactile haptic feedback for virtual typing, gestures, and call ringtones.
+# ==============================================================================
+
+set -euo pipefail
+
+PATTERN="${1:-tap}"
+STATE_DIR="/run/libredroid/haptics"
+if ! mkdir -p "$STATE_DIR" 2>/dev/null; then
+    STATE_DIR="/tmp/libredroid/haptics"
+    mkdir -p "$STATE_DIR"
+fi
+
+LAST_PATTERN_FILE="$STATE_DIR/last_pattern"
+
+# Find sysfs vibrator node
+VIBRATOR_NODE=""
+if [ -d "/sys/class/leds/vibrator" ]; then
+    VIBRATOR_NODE="/sys/class/leds/vibrator"
+elif [ -d "/sys/devices/virtual/timed_output/vibrator" ]; then
+    VIBRATOR_NODE="/sys/devices/virtual/timed_output/vibrator"
+fi
+
+pulse() {
+    local duration_ms="$1"
+    if [ -n "$VIBRATOR_NODE" ]; then
+        if [ -w "$VIBRATOR_NODE/duration" ] && [ -w "$VIBRATOR_NODE/activate" ]; then
+            echo "$duration_ms" > "$VIBRATOR_NODE/duration" 2>/dev/null || true
+            echo 1 > "$VIBRATOR_NODE/activate" 2>/dev/null || true
+        elif [ -w "$VIBRATOR_NODE/enable" ]; then
+            echo "$duration_ms" > "$VIBRATOR_NODE/enable" 2>/dev/null || true
+        fi
+    fi
+}
+
+case "$PATTERN" in
+    tap)
+        echo "[*] Triggering haptic TAP (25ms tactile keypress pulse)..."
+        pulse 25
+        echo "tap" > "$LAST_PATTERN_FILE"
+        ;;
+    double-tap)
+        echo "[*] Triggering haptic DOUBLE-TAP (UI gesture confirmation)..."
+        pulse 40
+        sleep 0.06
+        pulse 40
+        echo "double-tap" > "$LAST_PATTERN_FILE"
+        ;;
+    ring)
+        echo "[*] Triggering haptic CALL-RINGTONE rhythm..."
+        pulse 600
+        sleep 0.4
+        pulse 600
+        echo "ring" > "$LAST_PATTERN_FILE"
+        ;;
+    long|alarm)
+        echo "[*] Triggering haptic LONG / ALARM vibration (500ms)..."
+        pulse 500
+        echo "long" > "$LAST_PATTERN_FILE"
+        ;;
+    custom)
+        duration="${2:-100}"
+        echo "[*] Triggering custom haptic vibration (${duration}ms)..."
+        pulse "$duration"
+        echo "custom:$duration" > "$LAST_PATTERN_FILE"
+        ;;
+    status)
+        echo "=== LibreDroid Haptics Status ==="
+        echo "Hardware Vibrator Node: ${VIBRATOR_NODE:-None (Simulated userspace state)}"
+        if [ -f "$LAST_PATTERN_FILE" ]; then
+            echo "Last Haptic Event:      $(cat "$LAST_PATTERN_FILE")"
+        else
+            echo "Last Haptic Event:      None"
+        fi
+        exit 0
+        ;;
+    *)
+        echo "Usage: $0 {tap|double-tap|ring|long|custom <ms>|status}"
+        exit 1
+        ;;
+esac
+
+echo "[+] Haptic pulse dispatched."

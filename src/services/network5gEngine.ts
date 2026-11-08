@@ -1,4 +1,6 @@
 /**
+ * @concept-ui
+ * @experimental-mock
  * LibreDroid 5G Network Adaptor & 3GPP Rel-17 Radio Simulator Engine
  * 
  * Provides:

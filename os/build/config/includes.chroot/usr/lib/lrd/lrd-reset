@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+[ "$(id -u)" -eq 0 ] || exec sudo -n "$0" "$@"
+[ "${1:-}" = "--yes" ] || { echo "wipes /data and re-provisions. rerun with --yes"; exit 1; }
+systemctl stop lrd-shell.service lrd-api.service
+rm -rf /var/lib/lrd /home/lrd/.[!.]* /home/lrd/*
+rm -f /var/lib/lrd/firstboot-done
+find /persist -mindepth 1 ! -name 'keys' -delete
+echo a > /persist/slot; echo 0 > /persist/boot-tries
+sync; systemctl reboot

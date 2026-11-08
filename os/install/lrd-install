@@ -8,6 +8,14 @@ err(){ printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; }
 die(){ err "$*"; exit 1; }
 ask(){ local p="$1" d="$2" v; printf '%s [%s]: ' "$p" "$d"; read -r v; echo "${v:-$d}"; }
 confirm(){ printf '%s [y/N] ' "$1"; local a; read -r a; [ "$a" = y ]; }
+part(){
+  local dev="$1" num="$2"
+  if [[ "$dev" =~ [0-9]$ ]]; then
+    echo "${dev}p${num}"
+  else
+    echo "${dev}${num}"
+  fi
+}
 
 [ "$(id -u)" = 0 ] || die "run as root"
 
@@ -45,47 +53,59 @@ confirm "proceed?" || die "aborted"
 say "partitioning"
 wipefs -a "$DISK"
 if [ "$LAYOUT" = "a/b slots" ]; then
+  DATA_PARTNUM=8
   sgdisk -Z "$DISK"
   sgdisk -n 1:0:+512M   -t 1:ef00 -c 1:LRD-EFI     "$DISK"
   sgdisk -n 2:0:+256M   -t 2:8300 -c 2:LRD-BOOT    "$DISK"
   sgdisk -n 3:0:+4G     -t 3:8300 -c 3:LRD-ROOT-A  "$DISK"
   sgdisk -n 4:0:+4G     -t 4:8300 -c 4:LRD-ROOT-B  "$DISK"
-  sgdisk -n 5:0:+8G     -t 5:8300 -c 5:LRD-STORE   "$DISK"
+  sgdisk -n 5:0:+4G     -t 5:8300 -c 5:LRD-STORE   "$DISK"
   sgdisk -n 6:0:+2G     -t 6:8300 -c 6:LRD-OVERLAY "$DISK"
-  sgdisk -n 7:0:+4G     -t 7:8300 -c 7:LRD-RECOVERY "$DISK"
+  sgdisk -n 7:0:+2G     -t 7:8300 -c 7:LRD-RECOVERY "$DISK"
   sgdisk -n 8:0:0       -t 8:8300 -c 8:LRD-DATA    "$DISK"
 else
+  DATA_PARTNUM=7
   sgdisk -Z "$DISK"
   sgdisk -n 1:0:+512M   -t 1:ef00 -c 1:LRD-EFI     "$DISK"
   sgdisk -n 2:0:+1G     -t 2:8300 -c 2:LRD-BOOT    "$DISK"
-  sgdisk -n 3:0:0       -t 3:8300 -c 3:LRD-ROOT    "$DISK"
-  sgdisk -n 4:0:+8G     -t 4:8300 -c 4:LRD-STORE   "$DISK"
-  sgdisk -n 5:0:+2G     -t 5:8300 -c 5:LRD-OVERLAY "$DISK"
-  sgdisk -n 6:0:+4G     -t 6:8300 -c 6:LRD-RECOVERY "$DISK"
+  sgdisk -n 3:0:+6G     -t 3:8300 -c 3:LRD-ROOT    "$DISK"
+  sgdisk -n 4:0:+2G     -t 4:8300 -c 4:LRD-STORE   "$DISK"
+  sgdisk -n 5:0:+1G     -t 5:8300 -c 5:LRD-OVERLAY "$DISK"
+  sgdisk -n 6:0:+2G     -t 6:8300 -c 6:LRD-RECOVERY "$DISK"
+  sgdisk -n 7:0:0       -t 7:8300 -c 7:LRD-DATA    "$DISK"
 fi
 partprobe "$DISK"; sleep 1
 
-mkfs.vfat -F32 -n LRD-EFI "${DISK}1" >/dev/null
-mkfs.ext4 -q -F -L LRD-BOOT "${DISK}2"
+P_EFI="$(part "$DISK" 1)"
+P_BOOT="$(part "$DISK" 2)"
+P_DATA_RAW="$(part "$DISK" "$DATA_PARTNUM")"
+
+mkfs.vfat -F32 -n LRD-EFI "$P_EFI" >/dev/null
+mkfs.ext4 -q -F -L LRD-BOOT "$P_BOOT"
 
 CRYPT=""
 if [ "$LUKS" = 1 ]; then
   say "LUKS2 on the data partition"
   echo -n "passphrase: "; read -rs PASS; echo
-  printf '%s' "$PASS" | cryptsetup luksFormat --type luks2 --batch-mode -q "${DISK}8" -
-  printf '%s' "$PASS" | cryptsetup open "${DISK}8" lrd-data -
+  printf '%s' "$PASS" | cryptsetup luksFormat --type luks2 --batch-mode -q "$P_DATA_RAW" -
+  printf '%s' "$PASS" | cryptsetup open "$P_DATA_RAW" lrd-data -
   CRYPT=/dev/mapper/lrd-data
 fi
-DATA="${CRYPT:-${DISK}8}"
+DATA="${CRYPT:-$P_DATA_RAW}"
 mkfs.ext4 -q -F -L LRD-DATA "$DATA"
 
-for p in 3 4; do
-  [ "$LAYOUT" = "a/b slots" ] || break
-  mkfs.ext4 -q -F -L "LRD-ROOT-$([ "$p" = 3 ] && echo A || echo B)" "${DISK}$p"
-done
-mkfs.ext4 -q -F -L LRD-STORE   "${DISK}5"
-mkfs.ext4 -q -F -L LRD-OVERLAY "${DISK}6"
-mkfs.ext4 -q -F -L LRD-RECOVERY "${DISK}7"
+if [ "$LAYOUT" = "a/b slots" ]; then
+  mkfs.ext4 -q -F -L LRD-ROOT-A "$(part "$DISK" 3)"
+  mkfs.ext4 -q -F -L LRD-ROOT-B "$(part "$DISK" 4)"
+  mkfs.ext4 -q -F -L LRD-STORE   "$(part "$DISK" 5)"
+  mkfs.ext4 -q -F -L LRD-OVERLAY "$(part "$DISK" 6)"
+  mkfs.ext4 -q -F -L LRD-RECOVERY "$(part "$DISK" 7)"
+else
+  mkfs.ext4 -q -F -L LRD-ROOT    "$(part "$DISK" 3)"
+  mkfs.ext4 -q -F -L LRD-STORE   "$(part "$DISK" 4)"
+  mkfs.ext4 -q -F -L LRD-OVERLAY "$(part "$DISK" 5)"
+  mkfs.ext4 -q -F -L LRD-RECOVERY "$(part "$DISK" 6)"
+fi
 
 # ---------- 4. rootfs ----------
 if [ "$LUKS" = 1 ]; then
@@ -108,7 +128,7 @@ if [ "$LUKS" = 1 ]; then
   printf '%s' "$RPASS" > /run/rpass.key
   lrd-crypt reseal "$IMG" /store/verity/lrd-verity_a.json /run/rpass.key
   cp "$IMG" "$(blkid -L LRD-ROOT-A 2>/dev/null || blkid -L LRD-ROOT)" 2>/dev/null || \
-    dd if="$IMG" of="${DISK}3" bs=4M status=progress 2>/dev/null || true
+    dd if="$IMG" of="$(part "$DISK" 3)" bs=4M status=progress 2>/dev/null || true
 
   # the key file goes on the store so the initramfs can find it, plus the header backup
   mkdir -p /target/store/verity /target/store/keys
@@ -131,8 +151,8 @@ else
 fi
 
 mkdir -p /target/{boot/efi,store,overlay,data,proc,sys,dev,run}
-mount "${DISK}1" /target/boot/efi
-mount "${DISK}2" /target/boot
+mount "$P_EFI" /target/boot/efi
+mount "$P_BOOT" /target/boot
 mount "$(blkid -L LRD-STORE)" /target/store
 mount "$(blkid -L LRD-OVERLAY)" /target/overlay
 mount "$DATA" /target/data
@@ -162,8 +182,8 @@ say "identity"
 } 2>/dev/null || true
 
 ROOTUUID="$(blkid -s UUID -o value "$ROOTPART")"
-BOOTUUID="$(blkid -s UUID -o value "${DISK}2")"
-EFIUUID="$(blkid -s UUID -o value "${DISK}1")"
+BOOTUUID="$(blkid -s UUID -o value "$P_BOOT")"
+EFIUUID="$(blkid -s UUID -o value "$P_EFI")"
 STOREUUID="$(blkid -s UUID -o value "$(blkid -L LRD-STORE)")"
 OVERUUID="$(blkid -s UUID -o value "$(blkid -L LRD-OVERLAY)")"
 DATAUUID="$(blkid -s UUID -o value "$DATA")"
@@ -178,7 +198,7 @@ DATAUUID="$(blkid -s UUID -o value "$DATA")"
 } > /target/etc/fstab
 
 if [ "$LUKS" = 1 ]; then
-  DATAUUIDRAW="$(blkid -s UUID -o value "${DISK}8")"
+  DATAUUIDRAW="$(blkid -s UUID -o value "$P_DATA_RAW")"
   mkdir -p /target/etc/cryptsetup
   echo "lrd-data UUID=$DATAUUIDRAW none luks,discard" > /target/etc/crypttab
 fi

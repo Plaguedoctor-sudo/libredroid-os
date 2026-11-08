@@ -1,0 +1,10 @@
+// Polkit authorization rules for LibreDroid user
+polkit.addRule(function(action, subject) {
+    if ((action.id == "org.freedesktop.login1.power-off" ||
+         action.id == "org.freedesktop.login1.reboot" ||
+         action.id == "org.freedesktop.login1.suspend" ||
+         action.id == "org.freedesktop.systemd1.manage-units") &&
+        subject.isInGroup("libredroid")) {
+        return polkit.Result.YES;
+    }
+});

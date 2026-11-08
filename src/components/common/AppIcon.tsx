@@ -31,6 +31,14 @@ import {
   KeyRound,
   Volume2,
   Radio,
+  Mic,
+  CloudSun,
+  BatteryCharging,
+  Eye,
+  Video,
+  TabletSmartphone,
+  FolderLock,
+  Cast,
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -182,6 +190,56 @@ const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> 
   audio_mixer: {
     icon: Volume2,
     bg: 'bg-gradient-to-tr from-teal-500 via-emerald-600 to-cyan-700',
+    color: 'text-white',
+  },
+  sound_recorder: {
+    icon: Mic,
+    bg: 'bg-gradient-to-tr from-teal-600 via-emerald-600 to-cyan-700',
+    color: 'text-white',
+  },
+  weather: {
+    icon: CloudSun,
+    bg: 'bg-gradient-to-tr from-blue-500 via-sky-500 to-cyan-600',
+    color: 'text-white',
+  },
+  battery_guardian: {
+    icon: BatteryCharging,
+    bg: 'bg-gradient-to-tr from-emerald-500 via-teal-600 to-green-700',
+    color: 'text-white',
+  },
+  eye_comfort: {
+    icon: Eye,
+    bg: 'bg-gradient-to-tr from-amber-500 via-orange-600 to-rose-600',
+    color: 'text-white',
+  },
+  screen_recorder: {
+    icon: Video,
+    bg: 'bg-gradient-to-tr from-red-500 via-rose-600 to-pink-700',
+    color: 'text-white',
+  },
+  pad_connect: {
+    icon: TabletSmartphone,
+    bg: 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-600',
+    color: 'text-white',
+  },
+  game_space: {
+    icon: Gamepad2,
+    bg: 'bg-gradient-to-tr from-purple-600 via-violet-600 to-pink-600',
+    color: 'text-white',
+  },
+  secure_folder: {
+    icon: FolderLock,
+    bg: 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-700',
+    color: 'text-white',
+  },
+  device_care: {
+    icon: ShieldCheck,
+    bg: 'bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-700',
+    color: 'text-white',
+  },
+  smart_view: {
+    icon: Cast,
+    bg: 'bg-gradient-to-tr from-blue-500 via-cyan-500 to-teal-600',
     color: 'text-white',
   },
   'com.christianselig.apollo': {

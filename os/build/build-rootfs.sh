@@ -1,0 +1,1 @@
+../adapt/build/build-rootfs.sh

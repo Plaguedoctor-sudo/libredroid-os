@@ -3,7 +3,8 @@ node_modules/
 
 # Build artifacts and distributions
 dist/
-build/
+/build/
+build-out/
 *.iso
 *.img
 *.deb
@@ -44,3 +45,4 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+stock_firmware/

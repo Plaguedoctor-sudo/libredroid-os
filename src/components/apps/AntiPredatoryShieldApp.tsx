@@ -126,10 +126,13 @@ export const AntiPredatoryShieldApp: React.FC = () => {
             <ShieldAlert size={20} />
           </div>
           <div>
-            <div className="text-sm font-bold flex items-center gap-2">
+            <div className="text-sm font-bold flex items-center gap-2 flex-wrap">
               Anti-Predatory Shield
               <span className="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full font-mono">
                 Active Defense Active
+              </span>
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono border border-amber-500/30">
+                Simulated Environment (Demonstration Mode)
               </span>
             </div>
             <div className="text-[11px] text-neutral-400">

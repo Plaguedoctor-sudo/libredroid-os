@@ -1,3 +1,9 @@
+/**
+ * @concept-ui
+ * @experimental-mock
+ * LibreDroid Apple Darwin & CocoaTouch Runtime Manager
+ */
+
 export interface SideloadedAppleApp {
   id: string;
   name: string;

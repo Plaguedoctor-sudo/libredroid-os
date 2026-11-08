@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# mkimage — produce the full bootable artifact set for one device.
+set -Eeuo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="${ROOT:-$HERE/../..}"
+OUT="${OUT:-$PWD/image-out}"
+ADAPT_DEB="${1:?usage: mkimage <lrd-adapt-*.deb> [rootfs.img] [boot.img]}"
+ROOTFS="${2:-}"; BOOTIMG="${3:-}"
+VER="${LRD_VERSION:?set LRD_VERSION (e.g. 2026.10)}"
+KEY="${LRD_SIGN_KEY:?set LRD_SIGN_KEY}"
+mkdir -p "$OUT"; cd "$OUT"
+say(){ printf '\033[1;36m::\033[0m %s\n' "$*"; }
+
+say "version $VER"
+mkdir -p "$OUT/meta"
+
+if [ -z "$ROOTFS" ]; then
+  say "building rootfs (this is the long part)"
+  "$HERE/build-rootfs.sh" "$ADAPT_DEB" >/dev/null
+  ROOTFS="$OUT/lrd-rootfs.img"
+fi
+[ -f "$ROOTFS" ] || { echo "no rootfs at $ROOTFS"; exit 1; }
+
+say "dm-verity"
+"$HERE/../verity/lrd-verity" format "$ROOTFS" "${LRD_SLOT:-a}"
+cp "$OUT/verity/"* "$OUT/meta/" 2>/dev/null || true
+sha256sum "$OUT/verity/lrd-verity_"*.json >> "$OUT/meta/artifacts.sha256" 2>/dev/null || true
+mkdir -p /etc/lrd
+jq -r '.version + " " + .rootHash' "$OUT/verity/lrd-verity_${LRD_SLOT:-a}.json" > /etc/lrd/verity.pinned 2>/dev/null || true
+say "rebuild the initramfs now so it carries the key and the pinned hash"
+
+if [ -z "$BOOTIMG" ]; then
+  say "building initramfs"
+  KVER="$(uname -r)" OUT="$OUT/initramfs" "$HERE/../initramfs/build-initramfs" >/dev/null
+  say "note: boot.img must be assembled with the device's stock header + DTB (see os/adapt/devices/*/NOTES.md)"
+  BOOTIMG="${BOOTIMG:-}"
+fi
+
+say "stamping build provenance"
+{
+  echo "LRD_VERSION=$VER"
+  echo "LRD_BUILD=$(date -u +%Y%m%dT%H%M%SZ)"
+  echo "LRD_GIT=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+  echo "LRD_ADAPT=$(dpkg-deb -f "$ADAPT_DEB" Package) $(dpkg-deb -f "$ADAPT_DEB" Version)"
+} > "$OUT/meta/build.env"
+cat "$OUT/meta/build.env"
+
+say "hashing"
+: > "$OUT/meta/artifacts.sha256"
+for f in lrd-rootfs.img initramfs.cpio.gz; do
+  [ -f "$OUT/$f" ] && sha256sum "$OUT/$f" >> "$OUT/meta/artifacts.sha256"
+done
+[ -n "$BOOTIMG" ] && [ -f "$BOOTIMG" ] && { cp "$BOOTIMG" "$OUT/boot.img"; sha256sum "$OUT/boot.img" >> "$OUT/meta/artifacts.sha256"; }
+
+say "signing"
+for f in "$OUT/meta/build.env" "$OUT/meta/artifacts.sha256" "$OUT/lrd-rootfs.img"; do
+  [ -f "$f" ] && gpg --batch --yes --armor --detach-sign --local-user "$KEY" "$f"
+done
+
+say "artifact set"
+ls -la "$OUT"
+cat <<EOF
+
+next:
+  1. lrd-mkupdate "$OUT/lrd-rootfs.img" "$OUT/boot.img"    # signed update set
+  2. ./os/adapt/flash/lrd-flash --boot boot.img --root lrd-rootfs.img --slot b
+EOF

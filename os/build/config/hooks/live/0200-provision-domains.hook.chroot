@@ -5,33 +5,80 @@ for m in proc sys dev dev/pts; do
   mountpoint -q "/$m" || mount --bind "/$m" "/$m" 2>/dev/null || true
 done
 
-ARCH=$(dpkg --print-architecture)
-MIRROR="http://deb.debian.org/debian"
+ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
+MIRROR="${LRD_DEBIAN_MIRROR:-http://deb.debian.org/debian}"
 COMMON="systemd systemd-sysv dbus dbus-user-session ca-certificates tzdata \
 locales iproute2 iputils-ping curl nano less procps"
+
+CACHE_DIRS=("/var/lib/libredroid/cache" "/opt/libredroid/domains" "/usr/share/libredroid/domains")
+mkdir -p /var/lib/libredroid/domains
 
 build() {
   name="$1"; shift
   tgt="/var/lib/libredroid/domains/$name"
-  [ -x "$tgt/usr/bin/env" ] && { echo "   ✓ $name staged"; return; }
+  mkdir -p "$tgt"
 
-  echo "   → debootstrapping $name"
-  mmdebstrap --variant=minbase --architectures="$ARCH" \
-    --components=main \
-    --include="$COMMON $*" \
-    trixie "$tgt" "$MIRROR"
+  if [ -x "$tgt/usr/bin/env" ] || [ -x "$tgt/bin/sh" ]; then
+    echo "   ✓ $name already staged"
+    return 0
+  fi
 
-  # per-domain resolver. anon-ws points at the Tor gateway and NOTHING else —
-  # a secondary resolver here is what causes DNS leaks.
+  # 1. Check for pre-packaged offline rootfs tarballs
+  local unpacked=0
+  for cdir in "${CACHE_DIRS[@]}"; do
+    for ext in tar.zst tar.xz tar.gz tar; do
+      archive="$cdir/${name}.${ext}"
+      if [ -f "$archive" ]; then
+        echo "   → Unpacking pre-packaged domain archive: $archive"
+        tar -xf "$archive" -C "$tgt"
+        unpacked=1
+        break 2
+      fi
+    done
+  done
+
+  # 2. If no pre-cached archive, attempt mmdebstrap with graceful network fallback
+  if [ "$unpacked" -eq 0 ]; then
+    if command -v mmdebstrap >/dev/null 2>&1; then
+      echo "   → Debootstrapping $name via mmdebstrap..."
+      if mmdebstrap --variant=minbase --architectures="$ARCH" \
+        --components=main \
+        --include="$COMMON $*" \
+        trixie "$tgt" "$MIRROR" 2>/dev/null; then
+        unpacked=1
+      else
+        echo "   ! Note: mmdebstrap failed or offline. Generating minimal fallback container skeleton for $name"
+      fi
+    fi
+  fi
+
+  # 3. Fallback: Minimal functional container root if offline
+  if [ "$unpacked" -eq 0 ]; then
+    mkdir -p "$tgt"/{bin,sbin,usr/bin,usr/sbin,etc,proc,sys,dev,run,tmp,root,home}
+    touch "$tgt/.need-provision"
+    # Link busybox or system sh if available
+    if command -v busybox >/dev/null 2>&1; then
+      cp "$(command -v busybox)" "$tgt/bin/busybox"
+      ln -sf /bin/busybox "$tgt/bin/sh" 2>/dev/null || true
+    fi
+  fi
+
+  # 4. Configure per-domain DNS resolver
+  # anon-ws & vault point strictly at the Tor gateway to prevent DNS leaks
   case "$name" in
-    anon-ws) printf 'nameserver 10.152.152.10\n' >"$tgt/etc/resolv.conf" ;;
-    vault)   printf 'nameserver 10.152.152.10\n' >"$tgt/etc/resolv.conf" ;;
-    *)       printf 'nameserver 1.1.1.1\nnameserver 9.9.9.9\n' >"$tgt/etc/resolv.conf" ;;
+    anon-ws|vault)
+      printf 'nameserver 10.152.152.10\n' >"$tgt/etc/resolv.conf" 2>/dev/null || true
+      ;;
+    *)
+      printf 'nameserver 1.1.1.1\nnameserver 9.9.9.9\n' >"$tgt/etc/resolv.conf" 2>/dev/null || true
+      ;;
   esac
 
-  # machine-id must differ per domain or journald/machinectl collide
+  # 5. Ensure unique machine-id per domain
   rm -f "$tgt/etc/machine-id"
-  systemd-machine-id-setup --root="$tgt" >/dev/null
+  if command -v systemd-machine-id-setup >/dev/null 2>&1; then
+    systemd-machine-id-setup --root="$tgt" >/dev/null 2>&1 || true
+  fi
 }
 
 build vault   apparmor

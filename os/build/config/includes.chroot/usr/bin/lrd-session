@@ -1,0 +1,42 @@
+#!/bin/sh
+# LibreDroid Sovereign Session Manager
+# Spawns labwc as the native Wayland compositor and session manager
+set -e
+
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=LibreDroid
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM=wayland
+export GDK_BACKEND=wayland
+
+# GPU / Hardware Acceleration checks
+if [ ! -e /dev/kgsl-3d0 ] && ! ls /dev/dri/renderD* >/dev/null 2>&1; then
+  export LIBGL_ALWAYS_SOFTWARE=1
+  export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+  export CHROMIUM_FLAGS="--use-gl=swiftshader --disable-gpu-compositing --disable-gpu-rasterization"
+  logger -t lrd-session "no GPU render node detected: using LLVMpipe software rasterizer"
+else
+  export CHROMIUM_FLAGS="--enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist"
+  logger -t lrd-session "hardware GPU render node detected and active"
+fi
+
+# Ensure user labwc config directory is synced
+mkdir -p "${HOME:-/home/libredroid}/.config/labwc"
+if [ -f /etc/xdg/labwc/rc.xml ] && [ ! -f "${HOME:-/home/libredroid}/.config/labwc/rc.xml" ]; then
+  cp /etc/xdg/labwc/rc.xml "${HOME:-/home/libredroid}/.config/labwc/"
+fi
+if [ -f /etc/xdg/labwc/autostart ] && [ ! -f "${HOME:-/home/libredroid}/.config/labwc/autostart" ]; then
+  cp /etc/xdg/labwc/autostart "${HOME:-/home/libredroid}/.config/labwc/"
+fi
+
+# Launch labwc as primary Wayland compositor
+if command -v labwc >/dev/null 2>&1; then
+  logger -t lrd-session "Starting labwc Wayland compositor..."
+  exec labwc -s /usr/lib/lrd/lrd-shell-launch
+elif command -v cage >/dev/null 2>&1; then
+  logger -t lrd-session "labwc not found; falling back to cage kiosk compositor..."
+  exec cage -- /usr/lib/lrd/lrd-shell-launch
+else
+  logger -t lrd-session "No Wayland compositor installed; running fallback kiosk..."
+  exec /usr/lib/lrd/lrd-shell-launch
+fi

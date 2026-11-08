@@ -43,3 +43,17 @@
 .glow-primary {
   box-shadow: 0 0 25px rgba(208, 188, 255, 0.25);
 }
+
+/* Thermal pressure optimizations for low power / MTK */
+body.thermal-pressure .material-blur,
+body.thermal-pressure .material-card,
+.thermal-pressure .material-blur,
+.thermal-pressure .material-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.thermal-pressure .magnifier,
+.thermal-pressure .magnifier {
+  display: none !important;
+}

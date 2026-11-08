@@ -33,7 +33,10 @@ import {
   Maximize,
   Minimize,
   Lock,
-  Power
+  Power,
+  FolderLock,
+  Cast,
+  BatteryCharging
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
@@ -395,6 +398,57 @@ export const QuickSettingsPanel: React.FC = () => {
               <div className="text-xs opacity-80">
                 {typeof document !== 'undefined' && document.fullscreenElement ? 'Active' : 'Tap to Enter'}
               </div>
+            </div>
+          </button>
+
+          {/* Samsung Knox Secure Folder */}
+          <button
+            onClick={() => {
+              setIsShadeOpen(false);
+              openApp('secure_folder');
+            }}
+            className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white transition-all border border-neutral-750"
+          >
+            <div className="p-2 rounded-xl bg-blue-600/30 text-blue-400">
+              <FolderLock size={18} />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-semibold">Secure Folder</div>
+              <div className="text-xs opacity-80 text-blue-300">Knox Vault 3.9</div>
+            </div>
+          </button>
+
+          {/* Samsung Device Care & 6,000 mAh Monster Battery */}
+          <button
+            onClick={() => {
+              setIsShadeOpen(false);
+              openApp('device_care');
+            }}
+            className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white transition-all border border-neutral-750"
+          >
+            <div className="p-2 rounded-xl bg-cyan-600/30 text-cyan-400">
+              <BatteryCharging size={18} />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-semibold">Device Care</div>
+              <div className="text-xs opacity-80 text-cyan-300">6,000 mAh Monster</div>
+            </div>
+          </button>
+
+          {/* Samsung Smart View & DeX */}
+          <button
+            onClick={() => {
+              setIsShadeOpen(false);
+              openApp('smart_view');
+            }}
+            className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white transition-all border border-neutral-750"
+          >
+            <div className="p-2 rounded-xl bg-purple-600/30 text-purple-400">
+              <Cast size={18} />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-semibold">Smart View</div>
+              <div className="text-xs opacity-80 text-purple-300">DeX & Mirroring</div>
             </div>
           </button>
 

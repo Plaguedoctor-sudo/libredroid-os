@@ -1,0 +1,82 @@
+#!/bin/bash
+# ==============================================================================
+# LibreDroid Sensor Controller CLI (lrd-sensor)
+# os/sensors/lrd-sensor
+# ==============================================================================
+
+set -euo pipefail
+
+SOCK="/run/libredroid/sensors.sock"
+if [ ! -S "$SOCK" ]; then
+    SOCK="/tmp/libredroid/sensors.sock"
+fi
+
+cmd="${1:-status}"
+
+send_cmd() {
+    local request="$1"
+    python3 -c '
+import socket, sys
+sock_path = sys.argv[1]
+cmd = sys.argv[2] + "\n"
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+try:
+    s.connect(sock_path)
+    s.sendall(cmd.encode())
+    data = s.recv(2048)
+    print(data.decode().strip())
+except Exception as e:
+    print(f"Error connecting to sensord: {e}")
+    sys.exit(1)
+finally:
+    s.close()
+' "$SOCK" "$request"
+}
+
+case "$cmd" in
+    status)
+        send_cmd "status"
+        ;;
+    rotate|set-accel)
+        # Usage: lrd-sensor rotate <normal|bottom-up|left-up|right-up>
+        target="${2:-normal}"
+        case "$target" in
+            normal)
+                send_cmd "set-accel 0 -9800 0"
+                ;;
+            bottom-up)
+                send_cmd "set-accel 0 9800 0"
+                ;;
+            left-up)
+                send_cmd "set-accel 9800 0 0"
+                ;;
+            right-up)
+                send_cmd "set-accel -9800 0 0"
+                ;;
+            *)
+                echo "Usage: $0 rotate <normal|bottom-up|left-up|right-up>"
+                exit 1
+                ;;
+        esac
+        ;;
+    proximity)
+        val="${2:-far}"
+        if [ "$val" = "near" ] || [ "$val" = "1" ]; then
+            send_cmd "set-proximity 1"
+        else
+            send_cmd "set-proximity 0"
+        fi
+        ;;
+    lux)
+        lux_val="${2:-300}"
+        send_cmd "set-lux $lux_val"
+        ;;
+    compass)
+        deg="${2:-0}"
+        send_cmd "set-compass $deg"
+        ;;
+    *)
+        echo "Usage: $0 {status|rotate <normal|bottom-up|left-up|right-up>|proximity <near|far>|lux <val>|compass <deg>}"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# lrd-flash-local — local device flashing with A-only and A/B support
+set -euo pipefail
+
+img="${1:?usage: lrd-flash-local <image>}"
+[ -f "$img" ] || { echo "error: image file '$img' not found"; exit 1; }
+
+layout=$(cat /persist/layout 2>/dev/null || echo aonly)
+if [ "$layout" = aonly ]; then
+  echo "A-only device: staging to recovery, not a second slot"
+  /usr/bin/lrd-make --write "$img" /dev/disk/by-partlabel/lrd_rootfs
+  /usr/lib/lrd/lrd-snapshot save pre-update
+  /usr/lib/lrd/lrd-resign recovery
+else
+  slot=$(cat /persist/slot 2>/dev/null || echo a)
+  target=$([ "$slot" = a ] && echo b || echo a)
+  echo "A/B device: flashing to inactive slot $target"
+  /usr/bin/lrd-make --write "$img" "/dev/disk/by-partlabel/lrd_rootfs_${target}"
+  echo "$target" > /persist/slot
+fi

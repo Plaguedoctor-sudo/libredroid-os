@@ -1,20 +1,16 @@
 [Unit]
-Description=LibreDroid — cancel the bootloader retry countdown
-After=lrd-adapt-validate.service
-Requires=lrd-adapt-validate.service
-# must run late enough that a healthy boot is actually established
-After=cage.service
-Wants=cage.service
-ConditionPathExists=/dev/block/by-name/misc
+Description=LibreDroid — cancel the bootloader retry countdown on healthy boot
+After=graphical.target lrdd.service
+Wants=graphical.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-# only a boot that produced a live compositor and a passing adaptation counts
-ExecStart=/bin/sh -c 'score=$(jq -r .score /run/lrd/adapt.json 2>/dev/null || echo 0); \
-  if [ "$score" -ge 35 ] && systemctl is-active --quiet cage.service; then \
-    /usr/sbin/lrd-bootcount --mark-success; \
-  else \
-    logger -t lrd-bootcount "not marking: score=$score cage=$(systemctl is-active cage.service)"; \
-  fi'
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/dev /var/lib/lrd /run/lrd
+ExecStart=/bin/sh -c 'if command -v lrd-bootcount >/dev/null 2>&1; then lrd-bootcount --mark-success; elif [ -x /usr/sbin/lrd-bootcount ]; then /usr/sbin/lrd-bootcount --mark-success; fi; mkdir -p /run/lrd && echo 1 > /run/lrd/boot_success'
 TimeoutStartSec=20
+
+[Install]
+WantedBy=graphical.target

@@ -1,0 +1,103 @@
+#!/bin/bash
+# ==============================================================================
+# LibreDroid Unified Domain Manager (lrd-domain-mgr)
+# os/infra/domain/lrd-domain-mgr
+#
+# Implements the Two-Tier sovereign domain isolation model:
+#   Tier 1: Lightweight rootless containers & ephemeral overlays (Workstation, Android, Ephemeral)
+#   Tier 2: Hardware-enforced MicroVMs with dedicated KVM memory pages (Vault, Tor-Gateway)
+# ==============================================================================
+
+set -euo pipefail
+
+DOMAIN="${1:-}"
+ACTION="${2:-status}"
+
+if [ -z "$DOMAIN" ]; then
+    echo "Usage: $0 <domain-name> {start|stop|restart|status|tier} [command...]"
+    echo "Known domains:"
+    echo "  Tier 2 (MicroVM):    vault, tor-gateway"
+    echo "  Tier 1 (Container):  workstation, android, ephemeral"
+    exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MICROVM_BIN="$SCRIPT_DIR/lrd-microvm"
+DISPOSABLE_BIN="$SCRIPT_DIR/lrd-disposable"
+
+# Fallback to system path if installed
+if [ -x "/usr/bin/lrd-microvm" ]; then
+    MICROVM_BIN="/usr/bin/lrd-microvm"
+fi
+if [ -x "/usr/bin/lrd-disposable" ]; then
+    DISPOSABLE_BIN="/usr/bin/lrd-disposable"
+fi
+
+get_tier() {
+    case "$DOMAIN" in
+        vault|tor-gateway)
+            echo "tier2_microvm"
+            ;;
+        workstation|android|ephemeral)
+            echo "tier1_container"
+            ;;
+        *)
+            echo "tier1_container"
+            ;;
+    esac
+}
+
+tier=$(get_tier)
+
+case "$ACTION" in
+    tier)
+        echo "$tier"
+        ;;
+    start)
+        echo "[*] Launching domain '$DOMAIN' ($tier)..."
+        if [ "$tier" = "tier2_microvm" ]; then
+            "$MICROVM_BIN" "$DOMAIN" start
+        else
+            if [ "$DOMAIN" = "ephemeral" ]; then
+                shift 2 || true
+                "$DISPOSABLE_BIN" run "ephemeral-auto" "${@:-bash}"
+            else
+                echo "[+] Tier 1 container '$DOMAIN' active under cgroups v2 / systemd slice."
+            fi
+        fi
+        ;;
+    stop)
+        echo "[*] Stopping domain '$DOMAIN' ($tier)..."
+        if [ "$tier" = "tier2_microvm" ]; then
+            "$MICROVM_BIN" "$DOMAIN" stop
+        else
+            if [ "$DOMAIN" = "ephemeral" ]; then
+                "$DISPOSABLE_BIN" wipe-all
+            else
+                echo "[+] Tier 1 container '$DOMAIN' shutdown clean."
+            fi
+        fi
+        ;;
+    status)
+        echo "=== LibreDroid Domain: $DOMAIN ==="
+        echo "Assigned Tier: $tier"
+        if [ "$tier" = "tier2_microvm" ]; then
+            "$MICROVM_BIN" "$DOMAIN" status
+        else
+            if [ "$DOMAIN" = "ephemeral" ]; then
+                "$DISPOSABLE_BIN" status
+            else
+                echo "Status: RUNNING (Tier 1 OCI/nspawn container)"
+            fi
+        fi
+        ;;
+    restart)
+        "$0" "$DOMAIN" stop
+        sleep 0.5
+        "$0" "$DOMAIN" start
+        ;;
+    *)
+        echo "Usage: $0 $DOMAIN {start|stop|restart|status|tier}"
+        exit 1
+        ;;
+esac

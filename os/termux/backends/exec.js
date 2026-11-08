@@ -211,10 +211,30 @@ function routes() {
   const J = (res, o, c = 200) => { const b = Buffer.from(JSON.stringify(o)); res.writeHead(c, { 'content-type': 'application/json', 'content-length': b.length, 'cache-control': 'no-store' }); res.end(b); };
   const body = (req) => new Promise((ok) => { const c = []; req.on('data', (d) => c.push(d)); req.on('end', () => { try { ok(JSON.parse(Buffer.concat(c).toString() || '{}')); } catch { ok({}); } }); });
 
+  const ALLOWED_BINARIES = new Set([
+    'waydroid', 'nmcli', 'wpctl', 'pactl', 'brightnessctl',
+    'fastboot', 'adb', 'systemctl', 'loginctl', 'pkg', 'apt',
+    'am', 'pm', 'getprop', 'setprop', 'logcat', 'v4l2-ctl', 'ls', 'cat', 'df', 'free', 'uname'
+  ]);
+
   add('POST', '/api/host/exec', async (req, res, q) => {
     const b = await body(req);
     let cmd = b.cmd || (Array.isArray(b.argv) ? b.argv.map(shq).join(' ') : null);
     if (!cmd) return J(res, { ok: false, error: 'cmd or argv required' }, 400);
+
+    // Security Hardening: Validate first executable in command against safe whitelist
+    const rawTokens = cmd.trim().split(/\s+/);
+    const firstBin = path.basename(rawTokens[0] || '');
+    const isLrdTool = firstBin.startsWith('lrd-');
+    const isAllowed = isLrdTool || ALLOWED_BINARIES.has(firstBin);
+
+    if (!isAllowed) {
+      return J(res, {
+        ok: false,
+        error: `Permission denied: binary '${firstBin}' is not permitted by LibreDroid security policy.`
+      }, 403);
+    }
+
     const scope = b.scope || 'read';
     const isApp = !!req.headers['x-lrd-app-id'];
     if (b.root || scope === 'root') {
@@ -224,7 +244,7 @@ function routes() {
       } else if (fs.existsSync('/system/bin/su') || fs.existsSync('/sbin/su')) {
         cmd = `su -c ${shq(cmd)}`;
       } else {
-        // Non-root host environment without su: do not hang on interactive su password
+        // Non-root host environment without su: use non-interactive sudo for allowed tools only
         cmd = `sudo -n ${cmd} 2>/dev/null || ${cmd}`;
       }
     }

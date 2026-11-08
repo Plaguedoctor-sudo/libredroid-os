@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>LibreDroid Project</vendor>
+  <vendor_url>https://github.com/libredroid-os</vendor_url>
+
+  <action id="org.libredroid.system.power">
+    <description>Manage system power states (reboot, shutdown, suspend)</description>
+    <message>Authentication is required to change system power state</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.libredroid.system.network">
+    <description>Configure network settings and Wi-Fi</description>
+    <message>Authentication is required to modify network configuration</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.libredroid.system.update">
+    <description>Apply system and rootfs A/B slot updates</description>
+    <message>Authentication is required to install system updates</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.libredroid.system.container">
+    <description>Manage Waydroid Android container runtime</description>
+    <message>Authentication is required to manage container instances</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

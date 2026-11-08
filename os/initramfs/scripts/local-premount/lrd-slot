@@ -1,0 +1,60 @@
+#!/bin/sh
+PREREQ=""
+prereqs() { echo "$PREREQ"; }
+case "$1" in prereqs) prereqs; exit 0;; esac
+. /scripts/functions
+
+PERSIST=/run/lrd-persist
+TRIES=$PERSIST/boot-tries
+MAX=3
+
+# If booted from a live ISO or USB installer, skip slot switching
+if grep -qE "boot=live|live-media" /proc/cmdline 2>/dev/null; then
+  exit 0
+fi
+
+mkdir -p "$PERSIST"
+PART=""
+for dev in "${PERSIST_PART:-}" \
+           "$(blkid -L LRD-STORE 2>/dev/null)" \
+           "$(blkid -L LRDSTORE 2>/dev/null)" \
+           /dev/disk/by-partlabel/LRD-STORE \
+           /dev/disk/by-partlabel/lrd_persist; do
+  if [ -n "$dev" ] && [ -b "$dev" ]; then
+    PART="$dev"
+    break
+  fi
+done
+
+if [ -n "$PART" ] && mount -t ext4 -o rw "$PART" "$PERSIST" 2>/dev/null; then
+  : # store/persist mounted successfully
+else
+  # On live systems or non-persisted installs, proceed cleanly without halting
+  log_begin_msg "lrd: no persist store partition detected, skipping A/B slot rollback check"
+  log_end_msg
+  exit 0
+fi
+
+# A-only vs A/B decided once at install time
+LAYOUT=$(cat "$PERSIST/layout" 2>/dev/null || echo aonly)
+tries=$(cat "$TRIES" 2>/dev/null || echo 0)
+tries=$((tries + 1))
+
+if [ "$tries" -gt "$MAX" ]; then
+  tries=1
+  if [ "$LAYOUT" = ab ]; then
+    cur=$(cat "$PERSIST/slot" 2>/dev/null || echo a)
+    [ "$cur" = a ] && echo b > "$PERSIST/slot" || echo a > "$PERSIST/slot"
+    log_begin_msg "lrd: rolling back slot"
+  else
+    echo 1 > "$PERSIST/recovery-requested"
+    log_begin_msg "lrd: boot failed $MAX times, requesting recovery"
+  fi
+  log_end_msg
+fi
+echo "$tries" > "$TRIES"
+
+if [ "$LAYOUT" = ab ]; then
+  echo "lrd.slot=$(cat "$PERSIST/slot" 2>/dev/null || echo a)" > /conf/param.conf
+fi
+mount -t ext4 -o remount,ro "$PERSIST" 2>/dev/null || true

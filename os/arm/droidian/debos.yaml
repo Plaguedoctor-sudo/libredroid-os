@@ -16,11 +16,11 @@ actions:
       apt-get install -y --no-install-recommends \
         halium-9.0-mtk6983 \
         droidian-adaptation-onepad \
-        cage labwc wayvnc websockify novnc chromium nodejs \
+        labwc \
         waydroid nftables tor flatpak
-      # replace the stock Droidian shell with ours
+      # replace the stock Droidian shell with native LibreDroid shell
       systemctl disable phosh.service 2>/dev/null || true
-      systemctl enable libredroid-bridge.service libredroid-netns.service
+      systemctl enable lrdd.service libredroid-netns.service
 
   - action: overlay
     source: rootfs-overlay

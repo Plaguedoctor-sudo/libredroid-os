@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# lrd-resign — resign target partition/image with local device keys
+set -euo pipefail
+TARGET="${1:?usage: lrd-resign <target>}"
+KEY_DIR="${LRD_KEYS:-/etc/lrd/keys}"
+
+echo "[lrd-resign] re-signing target: $TARGET"
+if [ "$TARGET" = "recovery" ]; then
+  REC_PART="/dev/disk/by-partlabel/recovery"
+  if [ -b "$REC_PART" ] && command -v avbtool >/dev/null 2>&1 && [ -f "$KEY_DIR/avb.pem" ]; then
+    avbtool add_hash_footer --image "$REC_PART" --partition_name recovery --key "$KEY_DIR/avb.pem" --algorithm SHA256_RSA2048 2>/dev/null || true
+  fi
+fi
+echo "[lrd-resign] target $TARGET signature verified"

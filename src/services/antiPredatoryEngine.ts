@@ -1,3 +1,9 @@
+/**
+ * @concept-ui
+ * @experimental-mock
+ * LibreDroid Anti-Predatory Shield Engine
+ */
+
 export type PredatoryTacticType = 
   | 'dark_pattern' 
   | 'notification_spam' 

@@ -17,8 +17,10 @@ import {
   Box,
   Image as ImageIcon,
   Bot,
-  Share2
+  Share2,
+  FolderLock
 } from 'lucide-react';
+import { systemBus } from '../../services/systemBus';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import type { AppIntent } from '../../types/apps';
@@ -332,6 +334,23 @@ export const FilesApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
           >
             <Cloud size={15} />
             <span>Nextcloud E2EE Hub</span>
+          </button>
+
+          <button
+            onClick={() => {
+              systemBus.emit('security:request_app_lock', {
+                name: 'ColorOS Private Safe',
+                appId: 'private_safe',
+                onSuccess: () => {
+                  setSourceMode('physical');
+                  loadPhysicalDirectory('/storage/emulated/0/.PrivateSafe');
+                }
+              });
+            }}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-amber-300 hover:bg-amber-500/10 transition-colors"
+          >
+            <FolderLock size={15} className="text-amber-400" />
+            <span>ColorOS Private Safe</span>
           </button>
 
           {/* Physical Storage Meter */}

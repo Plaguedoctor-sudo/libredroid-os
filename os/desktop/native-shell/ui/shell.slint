@@ -1,0 +1,388 @@
+// LibreDroid Native Sovereign Shell — Slint UI Specification
+// Ultra-low memory footprint (<30MB RAM), 120 FPS Wayland hardware accelerated
+
+import { Button, VerticalBox, HorizontalBox, LineEdit } from "std-widgets.slint";
+
+export struct AppEntry {
+    id: string,
+    name: string,
+    icon: string,
+    category: string,
+    domain: string,
+}
+
+export struct WindowEntry {
+    id: string,
+    title: string,
+    app_id: string,
+    domain: string,
+    active: bool,
+}
+
+export component StatusBar inherits Rectangle {
+    in property <string> time-str: "12:00";
+    in property <int> battery-pct: 85;
+    in property <bool> is-charging: false;
+    in property <string> wifi-ssid: "LibreDroid-Air";
+    in property <string> active-domain: "WORK";
+    callback toggle-quick-settings();
+    callback toggle-domain-selector();
+
+    height: 36px;
+    background: #0a0e14fa;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+
+        // Left: Time & Active Security Domain Badge
+        Text {
+            text: root.time-str;
+            color: #e6edf3;
+            font-size: 13px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            width: 80px;
+            height: 22px;
+            border-radius: 11px;
+            background: root.active-domain == "VAULT" ? #7928ca :
+                        root.active-domain == "TOR" ? #10b981 : #2563eb;
+            y: (parent.height - self.height) / 2;
+
+            Text {
+                text: root.active-domain;
+                color: #ffffff;
+                font-size: 10px;
+                font-weight: 800;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.toggle-domain-selector(); }
+            }
+        }
+
+        // Center spacer
+        Rectangle { horizontal-stretch: 1.0; }
+
+        // Right: Status Icons (Wi-Fi, Battery, Killswitches)
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: end;
+
+            Text {
+                text: "📶 " + root.wifi-ssid;
+                color: #8b949e;
+                font-size: 12px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: (root.is-charging ? "⚡" : "🔋") + " " + root.battery-pct + "%";
+                color: root.battery-pct < 20 ? #ef4444 : #10b981;
+                font-size: 12px;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: 6px;
+                background: #21262d;
+                y: (parent.height - self.height) / 2;
+
+                Text {
+                    text: "⚙";
+                    color: #c9d1d9;
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                TouchArea {
+                    clicked => { root.toggle-quick-settings(); }
+                }
+            }
+        }
+    }
+}
+
+export component Taskbar inherits Rectangle {
+    in property <[WindowEntry]> windows: [];
+    in property <bool> launcher-open: false;
+    callback toggle-launcher();
+    callback focus-window(string);
+    callback nav-home();
+    callback nav-back();
+    callback nav-recents();
+
+    height: 54px;
+    background: #0d1117ee;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 8px;
+
+        // Launcher trigger button
+        Rectangle {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: root.launcher-open ? #3b82f6 : #161b22;
+            y: (parent.height - self.height) / 2;
+
+            Text {
+                text: "⌘";
+                color: #ffffff;
+                font-size: 20px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.toggle-launcher(); }
+            }
+        }
+
+        // Active windows list
+        HorizontalLayout {
+            spacing: 6px;
+            for win in root.windows: Rectangle {
+                width: 140px;
+                height: 40px;
+                border-radius: 8px;
+                background: win.active ? #1f2937 : #111827;
+                border-width: win.active ? 1.5px : 0px;
+                border-color: #3b82f6;
+                y: (parent.height - self.height) / 2;
+
+                HorizontalLayout {
+                    padding: 8px;
+                    spacing: 6px;
+
+                    Text {
+                        text: "🪟 " + win.title;
+                        color: win.active ? #ffffff : #9ca3af;
+                        font-size: 11px;
+                        font-weight: 600;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                }
+
+                TouchArea {
+                    clicked => { root.focus-window(win.id); }
+                }
+            }
+        }
+
+        Rectangle { horizontal-stretch: 1.0; }
+
+        // Navigation gestures / 3-button bar (Back, Home, Recents)
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: end;
+
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: 18px;
+                background: #161b22;
+                y: (parent.height - self.height) / 2;
+                Text { text: "◀"; color: #8b949e; font-size: 14px; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { clicked => { root.nav-back(); } }
+            }
+
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: 18px;
+                background: #161b22;
+                y: (parent.height - self.height) / 2;
+                Text { text: "●"; color: #ffffff; font-size: 16px; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { clicked => { root.nav-home(); } }
+            }
+
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: 18px;
+                background: #161b22;
+                y: (parent.height - self.height) / 2;
+                Text { text: "■"; color: #8b949e; font-size: 14px; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { clicked => { root.nav-recents(); } }
+            }
+        }
+    }
+}
+
+export component AppLauncher inherits Rectangle {
+    in property <[AppEntry]> apps: [];
+    in-out property <string> search-filter: "";
+    callback launch-app(string, string);
+    callback close();
+
+    width: 680px;
+    height: 480px;
+    border-radius: 16px;
+    background: #0d1117f6;
+    border-width: 1px;
+    border-color: #30363d;
+
+    VerticalLayout {
+        padding: 20px;
+        spacing: 16px;
+
+        // Search bar
+        HorizontalLayout {
+            height: 44px;
+            spacing: 12px;
+
+            Rectangle {
+                border-radius: 10px;
+                background: #161b22;
+                border-width: 1px;
+                border-color: #30363d;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 8px;
+
+                    Text { text: "🔍"; color: #8b949e; vertical-alignment: center; }
+                    search-input := LineEdit {
+                        placeholder-text: "Search apps, settings, or domains...";
+                        text <=> root.search-filter;
+                    }
+                }
+            }
+        }
+
+        // App grid
+        HorizontalLayout {
+            spacing: 16px;
+            for app in root.apps: Rectangle {
+                width: 90px;
+                height: 100px;
+                border-radius: 12px;
+                background: #161b22;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 6px;
+
+                    Text {
+                        text: app.icon;
+                        font-size: 32px;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: app.name;
+                        color: #c9d1d9;
+                        font-size: 11px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        overflow: elide;
+                    }
+                }
+
+                TouchArea {
+                    clicked => {
+                        root.launch-app(app.id, app.domain);
+                        root.close();
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component MainShell inherits Window {
+    title: "LibreDroid Sovereign Shell";
+    no-frame: true;
+    background: #00000000;
+
+    in-out property <bool> launcher-visible: false;
+    in-out property <bool> quick-settings-visible: false;
+    in-out property <string> time-display: "12:00";
+    in-out property <int> battery-percent: 88;
+    in-out property <bool> charging-state: false;
+    in-out property <string> current-domain: "VAULT";
+
+    in property <[AppEntry]> installed-apps: [
+        { id: "store", name: "F-Droid", icon: "📦", category: "System", domain: "personal" },
+        { id: "files", name: "Files", icon: "📁", category: "System", domain: "work" },
+        { id: "settings", name: "Settings", icon: "⚙", category: "System", domain: "vault" },
+        { id: "terminal", name: "Terminal", icon: "💻", category: "Tools", domain: "work" },
+        { id: "camera", name: "Camera", icon: "📷", category: "Media", domain: "personal" },
+        { id: "vault", name: "Vault", icon: "🔐", category: "Security", domain: "vault" },
+        { id: "tor", name: "Tor Browser", icon: "🧅", category: "Privacy", domain: "tor" },
+        { id: "waydroid", name: "Android AOSP", icon: "🤖", category: "Mobile", domain: "android" }
+    ];
+
+    in property <[WindowEntry]> open-windows: [
+        { id: "win-1", title: "Cryptographic Vault", app_id: "vault", domain: "vault", active: true },
+        { id: "win-2", title: "Waydroid Host", app_id: "waydroid", domain: "android", active: false }
+    ];
+
+    callback launch-app-requested(string, string);
+    callback window-focus-requested(string);
+    callback power-action-requested(string);
+
+    VerticalLayout {
+        // Top native layer-shell status bar
+        StatusBar {
+            time-str: root.time-display;
+            battery-pct: root.battery-percent;
+            is-charging: root.charging-state;
+            active-domain: root.current-domain;
+            toggle-quick-settings => {
+                root.quick-settings-visible = !root.quick-settings-visible;
+            }
+        }
+
+        // Middle workspace: Native Wayland subsurfaces are composited directly into this region
+        Rectangle {
+            vertical-stretch: 1.0;
+
+            if root.launcher-visible: AppLauncher {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                apps: root.installed-apps;
+                launch-app(id, domain) => {
+                    root.launch-app-requested(id, domain);
+                    root.launcher-visible = false;
+                }
+                close => { root.launcher-visible = false; }
+            }
+        }
+
+        // Bottom native taskbar & gesture bar
+        Taskbar {
+            windows: root.open-windows;
+            launcher-open: root.launcher-visible;
+            toggle-launcher => {
+                root.launcher-visible = !root.launcher-visible;
+            }
+            focus-window(id) => {
+                root.window-focus-requested(id);
+            }
+            nav-home => {
+                root.launcher-visible = true;
+            }
+            nav-back => {
+                // cycle or send back event
+            }
+            nav-recents => {
+                // overview
+            }
+        }
+    }
+}

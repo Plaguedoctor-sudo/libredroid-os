@@ -1,0 +1,9 @@
+name: "Numeric & Symbols"
+language: "symbols"
+rows:
+  - keys: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
+  - keys: ["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""]
+  - keys: ["#+=", ".", ",", "?", "!", "'", "Backspace"]
+  - keys: ["ABC", "Globe", "Space", "Return"]
+features:
+  haptic_feedback: true

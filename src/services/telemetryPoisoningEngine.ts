@@ -1,3 +1,9 @@
+/**
+ * @concept-ui
+ * @experimental-mock
+ * LibreDroid Telemetry Poisoning & Synthetic Attribution Engine
+ */
+
 export interface PoisonedBeaconEvent {
   id: string;
   timestamp: string;

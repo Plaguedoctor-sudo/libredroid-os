@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# lrd-dtbo-apply — dynamic Device Tree Overlay loader for ARM devices
+set -euo pipefail
+
+log() { echo "[lrd-dtbo] $*"; logger -t lrd-dtbo "$*" 2>/dev/null || true; }
+
+OF_COMPAT="/proc/device-tree/compatible"
+[ -r "$OF_COMPAT" ] || { log "No device tree found (likely x86_64). Skipping DTBO."; exit 0; }
+
+COMPAT_STRING="$(tr '\0' ' ' < "$OF_COMPAT" | awk '{print $1}')"
+log "Hardware compatible target: $COMPAT_STRING"
+
+DTBO_DIRS=(
+  "/usr/lib/lrd/adapt/dtbo"
+  "/vendor/firmware"
+  "/vendor/etc"
+  "/boot/dtbo"
+)
+
+CONFIGFS_DTO="/sys/kernel/config/device-tree/overlays"
+if [ ! -d "$CONFIGFS_DTO" ]; then
+  mount -t configfs none /sys/kernel/config 2>/dev/null || true
+fi
+
+APPLIED=0
+for d in "${DTBO_DIRS[@]}"; do
+  [ -d "$d" ] || continue
+  for dtbo in "$d"/*.dtbo; do
+    [ -f "$dtbo" ] || continue
+    name="$(basename "$dtbo" .dtbo)"
+    target_node="$CONFIGFS_DTO/$name"
+    if [ -d "$CONFIGFS_DTO" ] && [ ! -d "$target_node" ]; then
+      mkdir -p "$target_node" 2>/dev/null || continue
+      if [ -w "$target_node/dtbo" ]; then
+        cat "$dtbo" > "$target_node/dtbo" 2>/dev/null && {
+          log "Applied DTBO: $name"
+          APPLIED=$((APPLIED + 1))
+        } || rmdir "$target_node" 2>/dev/null || true
+      fi
+    fi
+  done
+done
+
+log "DTBO initialization complete. Applied $APPLIED overlay(s)."
+exit 0

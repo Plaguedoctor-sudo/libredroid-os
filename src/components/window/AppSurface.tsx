@@ -32,6 +32,16 @@ import { TaskManagerApp } from '../apps/TaskManagerApp';
 import { KeystoreApp } from '../apps/KeystoreApp';
 import { AudioControllerApp } from '../apps/AudioControllerApp';
 import { Network5gApp } from '../apps/Network5gApp';
+import { SoundRecorderApp } from '../apps/SoundRecorderApp';
+import { WeatherApp } from '../apps/WeatherApp';
+import { BatteryGuardianApp } from '../apps/BatteryGuardianApp';
+import { EyeComfortApp } from '../apps/EyeComfortApp';
+import { ScreenRecorderApp } from '../apps/ScreenRecorderApp';
+import { PadConnectApp } from '../apps/PadConnectApp';
+import { GameSpaceApp } from '../apps/GameSpaceApp';
+import { SecureFolderApp } from '../apps/SecureFolderApp';
+import { DeviceCareApp } from '../apps/DeviceCareApp';
+import { SmartViewApp } from '../apps/SmartViewApp';
 import { AppleAppRunner } from '../apps/AppleAppRunner';
 import { WaydroidAppRunner } from '../apps/WaydroidAppRunner';
 import { getInstalledAppleApps } from '../../services/appleAppManager';
@@ -66,6 +76,16 @@ const NATIVE: Record<string, React.FC<any>> = {
   keystore: KeystoreApp,
   audio_mixer: AudioControllerApp,
   network_5g: Network5gApp,
+  sound_recorder: SoundRecorderApp,
+  weather: WeatherApp,
+  battery_guardian: BatteryGuardianApp,
+  eye_comfort: EyeComfortApp,
+  screen_recorder: ScreenRecorderApp,
+  pad_connect: PadConnectApp,
+  game_space: GameSpaceApp,
+  secure_folder: SecureFolderApp,
+  device_care: DeviceCareApp,
+  smart_view: SmartViewApp,
 };
 
 interface SurfaceDescriptor {

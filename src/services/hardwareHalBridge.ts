@@ -1,4 +1,6 @@
 /**
+ * @concept-ui
+ * @experimental-mock
  * LibreDroid Hardware HAL Bridge & Carrier Engine
  * 
  * Provides:
@@ -236,6 +238,34 @@ class HardwareHalBridge {
     this.saveConfig();
   }
 
+  public applySamsungM14Profile(): void {
+    this.state.networkType = '5G';
+    this.state.volteEnabled = true;
+    this.state.vowifiEnabled = true;
+    this.state.camera = {
+      apiLevel: 'LEVEL_3',
+      rawStreamEnabled: true,
+      computationalPhotography: true,
+      gcamTuningProfile: 'HDR+ Enhanced',
+      multiLensArray: [
+        { id: 'cam-0', type: 'wide', focalLength: '26mm', aperture: 'f/1.8', resolutionMp: 50, sensorVendor: 'Samsung ISOCELL JN1 50MP' },
+        { id: 'cam-1', type: 'ultra_wide', focalLength: '22mm', aperture: 'f/2.4', resolutionMp: 2, sensorVendor: 'Galaxy Macro Sensor' },
+        { id: 'cam-2', type: 'telephoto', focalLength: '24mm', aperture: 'f/2.4', resolutionMp: 2, sensorVendor: 'Galaxy Depth Sensor' },
+      ],
+      activeLens: 'wide',
+    };
+    this.state.biometrics = {
+      sensorType: 'Capacitive Side-Mounted',
+      cddClass: 'BIOMETRIC_STRONG (Class 3)',
+      spoofAcceptanceRate: '< 0.002%',
+      falseAcceptanceRate: '1:50,000',
+      enrolledFingersCount: 2,
+      secureEnclaveIsolation: 'TrustZone / seL4 Verified',
+      hardwarePromptAvailable: true,
+    };
+    this.saveConfig();
+  }
+
   public async verifyBiometricScan(): Promise<{ success: boolean; fingerId: number; latencyMs: number }> {
     const start = Date.now();
     await new Promise(r => setTimeout(r, 220));
@@ -247,5 +277,39 @@ class HardwareHalBridge {
     };
   }
 }
+
+export interface SamsungM14HardwareProfile {
+  model: 'SM-M146B' | 'SM-M146B/DS';
+  soc: 'Samsung Exynos 1330 (5nm)';
+  cpuClusters: string;
+  gpu: 'ARM Mali-G68 MP2';
+  batteryCapacityMah: 6000;
+  chargingRateWatt: 25;
+  screenSpec: '6.6" 90Hz FHD+ (1080x2408) Infinity-V';
+  cameraSensors: {
+    main: string;
+    macro: string;
+    depth: string;
+    selfie: string;
+  };
+  supported5gBands: string[];
+}
+
+export const SAMSUNG_M14_SPEC: SamsungM14HardwareProfile = {
+  model: 'SM-M146B',
+  soc: 'Samsung Exynos 1330 (5nm)',
+  cpuClusters: '2x 2.4GHz Cortex-A78 + 6x 2.0GHz Cortex-A55',
+  gpu: 'ARM Mali-G68 MP2',
+  batteryCapacityMah: 6000,
+  chargingRateWatt: 25,
+  screenSpec: '6.6" 90Hz FHD+ (1080x2408) Infinity-V',
+  cameraSensors: {
+    main: '50 MP f/1.8 PDAF Wide',
+    macro: '2 MP f/2.4 Macro',
+    depth: '2 MP f/2.4 Depth',
+    selfie: '13 MP f/2.0 Wide',
+  },
+  supported5gBands: ['n1', 'n3', 'n5', 'n7', 'n8', 'n20', 'n28', 'n38', 'n40', 'n41', 'n66', 'n77', 'n78'],
+};
 
 export const hardwareHalBridge = new HardwareHalBridge();

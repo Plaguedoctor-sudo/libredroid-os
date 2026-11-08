@@ -218,6 +218,7 @@ export const NavigationBar: React.FC = () => {
             }}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-95 text-xs font-bold transition-all shadow touch-manipulation"
             title="Start Menu"
+            aria-label="Start Menu"
           >
             <Grid size={16} />
             <span>Start</span>
@@ -227,6 +228,7 @@ export const NavigationBar: React.FC = () => {
             onClick={handleHome}
             className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-neutral-300 hover:text-white transition-all touch-manipulation"
             title="Show Desktop"
+            aria-label="Show Desktop"
           >
             <Home size={18} />
           </button>
@@ -237,6 +239,7 @@ export const NavigationBar: React.FC = () => {
             onClick={handleBack}
             className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 active:scale-90 text-neutral-300 hover:text-white transition-all touch-manipulation"
             title="Back"
+            aria-label="Back"
           >
             <ChevronLeft size={18} />
           </button>
@@ -244,6 +247,7 @@ export const NavigationBar: React.FC = () => {
             onClick={handleRecents}
             className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 active:scale-90 text-neutral-300 hover:text-white transition-all touch-manipulation"
             title="Multitasking Overview"
+            aria-label="Multitasking Overview"
           >
             <Square size={16} />
           </button>

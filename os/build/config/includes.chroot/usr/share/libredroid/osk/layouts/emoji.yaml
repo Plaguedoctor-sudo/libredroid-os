@@ -1,0 +1,8 @@
+name: "Emoji Palette"
+language: "emoji"
+rows:
+  - keys: ["😀", "😂", "🥰", "😎", "🤔", "👍", "🔥", "❤️", "🎉", "✨"]
+  - keys: ["🚀", "🔒", "🛡️", "📱", "💻", "🌐", "⚡", "🔋", "📶", "⭐"]
+  - keys: ["ABC", "Backspace"]
+features:
+  haptic_feedback: true

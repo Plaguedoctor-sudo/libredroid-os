@@ -1,0 +1,12 @@
+name: "QWERTZ (German/Central European)"
+language: "de"
+rows:
+  - keys: ["q", "w", "e", "r", "t", "z", "u", "i", "o", "p", "ü"]
+  - keys: ["a", "s", "d", "f", "g", "h", "j", "k", "l", "ö", "ä"]
+  - keys: ["Shift", "y", "x", "c", "v", "b", "n", "m", "Backspace"]
+  - keys: ["?123", "Globe", "Space", ".", "Return"]
+features:
+  swipe_typing: true
+  swipe_backspace_delete_word: true
+  spacebar_cursor_slide: true
+  haptic_feedback: true

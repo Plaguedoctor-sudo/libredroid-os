@@ -1,0 +1,172 @@
+#!/bin/bash
+# ==============================================================================
+# LibreDroid Disposable Domain Auto-Wipe Engine
+# os/infra/domain/lrd-disposable
+#
+# Launches ephemeral, RAM-backed sandboxes. On process completion or termination,
+# automatically overwrites, unmounts, and cryptographically shreds all state.
+# ==============================================================================
+
+set -euo pipefail
+
+ACTION="${1:-}"
+
+if [ -z "$ACTION" ]; then
+    echo "Usage: $0 {run|wipe-all|status} [args...]"
+    echo "Examples:"
+    echo "  $0 run <session-name> <command> [args...]"
+    echo "  $0 wipe-all"
+    echo "  $0 status"
+    exit 1
+fi
+
+BASE_EPHEMERAL_DIR="/tmp/libredroid/ephemeral"
+WIPE_LOG="/run/libredroid/disposable_wipes.json"
+
+if ! mkdir -p "$(dirname "$WIPE_LOG")" 2>/dev/null; then
+    WIPE_LOG="/tmp/libredroid/disposable_wipes.json"
+    mkdir -p "$(dirname "$WIPE_LOG")"
+fi
+
+log_wipe_receipt() {
+    local session="$1"
+    local files_scrubbed="$2"
+    local duration="$3"
+    local now
+    now=$(date +%s)
+    echo "{\"timestamp\":$now,\"session\":\"$session\",\"files_scrubbed\":$files_scrubbed,\"duration_sec\":$duration,\"status\":\"wiped_clean\"}" >> "$WIPE_LOG"
+}
+
+shred_and_remove() {
+    local target_dir="$1"
+    if [ ! -d "$target_dir" ]; then
+        return 0
+    fi
+
+    local file_count=0
+    # Overwrite files with zeroes / random bytes before unlinking
+    while IFS= read -r -d '' file; do
+        if [ -f "$file" ]; then
+            if command -v shred >/dev/null 2>&1; then
+                shred -u -z -n 1 "$file" 2>/dev/null || rm -f "$file"
+            else
+                dd if=/dev/zero of="$file" bs=4k count=1 conv=notrunc 2>/dev/null || true
+                rm -f "$file"
+            fi
+            file_count=$((file_count + 1))
+        fi
+    done < <(find "$target_dir" -type f -print0 2>/dev/null)
+
+    # Remove tree
+    rm -rf "$target_dir"
+    echo "$file_count"
+}
+
+run_disposable() {
+    local session="${1:-ephemeral-$$}"
+    shift
+    local cmd=("$@")
+
+    if [ ${#cmd[@]} -eq 0 ]; then
+        echo "Error: No command specified for disposable session '$session'."
+        exit 1
+    fi
+
+    local session_dir="$BASE_EPHEMERAL_DIR/$session"
+    local upper_dir="$session_dir/upper"
+    local work_dir="$session_dir/work"
+    local merged_dir="$session_dir/rootfs"
+
+    mkdir -p "$upper_dir" "$work_dir" "$merged_dir"
+    echo "[*] Initialized RAM-backed ephemeral sandbox: $session"
+
+    local start_time
+    start_time=$(date +%s)
+
+    # Trap unexpected exits, INT, TERM to guarantee wiping
+    trap "cleanup_session '$session' '$session_dir' '$start_time'" INT TERM
+
+    # Execute command with working directory inside the ephemeral upperdir
+    echo "[*] Executing command in disposable container..."
+    (
+        cd "$upper_dir"
+        export LRD_DISPOSABLE_SESSION="$session"
+        export TMPDIR="$upper_dir"
+        export HOME="$upper_dir"
+        "${cmd[@]}"
+    )
+
+    # Normal completion cleanup
+    cleanup_session "$session" "$session_dir" "$start_time"
+}
+
+cleanup_session() {
+    local session="$1"
+    local session_dir="$2"
+    local start_time="$3"
+    trap - EXIT INT TERM
+
+    echo "[*] Auto-wiping disposable sandbox for '$session'..."
+    local end_time
+    end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+
+    local scrubbed
+    scrubbed=$(shred_and_remove "$session_dir")
+    log_wipe_receipt "$session" "$scrubbed" "$duration"
+
+    echo "[+] Auto-wipe complete for session '$session'. Neutralized $scrubbed temporary files."
+}
+
+wipe_all() {
+    echo "[*] Wiping all active disposable sessions..."
+    local total=0
+    if [ -d "$BASE_EPHEMERAL_DIR" ]; then
+        for sdir in "$BASE_EPHEMERAL_DIR"/*; do
+            if [ -d "$sdir" ]; then
+                local sname
+                sname=$(basename "$sdir")
+                echo "[*] Shredding session $sname..."
+                local count
+                count=$(shred_and_remove "$sdir")
+                total=$((total + count))
+                log_wipe_receipt "$sname" "$count" 0
+            fi
+        done
+        rm -rf "$BASE_EPHEMERAL_DIR"
+    fi
+    echo "[+] Wipe-all complete. $total artifacts scrubbed."
+}
+
+status_disposable() {
+    echo "=== LibreDroid Disposable Domain Engine Status ==="
+    echo "Base Directory: $BASE_EPHEMERAL_DIR"
+    if [ -d "$BASE_EPHEMERAL_DIR" ]; then
+        echo "Active Sessions:"
+        ls -1 "$BASE_EPHEMERAL_DIR" 2>/dev/null || echo "None"
+    else
+        echo "Active Sessions: 0"
+    fi
+
+    if [ -f "$WIPE_LOG" ]; then
+        echo "Recent Auto-Wipe Receipts:"
+        tail -n 5 "$WIPE_LOG"
+    fi
+}
+
+case "$ACTION" in
+    run)
+        shift
+        run_disposable "$@"
+        ;;
+    wipe-all)
+        wipe_all
+        ;;
+    status)
+        status_disposable
+        ;;
+    *)
+        echo "Usage: $0 {run|wipe-all|status} [args...]"
+        exit 1
+        ;;
+esac

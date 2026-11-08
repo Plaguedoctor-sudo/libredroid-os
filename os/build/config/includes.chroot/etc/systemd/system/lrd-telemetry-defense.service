@@ -1,0 +1,24 @@
+[Unit]
+Description=LibreDroid Anti-Surveillance & Telemetry Defense Daemon
+After=network.target lrdd.service
+Wants=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/lrd-telemetry-defense start
+ExecStop=/usr/bin/lrd-telemetry-defense stop
+Restart=always
+RestartSec=3
+PIDFile=/run/libredroid/lrd-poisoner.pid
+
+# Hardening
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/libredroid
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+MemoryMax=32M
+
+[Install]
+WantedBy=multi-user.target

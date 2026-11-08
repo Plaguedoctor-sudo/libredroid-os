@@ -1,72 +1,42 @@
 #!/bin/sh
-# lrd-session — the session leader. Everything graphical inherits from here.
-# Replaces running cage directly as a system service.
-set -u
+# LibreDroid Sovereign Session Manager
+# Spawns labwc as the native Wayland compositor and session manager
+set -e
 
-RUNTIME="${XDG_RUNTIME_DIR:-/run/lrd/session}"
-export XDG_RUNTIME_DIR="$RUNTIME"
-mkdir -p "$XDG_RUNTIME_DIR"
-chmod 700 "$XDG_RUNTIME_DIR"
-
-# a session bus, which did not exist before
-if command -v dbus-daemon >/dev/null 2>&1; then
-  eval "$(dbus-launch --sh-syntax --exit-with-session 2>/dev/null)" || true
-  export DBUS_SESSION_BUS_ADDRESS
-fi
-
-# session identity
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=LibreDroid
-export XDG_SESSION_DESKTOP=libredroid
-export XDG_SESSION_CLASS=user
-export XDG_CONFIG_DIRS=/etc/xdg
-export XDG_DATA_DIRS=/usr/local/share:/usr/share
-
-# accessibility: the toolkit bridges, so AT-SPI has something to talk to
-export GTK_MODULES=gail:atk-bridge
-export QT_ACCESSIBILITY=1
-export NO_AT_BRIDGE=0
-
-# input method
-export GTK_IM_MODULE=fcitx
-export QT_IM_MODULE=fcitx
-export SDL_IM_MODULE=fcitx
-export XMODIFIERS=@im=fcitx
-export INPUT_METHOD=fcitx
-
-# xkb: AccessX options where libxkbcommon supports them
-export XKB_DEFAULT_OPTIONS="${XKB_DEFAULT_OPTIONS:-compose:ralt}"
-export XKB_DEFAULT_LAYOUT="${XKB_DEFAULT_LAYOUT:-us}"
-
-# cursor + toolkit hints for a touch device
-export XCURSOR_SIZE="${XCURSOR_SIZE:-24}"
-export QT_QPA_PLATFORM=wayland
 export MOZ_ENABLE_WAYLAND=1
-export SDL_VIDEODRIVER=wayland
+export QT_QPA_PLATFORM=wayland
+export GDK_BACKEND=wayland
 
-# a private tmp on the session
-export TMPDIR="$XDG_RUNTIME_DIR/tmp"
-mkdir -p "$TMPDIR"
-
-# record the environment so system services (the bridge) can reach us
-mkdir -p /run/lrd
-cat > /run/lrd/session.env <<EOF
-XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
-WAYLAND_DISPLAY=wayland-0
-DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-}
-XDG_SESSION_TYPE=wayland
-EOF
-chmod 644 /run/lrd/session.env
-
-# AT-SPI bus, so Orca and any reader has a tree
-if [ -x /usr/libexec/at-spi-bus-launcher ]; then
-  /usr/libexec/at-spi-bus-launcher --launch-immediately &
-elif [ -x /usr/lib/at-spi2-core/at-spi-bus-launcher ]; then
-  /usr/lib/at-spi2-core/at-spi-bus-launcher --launch-immediately &
+# GPU / Hardware Acceleration checks
+if [ ! -e /dev/kgsl-3d0 ] && ! ls /dev/dri/renderD* >/dev/null 2>&1; then
+  export LIBGL_ALWAYS_SOFTWARE=1
+  export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+  export CHROMIUM_FLAGS="--use-gl=swiftshader --disable-gpu-compositing --disable-gpu-rasterization"
+  logger -t lrd-session "no GPU render node detected: using LLVMpipe software rasterizer"
+else
+  export CHROMIUM_FLAGS="--enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist"
+  logger -t lrd-session "hardware GPU render node detected and active"
 fi
 
-# portal backends need the session bus, start them before any app can ask
-systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR XDG_SESSION_TYPE 2>/dev/null || true
+# Ensure user labwc config directory is synced
+mkdir -p "${HOME:-/home/libredroid}/.config/labwc"
+if [ -f /etc/xdg/labwc/rc.xml ] && [ ! -f "${HOME:-/home/libredroid}/.config/labwc/rc.xml" ]; then
+  cp /etc/xdg/labwc/rc.xml "${HOME:-/home/libredroid}/.config/labwc/"
+fi
+if [ -f /etc/xdg/labwc/autostart ] && [ ! -f "${HOME:-/home/libredroid}/.config/labwc/autostart" ]; then
+  cp /etc/xdg/labwc/autostart "${HOME:-/home/libredroid}/.config/labwc/"
+fi
 
-# the compositor, as the last exec
-exec /usr/bin/labwc -s /usr/bin/lrd-shell-launch
+# Launch labwc as primary Wayland compositor
+if command -v labwc >/dev/null 2>&1; then
+  logger -t lrd-session "Starting labwc Wayland compositor..."
+  exec labwc -s /usr/lib/lrd/lrd-shell-launch
+elif command -v cage >/dev/null 2>&1; then
+  logger -t lrd-session "labwc not found; falling back to cage kiosk compositor..."
+  exec cage -- /usr/lib/lrd/lrd-shell-launch
+else
+  logger -t lrd-session "No Wayland compositor installed; running fallback kiosk..."
+  exec /usr/lib/lrd/lrd-shell-launch
+fi

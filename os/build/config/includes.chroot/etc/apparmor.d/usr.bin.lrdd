@@ -1,0 +1,36 @@
+# AppArmor profile for LibreDroid Native System Daemon (lrdd)
+#include <tunables/global>
+
+/usr/bin/lrdd {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+
+  capability net_admin,
+  capability sys_admin,
+  capability dac_override,
+
+  # Sysfs hardware access
+  /sys/class/backlight/ r,
+  /sys/class/backlight/** r,
+  /sys/class/backlight/*/brightness rw,
+  /sys/class/power_supply/ r,
+  /sys/class/power_supply/** r,
+  /proc/net/ r,
+  /proc/net/** r,
+  /proc/sys/net/** r,
+
+  # Runtime socket directory
+  /run/libredroid/ rw,
+  /run/libredroid/** rw,
+  /tmp/lrdd.sock rw,
+
+  # Binary execution for power and waydroid
+  /usr/bin/systemctl rix,
+  /bin/systemctl rix,
+  /usr/bin/loginctl rix,
+  /usr/bin/amixer rix,
+  /usr/bin/waydroid rix,
+
+  # Logging
+  /dev/log rw,
+}

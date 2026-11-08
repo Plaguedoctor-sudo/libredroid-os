@@ -76,4 +76,10 @@ sh
 umount /mnt
 EOS
 chmod +x /bin/r-*
-exec sh
+if grep -q "lrd.debug=1" /proc/cmdline 2>/dev/null; then
+  exec sh
+else
+  echo "lrd: recovery operations completed. Rebooting..."
+  sleep 2
+  reboot -f 2>/dev/null || exit 1
+fi

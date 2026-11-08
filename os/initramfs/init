@@ -12,7 +12,22 @@ get() { printf '%s' "$CMDLINE" | tr ' ' '\n' | sed -n "s/^$1=//p" | head -1; }
 SLOT="$(get androidboot.slot_suffix)"
 SLOTC="${SLOT#_}"
 log() { echo "[lrd-init] $*"; echo "[lrd-init] $*" > /dev/kmsg 2>/dev/null; }
-die() { log "FATAL: $*"; echo "=== initramfs shell — type 'lrd-recovery' for tools ==="; exec sh; }
+die() {
+  log "FATAL: $*"
+  if grep -q "lrd.debug=1" /proc/cmdline 2>/dev/null; then
+    echo "=== DEBUG INITRAMFS SHELL (lrd.debug=1 active) — type 'lrd-recovery' for tools ==="
+    exec sh
+  fi
+
+  # Production anti-tamper security response: flush NVRAM pstore and reboot
+  echo "[lrd-init] Security lockout: unverified or corrupt boot payload detected. Rebooting..." > /dev/kmsg 2>/dev/null || true
+  sleep 2
+  if [ -w /proc/sys/kernel/sysrq ]; then
+    echo 1 > /proc/sys/kernel/sysrq 2>/dev/null || true
+    echo b > /proc/sysrq-trigger 2>/dev/null || true
+  fi
+  reboot -f 2>/dev/null || busybox reboot -f 2>/dev/null || poweroff -f 2>/dev/null || exit 1
+}
 
 for m in overlay loop ext4 dm-mod dm-crypt dm-verity; do modprobe "$m" 2>/dev/null; done
 
@@ -27,8 +42,8 @@ mkdir -p /dev/binderfs; mount -t binder binder /dev/binderfs 2>/dev/null
 
 # --- the store partition holds our rootfs images and the recovery flag ---
 STORE=""
-for n in $(find /dev/block -name "lrdstore*" 2>/dev/null); do STORE="$n"; break; done
-[ -z "$STORE" ] && STORE="$(blkid -L LRDSTORE 2>/dev/null)"
+for n in $(find /dev/block -name "lrdstore*" -o -name "LRD-STORE*" 2>/dev/null); do STORE="$n"; break; done
+[ -z "$STORE" ] && STORE="$(blkid -L LRD-STORE 2>/dev/null || blkid -L LRDSTORE 2>/dev/null)"
 mkdir -p /lrdstore
 [ -n "$STORE" ] && mount -o rw "$STORE" /lrdstore 2>/dev/null && log "store mounted"
 
@@ -36,7 +51,17 @@ mkdir -p /lrdstore
 enter_recovery() {
   log "entering recovery mode"
   rm -f /lrdstore/ENTER_RECOVERY
-  exec sh /sbin/lrd-recovery
+  if grep -q "lrd.debug=1" /proc/cmdline 2>/dev/null; then
+    exec sh /sbin/lrd-recovery
+  else
+    log "recovery requested on production image — attempting automated rollback/reset"
+    if [ -x /sbin/r-recover ]; then
+      /sbin/r-recover 2>/dev/null || true
+    fi
+    echo 1 > /proc/sys/kernel/sysrq 2>/dev/null || true
+    echo b > /proc/sysrq-trigger 2>/dev/null || true
+    reboot -f 2>/dev/null || exit 1
+  fi
 }
 [ -f /lrdstore/ENTER_RECOVERY ] && enter_recovery
 [ -f /lrdstore/FORCE_RECOVERY ] && enter_recovery
@@ -96,6 +121,7 @@ mountpoint -q /lrdstore && mount --move /lrdstore /newroot/lrdstore
 for p in vendor odm; do mountpoint -q "/$p" && mount --move "/$p" "/newroot/$p"; done
 
 mkdir -p /newroot/run/lrd
+echo "${SLOTC:-a}" > /newroot/run/lrd/slot
 cat > /newroot/run/lrd/boot.json <<EOF
 {"slot":"${SLOT:-none}","root":"$ROOTIMG","overlay":"$(mountpoint -q /overlay && echo mounted)","persistent":"$([ -n "$OV" ] && echo yes || echo no)","verity":"$([ -n "$VERITY_DEV" ] && echo enforced || echo disabled)","at":"$(date -Is)"}
 EOF

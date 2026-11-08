@@ -1,0 +1,44 @@
+#!/bin/bash
+# lrd-top: Process and cgroup resource monitor across all LibreDroid isolation domains
+set -euo pipefail
+
+DOMAINS="vault tor-gw anon-ws work dispos android"
+
+echo "================================================================================"
+echo " LibreDroid OS — Domain & Cgroup v2 Process Monitor"
+echo "================================================================================"
+printf "%-10s %-12s %-10s %-10s %-8s %-10s\n" "DOMAIN" "MEMORY MAX" "MEM USED" "CPU QUOTA" "TASKS" "STATUS"
+echo "--------------------------------------------------------------------------------"
+
+for d in $DOMAINS; do
+  svc="libredroid-domain@$d.service"
+  active="inactive"
+  if systemctl is-active --quiet "$svc" 2>/dev/null; then
+    active="active"
+  fi
+
+  mem_max=$(systemctl show "$svc" -p MemoryMax --value 2>/dev/null || echo "N/A")
+  [ "$mem_max" = "infinity" ] && mem_max="unlimited"
+  [ -z "$mem_max" ] && mem_max="default"
+
+  mem_cur="0M"
+  if [ -f "/sys/fs/cgroup/machine.slice/$svc/memory.current" ]; then
+    bytes=$(cat "/sys/fs/cgroup/machine.slice/$svc/memory.current" 2>/dev/null || echo 0)
+    mem_cur="$(( bytes / 1024 / 1024 ))M"
+  fi
+
+  cpu_quota=$(systemctl show "$svc" -p CPUQuotaPerSecUSec --value 2>/dev/null || echo "default")
+  [ -z "$cpu_quota" ] && cpu_quota="unlimited"
+
+  tasks="0"
+  if [ -f "/sys/fs/cgroup/machine.slice/$svc/cgroup.procs" ]; then
+    tasks=$(wc -l < "/sys/fs/cgroup/machine.slice/$svc/cgroup.procs" 2>/dev/null || echo 0)
+  fi
+
+  printf "%-10s %-12s %-10s %-10s %-8s %-10s\n" "$d" "$mem_max" "$mem_cur" "$cpu_quota" "$tasks" "$active"
+done
+
+echo
+echo "── Top Host & Domain Processes (sorted by CPU) ────────────────────────────────"
+ps -eo pid,user,%cpu,rss,comm --sort=-%cpu | head -n 15
+echo

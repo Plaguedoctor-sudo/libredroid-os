@@ -1,39 +1,39 @@
 <?xml version="1.0"?>
 <labwc_config>
   <core>
-    <gap>0</gap>
+    <gap>4</gap>
     <adaptiveSync>no</adaptiveSync>
-    <allowSnapping>no</allowSnapping>
-    <!-- touch devices: no titlebars, no drag-to-move -->
-    <windowSwitcher show="yes" preview="no" outlines="no"/>
+    <allowSnapping>yes</allowSnapping>
+    <windowSwitcher show="yes" preview="no" outlines="yes"/>
   </core>
 
   <theme>
-    <cornerRadius>0</cornerRadius>
+    <cornerRadius>10</cornerRadius>
     <titlebar><layout>none</layout></titlebar>
     <font place="ActiveWindow"><name>Noto Sans</name><size>11</size></font>
   </theme>
 
   <keyboard>
     <default/>
-    <!-- the hardware escape hatches, because there is no window manager UI -->
-    <keybind key="Super_L"><action name="Execute"><command>lrd-wm shell</command></action></keybind>
+    <!-- Navigation shortcuts -->
+    <keybind key="Super_L"><action name="Execute"><command>lrd-shell-launch toggle</command></action></keybind>
+    <keybind key="Super+Space"><action name="Execute"><command>lrd-shell-launch toggle</command></action></keybind>
     <keybind key="Super+Tab"><action name="Execute"><command>lrd-wm cycle</command></action></keybind>
     <keybind key="Super+Shift+Tab"><action name="Execute"><command>lrd-wm cycle back</command></action></keybind>
     <keybind key="Super+Q"><action name="Close"/></keybind>
-    <keybind key="Super+Return"><action name="Execute"><command>lrd-wm launch lrd-terminal.desktop</command></action></keybind>
+    <keybind key="Super+Return"><action name="Execute"><command>foot</command></action></keybind>
     <keybind key="Super+K"><action name="Execute"><command>lrd-osk toggle</command></action></keybind>
-    <keybind key="Super+M"><action name="Execute"><command>lrd-a11y magnifier toggle</command></action></keybind>
-    <keybind key="Super+L"><action name="Execute"><command>lrd-lock</command></action></keybind>
-    <keybind key="Super+P"><action name="Execute"><command>lrd-power-menu</command></action></keybind>
+    <keybind key="Super+L"><action name="Execute"><command>lrdd-ctl power lock</command></action></keybind>
+    <keybind key="Super+P"><action name="Execute"><command>lrdd-ctl power poweroff</command></action></keybind>
     <keybind key="Super+F"><action name="ToggleFullscreen"/></keybind>
-    <!-- volume and brightness without a keyboard driver in userspace -->
-    <keybind key="XF86AudioRaiseVolume"><action name="Execute"><command>lrd-vol up</command></action></keybind>
-    <keybind key="XF86AudioLowerVolume"><action name="Execute"><command>lrd-vol down</command></action></keybind>
-    <keybind key="XF86AudioMute"><action name="Execute"><command>lrd-vol mute</command></action></keybind>
-    <keybind key="XF86MonBrightnessUp"><action name="Execute"><command>lrd-bright +</command></action></keybind>
-    <keybind key="XF86MonBrightnessDown"><action name="Execute"><command>lrd-bright -</command></action></keybind>
-    <keybind key="Super+Right"><action name="Execute"><command>lrd-wm next-output</command></action></keybind>
+    
+    <!-- Audio & Backlight hardware control via lrdd-ctl -->
+    <keybind key="XF86AudioRaiseVolume"><action name="Execute"><command>lrdd-ctl volume set 80</command></action></keybind>
+    <keybind key="XF86AudioLowerVolume"><action name="Execute"><command>lrdd-ctl volume set 40</command></action></keybind>
+    <keybind key="XF86AudioMute"><action name="Execute"><command>lrdd-ctl volume set 0</command></action></keybind>
+    <keybind key="XF86MonBrightnessUp"><action name="Execute"><command>lrdd-ctl brightness set 90</command></action></keybind>
+    <keybind key="XF86MonBrightnessDown"><action name="Execute"><command>lrdd-ctl brightness set 40</command></action></keybind>
+    <keybind key="XF86PowerOff"><action name="Execute"><command>lrdd-ctl power poweroff</command></action></keybind>
   </keyboard>
 
   <mouse>
@@ -45,15 +45,57 @@
     <longPressTime>500</longPressTime>
   </touch>
 
-  <!-- everything fills the screen; the shell switches, it does not decorate -->
   <windowRules>
+    <!-- Default rule: clean, borderless presentation -->
     <windowRule identifier="*" serverDecoration="no">
       <action name="Maximize"/>
     </windowRule>
-    <windowRule identifier="*chromium*" serverDecoration="no" skipTaskbar="no">
+
+    <!-- LibreDroid Native Shell: base desktop layer, stays below toplevel apps -->
+    <windowRule identifier="*libredroid*" serverDecoration="no" skipTaskbar="yes">
       <action name="Maximize"/>
     </windowRule>
-    <!-- the OSK must not be maximized, it is a layer surface -->
+    <windowRule identifier="*lrd-wayland-shell*" serverDecoration="no" skipTaskbar="yes">
+      <action name="Maximize"/>
+    </windowRule>
+    <windowRule identifier="*lrd-native-shell*" serverDecoration="no" skipTaskbar="yes">
+      <action name="Maximize"/>
+    </windowRule>
+    <windowRule identifier="*chromium*" serverDecoration="no">
+      <action name="Maximize"/>
+    </windowRule>
+
+    <!-- Waydroid Android Applications: allow freeform windows & smooth compositing -->
+    <windowRule identifier="*Waydroid*" serverDecoration="no">
+      <action name="Unmaximize"/>
+    </windowRule>
+    <windowRule identifier="*waydroid*" serverDecoration="no">
+      <action name="Unmaximize"/>
+    </windowRule>
+
+    <!-- Domain Security Matrix Window Rules (Vault, Tor, Workstation) -->
+    <windowRule identifier="*vault*" serverDecoration="no">
+      <action name="Unmaximize"/>
+    </windowRule>
+    <windowRule identifier="*tor*" serverDecoration="no">
+      <action name="Unmaximize"/>
+    </windowRule>
+    <windowRule identifier="*foot*" serverDecoration="no">
+      <action name="Unmaximize"/>
+    </windowRule>
+    <windowRule identifier="*pcmanfm*" serverDecoration="no">
+      <action name="Unmaximize"/>
+    </windowRule>
+
+    <!-- Dialogs, Popups, and Lock Overlays: float centered -->
+    <windowRule windowType="dialog" serverDecoration="no">
+      <action name="Unmaximize"/>
+    </windowRule>
+    <windowRule windowType="utility" serverDecoration="no">
+      <action name="Unmaximize"/>
+    </windowRule>
+
+    <!-- Virtual Keyboards: layer-shell surfaces, never maximize -->
     <windowRule identifier="wvkbd" serverDecoration="no"/>
     <windowRule identifier="squeekboard" serverDecoration="no"/>
   </windowRules>

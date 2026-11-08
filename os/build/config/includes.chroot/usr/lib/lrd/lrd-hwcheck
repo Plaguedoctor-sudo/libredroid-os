@@ -1,0 +1,64 @@
+#!/bin/sh
+# severity: 0 ok, 1 warn, 2 fail
+J=/var/log/lrd/hwcheck.json; mkdir -p /var/log/lrd
+say() { printf '{"check":"%s","sev":%s,"detail":"%s"}\n' "$1" "$2" "$3" >> "$J"; }
+: > "$J"
+
+have() { [ -e "$1" ] && say "$2" 0 "present" || say "$2" 2 "missing"; }
+
+say "model" 0 "$(tr -d '\0' < /proc/device-tree/model 2>/dev/null | head -c 120)"
+say "compatible" 0 "$(tr -d '\0' < /proc/device-tree/compatible 2>/dev/null | head -c 200)"
+
+# layout
+[ -e /dev/disk/by-partlabel/lrd_rootfs_b ] && say "layout" 0 "ab" || say "layout" 1 "aonly"
+
+# display
+d=$(ls -d /sys/class/drm/card*-* 2>/dev/null | head -1)
+if [ -n "$d" ] && grep -q '^connected' "$d/status" 2>/dev/null; then
+  say "panel" 0 "$(cat "$d/status") $(cat "$d/modes" 2>/dev/null | head -1)"
+else
+  say "panel" 2 "no connected connector"
+fi
+[ -e /sys/class/backlight ] && say "backlight" 0 ok || say "backlight" 1 "none"
+
+# input
+n=$(ls /dev/input/by-path/*event* 2>/dev/null | wc -l)
+[ "$n" -gt 0 ] && say "input" 0 "$n devices" || say "input" 2 "no event nodes"
+
+# gpu
+if [ -e /dev/kgsl-3d0 ] || ls /dev/dri/renderD* >/dev/null 2>&1; then
+  say "gpu" 0 "$(ls /dev/dri 2>/dev/null | tr '\n' ' ')"
+else
+  say "gpu" 2 "no render node — software rendering only"
+fi
+
+# modem / telephony
+if [ -e /dev/rmnet0 ] || [ -e /dev/rmnet_mux_be ]; then say "modem" 0 ok; else say "modem" 2 "no rmnet"; fi
+command -v mmcli >/dev/null && say "mmcli" 0 "$(mmcli -L 2>&1 | head -1)" || say "mmcli" 2 absent
+[ -e /dev/smdcntl0 ] || [ -e /dev/qmi0 ] && say "qmi" 0 ok || say "qmi" 1 "no qmi node"
+
+# audio
+command -v tinymix >/dev/null && say "tinymix" 0 "$(tinymix 2>&1 | wc -l) controls" || say "tinymix" 2 absent
+aplay -l 2>/dev/null | grep -q '^card' && say "pcm" 0 ok || say "pcm" 2 "no playback device"
+
+# sensors / gnss / camera
+[ -d /sys/bus/iio/devices ] && say "iio" 0 "$(ls /sys/bus/iio/devices | wc -l)" || say "iio" 1 none
+[ -e /dev/gnss0 ] && say "gnss" 0 ok || say "gnss" 1 absent
+[ -e /dev/video0 ] && say "camera" 0 ok || say "camera" 1 "no video node"
+
+# power
+c=$(cat /sys/class/power_supply/*/capacity 2>/dev/null | head -1)
+say "battery" 0 "${c:-unknown}%"
+[ -d /sys/class/thermal ] && say "thermal" 0 "$(ls /sys/class/thermal | grep -c thermal_zone)" || say "thermal" 1 none
+
+# integrity + lock state
+[ -x /usr/bin/avbtool ] && say "avbtool" 0 ok || say "avbtool" 2 absent
+say "verity" 0 "$(dmsetup status 2>/dev/null | grep -c verity) active"
+
+# memory floor
+m=$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo)
+[ "$m" -ge 3500 ] && say "ram" 0 "${m}MiB" || say "ram" 1 "${m}MiB below floor"
+
+f=$(grep -c '"sev":2' "$J"); w=$(grep -c '"sev":1' "$J")
+echo "hwcheck: $f fail, $w warn"
+[ "$f" -eq 0 ]

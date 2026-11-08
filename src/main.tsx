@@ -6,6 +6,12 @@ import { PlatformProvider } from './platform/react/PlatformProvider';
 import { SetupHost } from './platform/react/SetupHost';
 import { Kiosk, SafeArea, SystemGestureBar } from './platform/react/Chrome';
 import { bindSystemActions } from './platform/input';
+import { notifyReady } from './shell/api/base';
+
+// Report ready to lrd-api daemon
+if (typeof window !== 'undefined') {
+  notifyReady();
+}
 
 bindSystemActions((action) => {
   // route into the shell's existing handlers

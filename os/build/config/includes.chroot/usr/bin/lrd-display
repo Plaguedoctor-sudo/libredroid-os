@@ -1,0 +1,111 @@
+#!/bin/bash
+# ==============================================================================
+# LibreDroid Wayland HiDPI Display & Scale Controller (lrd-display)
+# os/settings/display/lrd-display
+#
+# Interfaces with Wayland compositors (labwc, cage) via wlr-randr:
+#   - HiDPI fractional and integer display scaling (100%, 150%, 200%, 250%)
+#   - Mobile refresh rate switching (60Hz, 90Hz, 120Hz)
+#   - Resolution modes
+# ==============================================================================
+
+set -euo pipefail
+
+ACTION="${1:-status}"
+STATE_DIR="/run/libredroid/display"
+if ! mkdir -p "$STATE_DIR" 2>/dev/null; then
+    STATE_DIR="/tmp/libredroid/display"
+    mkdir -p "$STATE_DIR"
+fi
+
+CONFIG_FILE="$STATE_DIR/config.json"
+
+get_output_name() {
+    if command -v wlr-randr >/dev/null 2>&1; then
+        wlr-randr | grep -m1 "^[A-Za-z0-9-]" | awk '{print $1}' || echo "DSI-1"
+    else
+        echo "DSI-1"
+    fi
+}
+
+set_scale() {
+    local scale="${2:-1.5}"
+    local out
+    out=$(get_output_name)
+
+    echo "[*] Setting display scale to ${scale}x on output '$out'..."
+    if command -v wlr-randr >/dev/null 2>&1; then
+        wlr-randr --output "$out" --scale "$scale" 2>/dev/null || true
+    fi
+
+    local current_hz="60"
+    if [ -f "$CONFIG_FILE" ]; then
+        current_hz=$(python3 -c 'import json, sys; data=json.load(open(sys.argv[1])); print(data.get("refresh_hz", 60))' "$CONFIG_FILE" 2>/dev/null || echo "60")
+    fi
+
+    cat <<EOF > "$CONFIG_FILE"
+{
+  "output": "$out",
+  "scale": $scale,
+  "refresh_hz": $current_hz,
+  "hidpi_active": true
+}
+EOF
+    echo "[+] Display scale applied: ${scale}x"
+}
+
+set_refresh_rate() {
+    local hz="${2:-120}"
+    local out
+    out=$(get_output_name)
+
+    echo "[*] Switching display refresh rate to ${hz}Hz on output '$out'..."
+    if command -v wlr-randr >/dev/null 2>&1; then
+        # Query current mode and apply new refresh rate
+        wlr-randr --output "$out" --mode "1080x2400@${hz}Hz" 2>/dev/null || true
+    fi
+
+    local current_scale="1.5"
+    if [ -f "$CONFIG_FILE" ]; then
+        current_scale=$(python3 -c 'import json, sys; data=json.load(open(sys.argv[1])); print(data.get("scale", 1.5))' "$CONFIG_FILE" 2>/dev/null || echo "1.5")
+    fi
+
+    cat <<EOF > "$CONFIG_FILE"
+{
+  "output": "$out",
+  "scale": $current_scale,
+  "refresh_hz": $hz,
+  "smooth_touch_active": true
+}
+EOF
+    echo "[+] Refresh rate switched: ${hz}Hz"
+}
+
+show_status() {
+    local out
+    out=$(get_output_name)
+    echo "=== LibreDroid Wayland HiDPI Display Status ==="
+    echo "Active Output: $out"
+    if [ -f "$CONFIG_FILE" ]; then
+        cat "$CONFIG_FILE"
+    else
+        echo "Scale:         1.5x (HiDPI Mobile)"
+        echo "Refresh Rate:  120Hz (Ultra-smooth touch response)"
+    fi
+}
+
+case "$ACTION" in
+    scale)
+        set_scale "$@"
+        ;;
+    rate|refresh)
+        set_refresh_rate "$@"
+        ;;
+    status)
+        show_status
+        ;;
+    *)
+        echo "Usage: $0 {scale <1.0|1.5|2.0|2.5>|refresh <60|90|120>|status}"
+        exit 1
+        ;;
+esac

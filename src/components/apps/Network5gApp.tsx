@@ -102,12 +102,15 @@ export const Network5gApp: React.FC = () => {
             <Radio size={22} />
           </div>
           <div>
-            <div className="text-base font-bold flex items-center gap-2">
+            <div className="text-base font-bold flex items-center gap-2 flex-wrap">
               <span>5G Adaptor & Simulator</span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold uppercase tracking-wider ${
                 state.enabled ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-neutral-800 text-neutral-400'
               }`}>
                 {state.enabled ? activeCarrier.badge : 'OFFLINE'}
+              </span>
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono border border-amber-500/30">
+                Simulated Environment (Demonstration Mode)
               </span>
             </div>
             <div className="text-xs text-neutral-400">

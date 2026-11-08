@@ -11,8 +11,10 @@ import {
   CheckCircle2,
   PhoneCall,
   Maximize,
-  Minimize
+  Minimize,
+  Sparkles
 } from 'lucide-react';
+import { systemBus } from '../../services/systemBus';
 import { useSystem } from '../../context/SystemContext';
 import { useWindow } from '../../context/WindowContext';
 import { MULTI_OS_DOMAINS } from '../../services/multiOsHypervisor';
@@ -142,6 +144,19 @@ export const StatusBar: React.FC = () => {
         {quickSettings.bluetooth && (
           <Bluetooth size={13} className="text-blue-400" />
         )}
+
+        {/* ColorOS Smart Shelf Affordance */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (navigator.vibrate) navigator.vibrate(10);
+            systemBus.emit('shelf:toggle');
+          }}
+          className="p-1 rounded hover:bg-white/10 active:scale-95 text-amber-300 hover:text-amber-200 transition-all flex items-center gap-1"
+          title="Open OnePlus Smart Shelf & Widgets"
+        >
+          <Sparkles size={13} />
+        </button>
 
         {/* Fullscreen Kiosk Affordance */}
         <button

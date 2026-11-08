@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# lrd-slot — slot control from inside the running OS, no fastboot needed.
+#   show | json | other | set <a|b> [tries] | boot <a|b> | boot-once-other | recovery-once
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BC="${LRD_BOOTCOUNT_BIN:-$(command -v lrd-bootcount 2>/dev/null || echo "$SCRIPT_DIR/lrd-bootcount")}"
+[ -x "$BC" ] || BC="/usr/sbin/lrd-bootcount"
+
+cur() {
+  local s=""
+  if [ -r /proc/cmdline ]; then
+    s="$(sed -n 's/.*androidboot.slot_suffix=\([^ ]*\).*/\1/p' /proc/cmdline 2>/dev/null || true)"
+    [ -z "$s" ] && s="$(sed -n 's/.*lrd.slot=\([ab]\).*/_\1/p' /proc/cmdline 2>/dev/null || true)"
+  fi
+  if [ -z "$s" ]; then
+    if [ -n "${LRD_SLOT:-}" ]; then
+      s="$LRD_SLOT"
+      [[ "$s" != _* ]] && s="_$s"
+    elif [ -f /run/lrd/slot ]; then
+      s="_$(cat /run/lrd/slot)"
+    elif [ -f /var/lib/lrd/active_slot ]; then
+      s="_$(cat /var/lib/lrd/active_slot)"
+    else
+      s="_a"
+    fi
+  fi
+  echo "$s"
+}
+
+curidx() {
+  local s; s="$(cur)"
+  [ "$s" = "_b" ] && echo "b" || echo "a"
+}
+
+other() {
+  [ "$(curidx)" = "a" ] && echo "b" || echo "a"
+}
+
+cmd="${1:-show}"
+case "$cmd" in
+  show|--status)
+    echo "running from slot: $(cur)"
+    if [ -x "$BC" ]; then
+      "$BC" --status
+    else
+      echo "current: $(curidx)"
+      echo "other:   $(other)"
+    fi
+    ;;
+  json|--json)
+    if [ -x "$BC" ]; then
+      "$BC" --json
+    else
+      echo "{\"slots\":2,\"current\":\"$(curidx)\",\"other\":\"$(other)\"}"
+    fi
+    ;;
+  other)
+    echo "$(other)"
+    ;;
+  set)
+    t="${2:-$(other)}"
+    [[ "$t" != "a" && "$t" != "b" ]] && { echo "invalid slot: $t (must be a or b)" >&2; exit 1; }
+    tries="${3:-3}"
+    echo "arming slot $t with $tries tries"
+    if [ -x "$BC" ]; then
+      "$BC" --arm "$t" "$tries"
+    fi
+    mkdir -p /run/lrd
+    echo "$t" > /run/lrd/next_slot
+    echo "slot $t armed for next boot"
+    ;;
+  boot)
+    t="${2:-$(other)}"
+    tries="${3:-3}"
+    if [ -x "$BC" ]; then
+      "$BC" --arm "$t" "$tries"
+    fi
+    mkdir -p /run/lrd
+    echo "$t" > /run/lrd/next_slot
+    echo "rebooting to slot $t..."
+    sync
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl reboot || true
+    fi
+    ;;
+  boot-once-other)
+    t="$(other)"
+    if [ -x "$BC" ]; then
+      "$BC" --arm "$t" 1
+    fi
+    echo "booting slot $t once, then fallback to $(curidx)"
+    sync
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl reboot || true
+    fi
+    ;;
+  recovery-once)
+    mkdir -p /lrdstore
+    mountpoint -q /lrdstore || mount /dev/disk/by-label/LRDSTORE /lrdstore 2>/dev/null || true
+    touch /lrdstore/ENTER_RECOVERY 2>/dev/null || true
+    sync
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl reboot || true
+    fi
+    ;;
+  *)
+    echo "usage: lrd-slot {show|json|other|set <a|b> [tries]|boot <a|b>|boot-once-other|recovery-once}"
+    exit 2
+    ;;
+esac

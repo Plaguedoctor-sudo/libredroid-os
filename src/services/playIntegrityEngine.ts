@@ -1,4 +1,6 @@
 /**
+ * @concept-ui
+ * @experimental-mock
  * LibreDroid Sovereign Play Integrity & SafetyNet Attestation Engine
  * 
  * Provides:
@@ -42,6 +44,21 @@ export const CERTIFIED_FINGERPRINTS: DeviceFingerprintProfile[] = [
     incremental: '12053224',
     securityPatch: '2026-08-05',
     fingerprint: 'google/husky/husky:14/AP2A.240805.005.F1/12053224:user/release-keys',
+    sdkInt: 34,
+  },
+  {
+    id: 'galaxym14',
+    name: 'Samsung Galaxy M14 5G (m14x)',
+    manufacturer: 'samsung',
+    model: 'SM-M146B',
+    brand: 'samsung',
+    product: 'm14xeea',
+    device: 'm14x',
+    release: '14',
+    idBuild: 'UP1A.231005.007',
+    incremental: 'M146BXXU3BXC2',
+    securityPatch: '2026-09-01',
+    fingerprint: 'samsung/m14xeea/m14x:14/UP1A.231005.007/M146BXXU3BXC2:user/release-keys',
     sdkInt: 34,
   },
   {

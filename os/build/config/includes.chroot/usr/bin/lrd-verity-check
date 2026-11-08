@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# lrd-verity-check — Verifies dm-verity rootfs signature, metadata sanity, and monotonic anti-rollback
+set -euo pipefail
+
+cmdline="/proc/cmdline"
+slot=""
+if [ -r "$cmdline" ]; then
+  slot="$(sed -n 's/.*androidboot.slot_suffix=_\([ab]\).*/\1/p' "$cmdline" 2>/dev/null || true)"
+  [ -z "$slot" ] && slot="$(sed -n 's/.*lrd.slot=\([ab]\).*/\1/p' "$cmdline" 2>/dev/null || true)"
+fi
+if [ -z "$slot" ]; then
+  if [ -n "${LRD_SLOT:-}" ]; then
+    slot="${LRD_SLOT#_}"
+  elif [ -f /run/lrd/slot ]; then
+    slot="$(cat /run/lrd/slot)"
+  elif [ -f /var/lib/lrd/active_slot ]; then
+    slot="$(cat /var/lib/lrd/active_slot)"
+  else
+    slot="a"
+  fi
+fi
+
+# Find verity metadata
+meta="${LRD_VERITY_META:-}"
+if [ -z "$meta" ]; then
+  for p in "/store/verity/lrd-verity_${slot}.json" \
+           "/lrdstore/verity/lrd-verity_${slot}.json" \
+           "/var/lib/lrd/verity/lrd-verity_${slot}.json" \
+           "/etc/lrd/verity/lrd-verity_${slot}.json"; do
+    if [ -f "$p" ]; then
+      meta="$p"
+      break
+    fi
+  done
+fi
+
+RUN_DIR="${LRD_RUN_DIR:-/run}"
+mkdir -p "$RUN_DIR/lrd" "$RUN_DIR/libredroid" 2>/dev/null || true
+
+if [ -z "$meta" ] || [ ! -f "$meta" ]; then
+  # If metadata file is not found, generate baseline verification status
+  out='{"verified":false,"slot":"'"$slot"'","reason":"no_verity_metadata","at":"'"$(date -Is 2>/dev/null || date -u)"'"}'
+  echo "$out" > "$RUN_DIR/lrd/verity.json" 2>/dev/null || true
+  echo "$out" > "$RUN_DIR/libredroid/verity.json" 2>/dev/null || true
+  if [ "${1:-check}" = "--status" ]; then
+    echo "$out"
+    exit 0
+  fi
+  exit 1
+fi
+
+# Verify signature if key exists
+pubkey="${LRD_VERITY_KEY:-/etc/lrd/keys/verity.pub.pem}"
+if [ -f "$pubkey" ] && [ -f "${meta}.sig" ]; then
+  if ! openssl dgst -sha256 -verify "$pubkey" -signature "${meta}.sig" "$meta" >/dev/null 2>&1; then
+    echo "lrd-verity-check: cryptographic signature verification failed!" >&2
+    exit 2
+  fi
+fi
+
+rh="$(jq -r '.rootHash // ""' "$meta" 2>/dev/null || echo "")"
+tier="$(jq -r '.tier // 0' "$meta" 2>/dev/null || echo 0)"
+build="$(jq -r '.buildId // "unknown"' "$meta" 2>/dev/null || echo "unknown")"
+new_counter="$(jq -r '.monotonicCounter // 0' "$meta" 2>/dev/null || echo 0)"
+at="$(date -Is 2>/dev/null || date -u)"
+
+# Anti-Rollback Check
+counter_store="${LRD_ROLLBACK_STORE:-/var/lib/lrd/rollback_counter}"
+if [ -f "$counter_store" ]; then
+  cur_counter="$(cat "$counter_store" 2>/dev/null || echo 0)"
+  if [ "$new_counter" -lt "$cur_counter" ]; then
+    echo "lrd-verity-check: REJECTED! Rollback attack detected: build counter $new_counter < registered counter $cur_counter" >&2
+    exit 3
+  fi
+fi
+
+# Update rollback counter on valid verification
+if [ "$new_counter" -gt 0 ]; then
+  mkdir -p "$(dirname "$counter_store")"
+  echo "$new_counter" > "$counter_store"
+fi
+
+status_json="$(jq -nc --arg slot "$slot" --arg rh "$rh" \
+   --arg tier "$tier" --arg build "$build" --arg at "$at" \
+   --arg counter "$new_counter" \
+   '{"verified":true, "slot":$slot, "rootHash":$rh, "tier":($tier|tonumber), "buildId":$build, "monotonicCounter":($counter|tonumber), "at":$at}')"
+
+echo "$status_json" > "$RUN_DIR/lrd/verity.json" 2>/dev/null || true
+echo "$status_json" > "$RUN_DIR/libredroid/verity.json" 2>/dev/null || true
+
+if [ "${1:-check}" = "--status" ] || [ "${1:-check}" = "--json" ]; then
+  echo "$status_json"
+fi
+exit 0

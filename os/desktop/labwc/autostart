@@ -29,5 +29,8 @@ wireplumber 2>/dev/null &
 pipewire 2>/dev/null &
 pipewire-pulse 2>/dev/null &
 
+# direct Wayland subsurface pipeline (replaces noVNC)
+/usr/lib/lrd/lrd-wayland-subsurface 2>/dev/null &
+
 # the shell last, so its dependencies exist
 lrd-shell-launch &

@@ -1,0 +1,95 @@
+#!/bin/bash
+# ==============================================================================
+# LibreDroid Telemetry Defense Manager
+# os/security/net/lrd-telemetry-defense
+# ==============================================================================
+
+set -euo pipefail
+
+PID_DIR="/run/libredroid"
+if ! mkdir -p "$PID_DIR" 2>/dev/null; then
+    PID_DIR="/tmp/libredroid"
+    mkdir -p "$PID_DIR"
+fi
+
+DNSD_BIN="/usr/bin/lrd-dnsd"
+POISONER_BIN="/usr/bin/lrd-poisoner"
+
+# Fallback to local build path if running in dev environment
+if [ ! -x "$DNSD_BIN" ]; then
+    DNSD_BIN="$(dirname "$0")/lrd-dnsd"
+fi
+if [ ! -x "$POISONER_BIN" ]; then
+    POISONER_BIN="$(dirname "$0")/lrd-poisoner"
+fi
+
+start() {
+    echo "[*] Starting LibreDroid Telemetry Defenses..."
+    if [ -x "$DNSD_BIN" ]; then
+        "$DNSD_BIN" > /dev/null 2>&1 &
+        echo $! > "$PID_DIR/lrd-dnsd.pid"
+        echo "[+] lrd-dnsd started (PID: $(cat "$PID_DIR/lrd-dnsd.pid"))."
+    fi
+
+    if [ -x "$POISONER_BIN" ]; then
+        "$POISONER_BIN" > /dev/null 2>&1 &
+        echo $! > "$PID_DIR/lrd-poisoner.pid"
+        echo "[+] lrd-poisoner started (PID: $(cat "$PID_DIR/lrd-poisoner.pid"))."
+    fi
+}
+
+stop() {
+    echo "[*] Stopping LibreDroid Telemetry Defenses..."
+    if [ -f "$PID_DIR/lrd-dnsd.pid" ]; then
+        kill "$(cat "$PID_DIR/lrd-dnsd.pid")" 2>/dev/null || true
+        rm -f "$PID_DIR/lrd-dnsd.pid"
+    fi
+    if [ -f "$PID_DIR/lrd-poisoner.pid" ]; then
+        kill "$(cat "$PID_DIR/lrd-poisoner.pid")" 2>/dev/null || true
+        rm -f "$PID_DIR/lrd-poisoner.pid"
+    fi
+    echo "[+] Defenses stopped."
+}
+
+status() {
+    echo "=== LibreDroid Telemetry Defense Status ==="
+    echo -n "DNS Sinkhole (lrd-dnsd): "
+    if [ -f "$PID_DIR/lrd-dnsd.pid" ] && kill -0 "$(cat "$PID_DIR/lrd-dnsd.pid")" 2>/dev/null; then
+        echo "RUNNING (PID: $(cat "$PID_DIR/lrd-dnsd.pid"))"
+    else
+        echo "STOPPED"
+    fi
+
+    echo -n "Telemetry Poisoner (lrd-poisoner): "
+    if [ -f "$PID_DIR/lrd-poisoner.pid" ] && kill -0 "$(cat "$PID_DIR/lrd-poisoner.pid")" 2>/dev/null; then
+        echo "RUNNING (PID: $(cat "$PID_DIR/lrd-poisoner.pid"))"
+    else
+        echo "STOPPED"
+    fi
+
+    if [ -f "$PID_DIR/telemetry_blocked.json" ]; then
+        echo "Recent Interceptions:"
+        tail -n 5 "$PID_DIR/telemetry_blocked.json"
+    fi
+}
+
+case "${1:-status}" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    restart)
+        stop
+        sleep 1
+        start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac

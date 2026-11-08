@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useState, type ReactNode } from "react";
 import "../../styles/overlay.css";
+import { API_BASE } from "../../shell/api/base";
 
 const ROOT_ID = "lrd-overlay-root";
 
@@ -67,7 +68,7 @@ export function runDomCheck() {
   (window as any).__lrdDomFailures = failures;
 
   try {
-    fetch('/api/shell/dom-check', {
+    fetch(`${API_BASE}/api/shell/dom-check`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({

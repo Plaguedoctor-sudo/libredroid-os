@@ -1,0 +1,16 @@
+[Unit]
+Description=LibreDroid Native Sovereign System Daemon Socket
+DefaultDependencies=no
+Before=sockets.target
+
+[Socket]
+ListenStream=/run/libredroid/lrdd.sock
+SocketMode=0660
+SocketUser=root
+SocketGroup=root
+DirectoryMode=0775
+PassCredentials=yes
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

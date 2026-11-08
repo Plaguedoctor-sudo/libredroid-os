@@ -9,7 +9,15 @@ log() { echo "[apply-audio] $*"; logger -t lrd-adapt "$*" 2>/dev/null || true; }
 fail() { log "FAIL: $*"; printf '{"ok":false,"reason":%s}\n' "$(printf '%s' "$*" | jq -Rs .)" > "$STATE"; exit 0; }
 
 mod_present() { ls /usr/lib/pulse-*/modules/module-droid-card.so /usr/lib/pulse*/modules/module-droid-card.so >/dev/null 2>&1; }
-mod_present || fail "module-droid-card not installed"
+if ! mod_present; then
+  if [ -r /proc/asound/cards ] && grep -q '[0-9]' /proc/asound/cards; then
+    log "Native ALSA soundcard detected; routing audio natively via PipeWire / WirePlumber"
+    mkdir -p /run/lrd
+    jq -nc --arg mode "pipewire-alsa" '{ok:true, hal:"pipewire", droid_card:"alsa", card:"default", verified:true}' > "$STATE"
+    exit 0
+  fi
+  fail "neither module-droid-card nor native ALSA soundcard detected"
+fi
 
 # ---------- 1. the HAL blob ----------
 HAL=""

@@ -1,0 +1,26 @@
+server {
+    listen 3001 default_server;
+    listen [::]:3001 default_server;
+
+    root /opt/libredroid/shell;
+    index index.html;
+
+    server_name _;
+
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' http://127.0.0.1:3002; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}

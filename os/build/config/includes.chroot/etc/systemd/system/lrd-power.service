@@ -1,0 +1,18 @@
+[Unit]
+Description=LibreDroid Mobile Wake-Lock Governor & Power Daemon
+After=network.target lrdd.service
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/lrd-irq-wake setup
+ExecStart=/usr/bin/lrd-wakelockd
+Restart=always
+RestartSec=2
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/libredroid /tmp/libredroid /sys/power
+MemoryMax=32M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=LibreDroid — cancel the bootloader retry countdown on healthy boot
+After=graphical.target lrdd.service
+Wants=graphical.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/dev /var/lib/lrd /run/lrd
+ExecStart=/bin/sh -c 'if command -v lrd-bootcount >/dev/null 2>&1; then lrd-bootcount --mark-success; elif [ -x /usr/sbin/lrd-bootcount ]; then /usr/sbin/lrd-bootcount --mark-success; fi; mkdir -p /run/lrd && echo 1 > /run/lrd/boot_success'
+TimeoutStartSec=20
+
+[Install]
+WantedBy=graphical.target

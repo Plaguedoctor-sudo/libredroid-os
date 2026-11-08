@@ -340,6 +340,7 @@ export const HomeScreen: React.FC = () => {
                   }}
                   className="hover:scale-110 active:scale-90 transition-transform touch-manipulation cursor-pointer p-1 min-w-[50px] min-h-[50px] flex items-center justify-center"
                   title={app.name}
+                  aria-label={app.name}
                 >
                   <AppIcon appId={app.id} size={iconSize as any} />
                 </button>
@@ -353,6 +354,7 @@ export const HomeScreen: React.FC = () => {
                 }}
                 className="hover:scale-110 active:scale-90 transition-transform touch-manipulation cursor-pointer p-1 min-w-[50px] min-h-[50px] flex items-center justify-center"
                 title="Adapt OS Persona"
+                aria-label="Adapt OS Persona"
               >
                 <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${accent.gradient} flex items-center justify-center text-white shadow-xl pointer-events-none`}>
                   <Sparkles size={22} />

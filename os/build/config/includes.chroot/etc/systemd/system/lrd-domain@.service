@@ -1,0 +1,22 @@
+[Unit]
+Description=LibreDroid Isolated Domain (%i)
+After=network.target lrdd.service
+Wants=network.target
+PartOf=lrd-domains.slice
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Slice=lrd-domains.slice
+ExecStart=/usr/bin/lrd-domain-mgr %i start
+ExecStop=/usr/bin/lrd-domain-mgr %i stop
+
+# Resource limits and hardening
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/libredroid /tmp/libredroid
+MemoryHigh=60%
+MemoryMax=75%
+
+[Install]
+WantedBy=multi-user.target

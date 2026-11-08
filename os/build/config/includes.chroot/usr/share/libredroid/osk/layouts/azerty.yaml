@@ -1,0 +1,12 @@
+name: "AZERTY (French)"
+language: "fr"
+rows:
+  - keys: ["a", "z", "e", "r", "t", "y", "u", "i", "o", "p"]
+  - keys: ["q", "s", "d", "f", "g", "h", "j", "k", "l", "m"]
+  - keys: ["Shift", "w", "x", "c", "v", "b", "n", "'", "Backspace"]
+  - keys: ["?123", "Globe", "Space", ".", "Return"]
+features:
+  swipe_typing: true
+  swipe_backspace_delete_word: true
+  spacebar_cursor_slide: true
+  haptic_feedback: true

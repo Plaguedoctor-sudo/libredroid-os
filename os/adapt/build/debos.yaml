@@ -1,0 +1,77 @@
+{{- $arch := .architecture -}}
+{{- $out := .out -}}
+architecture: {{ $arch }}
+mirror: http://deb.debian.org/debian
+
+actions:
+  - action: debootstrap
+    suite: trixie
+    components: [main, contrib, non-free-firmware]
+    mirror: http://deb.debian.org/debian
+    variant: minbase
+    keyring: /usr/share/keyrings/debian-archive-keyring.gpg
+
+  - action: apt
+    packages:
+      - systemd
+      - systemd-sysv
+      - initramfs-tools
+      - linux-image-generic  # or the vendor kernel, see kernel/
+      - cage
+      - labwc
+      - wayvnc
+      - websockify
+      - novnc
+      - chromium
+      - nodejs
+      - npm
+      - libhybris
+      - libhybris-utils
+      - pulseaudio
+      - pulseaudio-modules-droid
+      - ofono
+      - ofono-binder-plugin
+      - iio-sensor-proxy
+      - upower
+      - rfkill
+      - bluez
+      - network-manager
+      - wpasupplicant
+      - tmux
+      - socat
+      - curl
+      - ca-certificates
+      - jq
+      - zstd
+      - fonts-dejavu
+      - fontconfig
+      - lrd-adapt-common
+      - overlayroot
+
+  - action: overlay
+    source: overlay/
+    destination: /
+
+  - action: run
+    chroot: true
+    command: |
+      # bake the adaptation package in
+      dpkg -i /tmp/adapt.deb || apt-get -fy install
+      rm -f /tmp/adapt.deb
+      systemctl enable lrd-bootgate.service lrd-events.service lrd-adapt-apply.service
+      systemctl enable cage.service
+      systemctl set-default graphical.target
+      # the shell must be able to restart itself without losing the machine
+      mkdir -p /etc/systemd/system/cage.service.d
+      printf '[Service]\nRestart=always\nRestartSec=2\nStartLimitIntervalSec=90\nStartLimitBurst=3\nStartLimitAction=start lrd-safe.target\n' \
+        > /etc/systemd/system/cage.service.d/restart.conf
+      # first boot is never graphical
+      systemctl enable lrd-firstboot.service
+      apt-get clean
+
+  - action: image-partition
+    imagename: lrd-rootfs.img
+    imagesize: 4GB
+    partitiontype: msdos
+    mountpoints:
+      - { mountpoint: /, fs: ext4, start: 1MB, end: 100% }

@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# lrd-shell-launch — start the LibreDroid sovereign desktop shell
+set -uo pipefail
+mkdir -p /run/lrd
+if [ -f /run/lrd/shell.pid ] && kill -0 "$(cat /run/lrd/shell.pid)" 2>/dev/null; then
+  exit 0
+fi
+
+# Ensure lrdd daemon is active
+for _ in $(seq 1 20); do
+  if [ -S /run/libredroid/lrdd.sock ] || [ -S /tmp/lrdd.sock ]; then
+    break
+  fi
+  sleep 0.2
+done
+
+# Allow override via LRD_SHELL_BACKEND=native (default) | webview | browser
+SHELL_BACKEND="${LRD_SHELL_BACKEND:-native}"
+
+if [ "$SHELL_BACKEND" = "native" ]; then
+  # 1. Primary: Native Wayland Shell (<30MB RAM, zero browser overhead, 60-120 FPS)
+  if command -v lrd-wayland-shell >/dev/null 2>&1; then
+    logger -t lrd-shell "Launching native Wayland shell (lrd-wayland-shell)..."
+    lrd-wayland-shell &
+    echo $! > /run/lrd/shell.pid
+    wait
+    exit $?
+  elif [ -x /usr/lib/lrd/lrd-wayland-shell ]; then
+    logger -t lrd-shell "Launching native Wayland shell (/usr/lib/lrd/lrd-wayland-shell)..."
+    /usr/lib/lrd/lrd-wayland-shell &
+    echo $! > /run/lrd/shell.pid
+    wait
+    exit $?
+  elif command -v lrd-native-shell >/dev/null 2>&1; then
+    logger -t lrd-shell "Launching native Wayland shell (lrd-native-shell)..."
+    lrd-native-shell &
+    echo $! > /run/lrd/shell.pid
+    wait
+    exit $?
+  elif [ -x /usr/lib/lrd/lrd-native-shell ]; then
+    logger -t lrd-shell "Launching native Wayland shell (/usr/lib/lrd/lrd-native-shell)..."
+    /usr/lib/lrd/lrd-native-shell &
+    echo $! > /run/lrd/shell.pid
+    wait
+    exit $?
+  fi
+fi
+
+# 2. Secondary: Native WebKitGTK kiosk (~70MB RAM)
+SHELL_URL="${LRD_SHELL_URL:-http://127.0.0.1:3001/?kiosk=1&app=1}"
+if command -v lrd-webview >/dev/null 2>&1; then
+  logger -t lrd-shell "Launching WebKitGTK kiosk (lrd-webview)..."
+  lrd-webview "$SHELL_URL" &
+  echo $! > /run/lrd/shell.pid
+  wait
+  exit $?
+fi
+
+# 3. Fallback: Chromium kiosk
+if command -v chromium >/dev/null 2>&1; then
+  logger -t lrd-shell "Launching Chromium fallback kiosk..."
+  exec /usr/bin/chromium \
+    --kiosk --noerrdialogs --disable-pinch --overscroll-history-navigation=0 \
+    --enable-features=UseOzonePlatform,WaylandWindowDecorations \
+    --ozone-platform=wayland \
+    --enable-wayland-ime --wayland-text-input-version=3 \
+    --force-dark-mode \
+    --renderer-process-limit=4 \
+    --js-flags="--max-old-space-size=384" \
+    --disk-cache-size=268435456 \
+    --disable-background-networking --disable-component-update \
+    --no-first-run --no-default-browser-check --password-store=basic \
+    --user-data-dir=/var/lib/lrd/chromium \
+    --app="$SHELL_URL" &
+  echo $! > /run/lrd/shell.pid
+  wait
+fi

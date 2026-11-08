@@ -4,7 +4,25 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
-**LibreDroid OS** is an independent, non-monopolistic universal operating environment designed to run across smartphones, foldables, tablets, and desktops. It eliminates proprietary Big Tech lock-in (zero Google Play Services / tracking dependencies) while maintaining **full compatibility with existing Android APK applications** via containerized **Waydroid AOSP** runtime, backed by a **Qubes-style Multi-OS Hypervisor Matrix** and a **hardened Linux security stack**.
+**LibreDroid OS** is an independent, non-monopolistic universal operating environment designed to run across smartphones, foldables, tablets, and desktops. It eliminates proprietary Big Tech lock-in (zero Google Play Services / tracking dependencies) while providing an intuitive, unified interface backed by a **hardened Linux security stack**, containerized **Waydroid AOSP** runtime, and a **Qubes-style domain-isolated interface**.
+
+---
+
+## 🧭 Architecture & Implementation Status
+
+To ensure complete technical transparency for bare-metal deployers and contributors, the architecture is divided into three distinct execution tiers:
+
+| Tier | Component | Implementation Status | Technical Mechanism |
+| :--- | :--- | :--- | :--- |
+| **Bare-Metal Linux** | **Kiosk Session & Shell** | ✅ **Production Implemented** | Cage / Labwc Wayland compositor running Chromium kiosk on Ozone-Wayland over KMS/DRM. |
+| **Bare-Metal Linux** | **Hardware System Bridge** | ✅ **Production Implemented** | Loopback Node.js bridge (`server.js`) interfacing with UPower, NetworkManager, systemd, and brightnessctl. |
+| **Bare-Metal Linux** | **Domain Security Matrix** | ✅ **Production Implemented** | Kernel namespaces (`netns`, `mnt`, `pid`), cgroups v2 resource ceilings, and nftables routing (`lrd-tor-gw`). |
+| **Bare-Metal Linux** | **Android App Compatibility**| ✅ **Production Implemented** | Waydroid LXC container runtime backed by kernel `binder_linux` and `ashmem_linux`. |
+| **Bare-Metal Linux** | **Live OS Installer** | ✅ **Production Implemented** | Dual UEFI / BIOS live ISO with SquashFS rootfs, NVMe/SATA partitioner, and optional LUKS2 disk encryption. |
+| **Android Parasite** | **Non-Rooted Android Mode** | ✅ **Production Implemented** | Termux runit daemons, PRoot containers, and ADB debloating / launcher replacement utilities. |
+| **UI Demonstration** | **Apple Darwin / CocoaTouch** | 🧪 *UI Prototype / Concept* | Sideloading workflow and catalog simulated in frontend application state; native Mach-O translator is experimental. |
+| **UI Demonstration** | **seL4 Formally Verified Vault**| 🧪 *UI Prototype / Concept* | Enforced via isolated Linux `netns` loopback-only namespaces; seL4 microkernel passthrough is a future roadmap item. |
+| **UI Demonstration** | **5G Rel-17 & Strong Integrity**| 🧪 *Simulated Protocol* | Virtual network adapter and Play Integrity injection profiles for UI and app compatibility testing. |
 
 ---
 
@@ -30,7 +48,7 @@
 
 LibreDroid incorporates a desktop-class hypervisor matrix inspired by **Qubes OS**, color-coding every window and isolating application processes into five specialized OS security domains:
 
-1. **seL4 Microkernel Vault** (`#8b5cf6`): Mathematically formally-verified microkernel isolation. Zero external network access, isolated memory pages, hardware TRNG key derivation, and dedicated IPC gates for high-value cryptographic credentials and password stores.
+1. **Cryptographic Air-Gapped Vault (`lrd-vault`)** (`#8b5cf6`): Air-gapped Linux loopback namespace (`netns`) and Landlock LSM sandbox (roadmap target: seL4 microkernel passthrough). Zero external network access, isolated memory pages, hardware TRNG key derivation, and dedicated IPC gates for high-value cryptographic credentials and password stores.
 2. **Whonix-Gateway Tor Domain** (`#10b981`): All application traffic forced through Tor onion routing circuits (Guard -> Middle -> Exit). Enforces anti-fingerprinting canvas protection, DNS leak prevention, and uniform timezone spoofing.
 3. **GrapheneOS AOSP Runtime** (`#3b82f6`): Hardened Android Open Source Project sandbox with unprivileged microG, Network permission toggles, and memory allocator hardening.
 4. **Disposable Alpine Linux VM** (`#ef4444`): Ephemeral containerized RAM-disk domain with 0MB persistent storage. Every execution runs in volatile memory and is securely wiped on window close.
@@ -122,9 +140,12 @@ LibreDroid incorporates a unified binary runtime engine capable of executing bot
   - **Element Matrix Messenger** (`im.vector.app`)
   - **K-9 Mail / Thunderbird** (`com.fsck.k9`)
 
-### 2. Apple OS Runtime (Darwin CocoaTouch & Darling Bridge)
+### 2. Apple OS Runtime (Darwin CocoaTouch & Darling Bridge - Experimental UI Demo)
+> [!NOTE]
+> The Apple sideloading workflow is currently implemented as an interactive UI prototype within the web shell frontend to demonstrate the cross-platform vision. Full Mach-O translation and Darwin ABI passthrough on Linux requires host integration with Darling and touchHLE.
+
 - **Sideload Any Apple App**: Upload `.ipa` packages or `.app` bundles directly into LibreDroid.
-- **Mach-O Binary Translation**: Translates 64-bit ARM64 / Universal Mach-O executables (`MH_MAGIC_64`) with 99.4% native instruction passthrough.
+- **Mach-O Binary Translation**: Translates 64-bit ARM64 / Universal Mach-O executables (`MH_MAGIC_64`) with native instruction passthrough.
 - **Darwin Kernel Emulation**: Emulates Darwin 23.4 (XNU) system calls, mach ports, and POSIX threads via the **Darling** compatibility layer.
 - **High-Level UIKit / Cocoa Engine**: Powered by **touchHLE**, rendering Apple UIKit and CoreGraphics surfaces natively on Wayland.
 - **Metal-to-Vulkan Shader Pipeline**: Compiles Apple MSL shaders into SPIR-V shaders executed on host Vulkan GPUs via MoltenVK.
@@ -179,9 +200,12 @@ LibreDroid OS incorporates a comprehensive mobile compatibility suite addressing
 ### 4. 📶 Hardware HAL Bridge (VoLTE, Camera HDR+, Biometrics)
 - **Cellular IMS VoLTE & VoWiFi**: Global carrier configuration profiles (T-Mobile, Verizon, AT&T, Vodafone, Jio 5G, Airtel, Telstra) supporting AMR-WB (16kHz) and EVS (48kHz) Ultra-HD voice codecs and seamless Wi-Fi calling handover.
 - **Camera2 API Level 3 & GCam Pipeline**: RAW stream passthrough, multi-lens array switching (0.5x Ultra-Wide, 1x Main, 5x Telephoto), and computational photography (Zero Shutter Lag, HDR+ Enhanced, Night Sight RAW stacking).
-- **Class 3 Biometric Strong HAL**: Under-display ultrasonic, optical, and side capacitive fingerprint recognition isolated inside TrustZone / seL4 secure enclave.
+- **Class 3 Biometric Strong HAL**: Under-display ultrasonic, optical, and side capacitive fingerprint recognition isolated inside hardware secure enclave.
 
-### 5. 📡 5G Network Adaptor & 3GPP Rel-17 Radio Simulator
+### 5. 📡 5G Network Adaptor & 3GPP Rel-17 Radio Simulator (Virtual Protocol Adapter)
+> [!NOTE]
+> The 5G Network Simulator provides virtual cellular telemetry, QOS slicing profiles, and throughput benchmarking for testing and devices without native cellular basebands; physical cellular connectivity requires hardware modem support.
+
 - **Virtual 5G Adaptor**: Bridges physical Wi-Fi or host USB tunnels into a virtual `rmnet_data0` / `wwan0` cellular data pipeline, bringing full 5G capability to tablets without native 5G modems (e.g. OnePlus Pad Go).
 - **Sub-6 GHz & mmWave Spectrum**: Configurable Band n78 (3.5 GHz C-Band), n77, n41, n28, and n258 (26 GHz mmWave) with 8x8 beamforming and up to 2.4 Gbps throughput.
 - **5G Standalone (SA) & NSA Dual-Connectivity**: 3GPP Release 16/17 protocol stack with 3CC Carrier Aggregation and realistic RF metrics (RSRP, RSRQ, SINR).
@@ -199,7 +223,7 @@ LibreDroid OS incorporates a comprehensive mobile compatibility suite addressing
 | [`installer/bare-metal-safety-guard.sh`](file:///home/nitin/fkgugal/installer/bare-metal-safety-guard.sh) | **Bare-Metal Safety Guard**: Runs 6 pre-flight hardware checks (>= 50% battery, ARM64 validation, auto stock backup, A/B slot isolation, ARB protection, auto rollback generator). |
 | [`installer/emergency-restore.sh`](file:///home/nitin/fkgugal/installer/emergency-restore.sh) | **1-Click Emergency Rollback**: Restores original stock OS slot and factory signatures instantly if anything goes wrong. |
 | [`installer/flash-treble-device.sh`](file:///home/nitin/fkgugal/installer/flash-treble-device.sh) | **Dedicated Hardware Flasher**: Flashes LibreDroid to `/system` with strict **Hardware Partition Protection**, keeping Snapdragon/MediaTek Kernel (`/boot`) and Vendor HAL (`/vendor` for Camera, VoLTE, Display) 100% intact. |
-| [`os/arm/treble/build-treble-gsi.sh`](file:///home/nitin/fkgugal/os/arm/treble/build-treble-gsi.sh) | **ARM64 Treble Builder**: Generates Treble-compliant `system.img` with HIDL/AIDL HAL bindings, microG, Play Integrity, and Widevine L1. |
+| [`os/arm/treble/build-treble-gsi.sh`](file:///home/nitin/fkgugal/os/arm/treble/build-treble-gsi.sh) | **ARM64 Treble Builder (Experimental)**: Generates system overlay configuration with HIDL/AIDL HAL profiles and Play Integrity configs. (Requires base Treble AOSP GSI payload to boot). |
 | [`installer/setup-play-integrity-widevine.sh`](file:///home/nitin/fkgugal/installer/setup-play-integrity-widevine.sh) | Injects Play Integrity Fix (`pif.json`), cloaks root/bootloader, and enables VoLTE + Camera2 Level 3 on any connected Android device. |
 | [`installer/flash-hardened-gsi.sh`](file:///home/nitin/fkgugal/installer/flash-hardened-gsi.sh) | Fastboot GSI system image flasher with automated post-flash provisioning. |
 | [`installer/degoogle-android.sh`](file:///home/nitin/fkgugal/installer/degoogle-android.sh) | Non-destructive ADB debloater that disables tracking daemons while **safeguarding** Widevine L1 DRM, Play Integrity, and IMS VoLTE calling. |

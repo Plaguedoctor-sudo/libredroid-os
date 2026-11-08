@@ -178,7 +178,14 @@ function serveFile(res, filePath, contentType) {
   });
 }
 
+function setSecurityHeaders(res) {
+  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self' http://127.0.0.1:3002; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'");
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+}
+
 const server = http.createServer(async (req, res) => {
+  setSecurityHeaders(res);
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
   const method = req.method.toUpperCase();

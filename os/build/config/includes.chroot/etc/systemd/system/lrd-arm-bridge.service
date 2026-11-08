@@ -1,0 +1,16 @@
+[Unit]
+Description=LibreDroid ARM Binary Translation Bridge & Play Integrity Setup
+After=waydroid-container.service
+Wants=waydroid-container.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/lrd-arm-bridge setup
+ExecStartPost=/usr/bin/lrd-pif-apply apply
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/libredroid /tmp/libredroid /proc/sys/fs/binfmt_misc
+
+[Install]
+WantedBy=multi-user.target

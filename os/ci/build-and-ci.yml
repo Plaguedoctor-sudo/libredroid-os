@@ -1,0 +1,89 @@
+name: LibreDroid OS Build & Automated QEMU CI Matrix
+
+on:
+  push:
+    branches: [ "master", "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  lint-and-audit:
+    name: Code Hygiene, Security & Linter Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & Python
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Build Dependencies
+        run: |
+          npm ci || npm install
+          npm run build
+
+      - name: Run LibreDroid Linter & Architectural Audit
+        run: |
+          chmod +x ./os/audit/lrd-lint
+          ./os/audit/lrd-lint
+
+  test-matrix:
+    name: Phasewise Architectural Test Suites (Phases 1-14)
+    runs-on: ubuntu-latest
+    needs: lint-and-audit
+    strategy:
+      fail-fast: false
+      matrix:
+        phase:
+          - { name: "Phase 0 - Baseline Hardening", script: "os/test/test-phase0-baseline.sh" }
+          - { name: "Phase 1 - lrdd Daemon", script: "os/test/test-lrdd.sh" }
+          - { name: "Phase 2 - Native Wayland Shell", script: "os/test/test-phase2-shell.sh" }
+          - { name: "Phase 3 - Telemetry Defenses", script: "os/test/test-phase3-telemetry.sh" }
+          - { name: "Phase 4 - Two-Tier Domain Isolation", script: "os/test/test-phase4-isolation.sh" }
+          - { name: "Phase 6 - Cellular Voice & SMS", script: "os/test/test-phase6-telephony.sh" }
+          - { name: "Phase 7 - Mobile Audio Routing", script: "os/test/test-phase7-audio.sh" }
+          - { name: "Phase 8 - Camera ISP & Sensors", script: "os/test/test-phase8-sensors.sh" }
+          - { name: "Phase 9 - Mobile Power & S2Idle", script: "os/test/test-phase9-power.sh" }
+          - { name: "Phase 10 - Wayland Layer-Shell OSK", script: "os/test/test-phase10-osk.sh" }
+          - { name: "Phase 11 - Settings & Connectivity", script: "os/test/test-phase11-settings.sh" }
+          - { name: "Phase 12 - ARM Translation Bridge", script: "os/test/test-phase12-arm-translation.sh" }
+          - { name: "Phase 13 - Secure Boot & TPM 2.0", script: "os/test/test-phase13-secureboot-tpm.sh" }
+          - { name: "Phase 14 - Unified Build & CI", script: "os/test/test-phase14-build-ci.sh" }
+          - { name: "Phase 15 - Dual-Slot OTA & Rollback", script: "os/test/test-phase15-ota-rollback.sh" }
+          - { name: "Phase 16 - Audit Hardening & Production", script: "os/test/test-phase16-release-audit.sh" }
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ make python3-gi gir1.2-gtk-3.0 qemu-utils socat
+
+      - name: Run Test Suite (${{ matrix.phase.name }})
+        run: |
+          chmod +x "${{ matrix.phase.script }}"
+          "./${{ matrix.phase.script }}"
+
+  build-targets:
+    name: Multi-Target Image Generation (lrd-make)
+    runs-on: ubuntu-latest
+    needs: test-matrix
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Verify lrd-make Multi-Target Build Harness
+        run: |
+          chmod +x ./os/build/lrd-make
+          ./os/build/lrd-make test
+          ./os/build/lrd-make x86_64-iso --dry-run
+          ./os/build/lrd-make halium-arm64 --dry-run
+          ./os/build/lrd-make aosp-ota --dry-run
+          ./os/build/lrd-make clean

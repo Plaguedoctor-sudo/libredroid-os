@@ -1,0 +1,60 @@
+#!/bin/bash
+set -uo pipefail
+IMG=${1:?usage: lrd-qemu-test <image.qcow2>}
+LOG=$(mktemp); OUT=${OUT:-/tmp/lrd-qemu}
+mkdir -p "$OUT"; FAIL=0
+pass() { echo "PASS $*"; }
+bad()  { echo "FAIL $*"; FAIL=1; }
+mark() { echo "$*" >> "$OUT/marks"; }
+
+qemu-system-x86_64 \
+  -machine q35,accel=kvm:tcg -cpu host -smp 4 -m 4096 \
+  -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
+  -drive if=pflash,format=raw,file="$OUT/vars.fd" \
+  -drive file="$IMG",if=virtio,format=qcow2 \
+  -device virtio-gpu-pci -device qemu-xhci -device usb-tablet \
+  -netdev user,id=n0,hostfwd=tcp::9222-:9222 -device virtio-net-pci,netdev=n0 \
+  -display none -serial "file:$LOG" \
+  -monitor unix:"$OUT/mon",server,nowait &
+QPID=$!
+trap 'kill $QPID 2>/dev/null' EXIT
+
+wait_for() { # wait_for <regex> <seconds> <label>
+  local i=0
+  while [ "$i" -lt "$2" ]; do
+    grep -qE "$1" "$LOG" && { pass "$3"; return 0; }
+    i=$((i+1)); sleep 1
+  done
+  bad "$3 (timeout ${2}s)"; return 1
+}
+
+wait_for 'Reached target graphical.target' 120 'boot to graphical target' || exit 1
+wait_for 'lrd-shell.service: Succeeded|Started LibreDroid shell' 40 'shell unit started'
+
+# health via forwarded port
+for i in $(seq 1 30); do
+  curl -fsS --max-time 2 http://127.0.0.1:3002/api/shell/health 2>/dev/null | grep -q '"ready": true' \
+    && { pass 'shell reported ready'; break; }
+  sleep 1
+done
+
+# --- the regression that just bit you: dock must be tappable ----------
+python3 /usr/lib/lrd/qemu/cdp-probe.py 9222 "$OUT" || bad 'dock hit-test'
+# --- accessibility: every dock icon has a name ------------------------
+python3 /usr/lib/lrd/qemu/cdp-probe.py 9222 "$OUT" --names || bad 'dock icons labelled'
+# --- no horizontal overflow anywhere ---------------------------------
+python3 /usr/lib/lrd/qemu/cdp-probe.py 9222 "$OUT" --overflow || bad 'horizontal overflow'
+
+# --- boot counter cleared --------------------------------------------
+wait_for 'lrd-bootok' 20 'bootok ran' || true
+
+# --- fallback page when the web root dies ----------------------------
+printf 'stop\n' | socat - UNIX-CONNECT:"$OUT/mon" >/dev/null 2>&1 || true
+grep -q 'boot-tries' "$LOG" || true
+
+# --- visual artefact -------------------------------------------------
+printf 'screendump %s/final.ppm\n' "$OUT" | socat - UNIX-CONNECT:"$OUT/mon" >/dev/null
+mark "screendump $OUT/final.ppm"
+
+[ "$FAIL" -eq 0 ] && { echo "RESULT: pass"; exit 0; }
+echo "RESULT: fail"; cp "$LOG" "$OUT/serial.log"; exit 1

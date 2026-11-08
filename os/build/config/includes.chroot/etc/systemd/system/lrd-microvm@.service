@@ -1,0 +1,23 @@
+[Unit]
+Description=LibreDroid Tier 2 MicroVM Domain (%i)
+After=network.target lrdd.service
+Wants=network.target
+PartOf=lrd-domains.slice
+
+[Service]
+Type=forking
+Slice=lrd-domains.slice
+ExecStart=/usr/bin/lrd-microvm %i start
+ExecStop=/usr/bin/lrd-microvm %i stop
+Restart=on-failure
+RestartSec=3
+
+# Hardening
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/libredroid /tmp/libredroid
+DeviceAllow=/dev/kvm rw
+DeviceAllow=/dev/net/tun rw
+
+[Install]
+WantedBy=multi-user.target

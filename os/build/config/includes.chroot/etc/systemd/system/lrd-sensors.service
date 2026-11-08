@@ -1,0 +1,17 @@
+[Unit]
+Description=LibreDroid Linux IIO Sensor Suite & Auto-Rotation Daemon
+After=iio-sensor-proxy.service
+Wants=iio-sensor-proxy.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lrd-sensord
+Restart=always
+RestartSec=2
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/libredroid /tmp/libredroid
+MemoryMax=32M
+
+[Install]
+WantedBy=multi-user.target

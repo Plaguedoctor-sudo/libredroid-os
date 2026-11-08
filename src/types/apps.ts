@@ -29,6 +29,16 @@ export type AppId =
   | 'task_manager'
   | 'keystore'
   | 'audio_mixer'
+  | 'sound_recorder'
+  | 'weather'
+  | 'battery_guardian'
+  | 'eye_comfort'
+  | 'screen_recorder'
+  | 'pad_connect'
+  | 'game_space'
+  | 'secure_folder'
+  | 'device_care'
+  | 'smart_view'
   | string; // Dynamic sideloaded APKs
 
 export interface AppMetadata {

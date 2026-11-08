@@ -1,0 +1,43 @@
+# ==============================================================================
+# LibreDroid Camera ISP Tuning Profile - Sony IMX Mobile Sensor
+# os/camera/tuning/imx-sensor.yaml
+#
+# Hardware 3A (Auto-Exposure, Auto-Focus, Auto-White-Balance) calibration
+# and lens shading matrix for mobile MIPI-CSI2 camera sensors.
+# ==============================================================================
+
+version: 1.0
+sensor:
+  model: "Sony IMX Mobile Sensor (MIPI-CSI2)"
+  bayer_pattern: "RGGB"
+  pixel_rate: 320000000
+
+algorithms:
+  - Agc:
+      metering_modes:
+        centre_weighted:
+          weights: [ 1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 4, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1 ]
+      exposure_modes:
+        normal:
+          shutter: [ 100, 10000, 30000, 60000 ]
+          gain: [ 1.0, 2.0, 4.0, 8.0 ]
+      constraint_modes:
+        normal:
+          lower: { exposure: 100, gain: 1.0 }
+          upper: { exposure: 60000, gain: 16.0 }
+
+  - Awb:
+      bayes: 1
+      colour_temperature: [ 2500, 3000, 4000, 5000, 6500, 8000 ]
+      transverse_pos: 0.015
+      transverse_neg: 0.015
+
+  - Af:
+      range: "normal"
+      speed: "fast"
+      metering: "matrix"
+
+  - Lsc:
+      luminance_strength: 0.8
+      lens_shading_correction: true
+      matrix_size: [ 16, 12 ]
