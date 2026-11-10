@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack File Contexts Specification (Task 1.7)
+
+# Executables & Binaries
+/bin/dinit                      --  gen_context(system_u:object_r:fs_bin_t,s0)
+/sbin/dinit                     --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/bin/lrdd                   --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/bin/bwrap                  --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/bin/phosh                  --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/bin/sway                   --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/bin/lrd-wayland-shell      --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/sbin/nft                   --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/sbin/unbound               --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/sbin/chronyd               --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/bin/fs-keystore            --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/bin/fs-permissions         --  gen_context(system_u:object_r:fs_bin_t,s0)
+/usr/bin/fs-setup               --  gen_context(system_u:object_r:fs_bin_t,s0)
+
+# Sockets & Runtime State
+/run/libredroid(/.*)?               gen_context(system_u:object_r:fs_sock_t,s0)
+/run/freestack(/.*)?                gen_context(system_u:object_r:fs_sock_t,s0)
+
+# Configurations
+/etc(/.*)?                          gen_context(system_u:object_r:fs_conf_t,s0)
+/etc/nftables(/.*)?                 gen_context(system_u:object_r:fs_conf_t,s0)
+/etc/dinit\.d(/.*)?                 gen_context(system_u:object_r:fs_conf_t,s0)
+
+# Persistent Data Stores
+/var/lib/keystore(/.*)?             gen_context(system_u:object_r:fs_keystore_data_t,s0)
+/var/lib/vault(/.*)?                gen_context(system_u:object_r:fs_vault_data_t,s0)
+/var/lib/freestack(/.*)?            gen_context(system_u:object_r:fs_data_t,s0)
+
+# Devices
+/dev/dri(/.*)?                      gen_context(system_u:object_r:fs_dev_t,s0)
+/dev/input(/.*)?                    gen_context(system_u:object_r:fs_dev_t,s0)

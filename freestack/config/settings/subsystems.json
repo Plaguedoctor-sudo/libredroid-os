@@ -1,0 +1,101 @@
+{
+  "version": "1.0.0",
+  "subsystems": [
+    {
+      "id": "network",
+      "name": "Network & Firewall",
+      "icon": "network-wireless-symbolic",
+      "daemon": "nftables",
+      "description": "Default-deny outbound packet filtering, WireGuard tunnels, and Unbound DNSSEC",
+      "fields": ["interface", "egress_rules", "killswitch_enabled", "dns_server"]
+    },
+    {
+      "id": "radio",
+      "name": "Radio & Hardware Killswitch",
+      "icon": "airplane-mode-symbolic",
+      "daemon": "rfkill",
+      "description": "Hardware and software rfkill switches for Wi-Fi, Bluetooth, and Cellular baseband",
+      "fields": ["wifi_rfkill", "bt_rfkill", "modem_rfkill"]
+    },
+    {
+      "id": "display",
+      "name": "Display & Compositor",
+      "icon": "video-display-symbolic",
+      "daemon": "wlroots",
+      "description": "Wayland display scaling, refresh rate, and blue-light temperature control",
+      "fields": ["output_mode", "scale_factor", "night_light", "refresh_rate"]
+    },
+    {
+      "id": "audio",
+      "name": "Audio & Media Routing",
+      "icon": "audio-volume-high-symbolic",
+      "daemon": "pipewire",
+      "description": "PipeWire audio graph, ALSA UCM2 hardware routing profiles, and microphone privacy",
+      "fields": ["default_sink", "default_source", "hardware_ucm_profile", "mic_hardware_mute"]
+    },
+    {
+      "id": "power",
+      "name": "Power & Thermal Management",
+      "icon": "battery-level-100-symbolic",
+      "daemon": "power-profiles-daemon",
+      "description": "Thermal throttling parameters, governor selection, and battery charge thresholds",
+      "fields": ["power_profile", "thermal_governor", "charge_threshold_percent", "suspend_mode"]
+    },
+    {
+      "id": "storage",
+      "name": "Storage Integrity & Encryption",
+      "icon": "drive-harddisk-symbolic",
+      "daemon": "cryptsetup",
+      "description": "LUKS2 Argon2id volume encryption, fscrypt per-user directories, and dm-verity state",
+      "fields": ["luks_cipher", "argon2_memory_kb", "dm_verity_status", "fscrypt_active"]
+    },
+    {
+      "id": "selinux",
+      "name": "SELinux & Access Enforcement",
+      "icon": "security-high-symbolic",
+      "daemon": "auditd",
+      "description": "Enforcing mode status, domain transition inspection, and AVC denial log review",
+      "fields": ["enforce_state", "active_policy", "recent_avc_denials", "neverallow_violations"]
+    },
+    {
+      "id": "sandboxing",
+      "name": "Process Confinement & Sandboxes",
+      "icon": "system-run-symbolic",
+      "daemon": "bubblewrap",
+      "description": "Bubblewrap namespace boundaries, Landlock filesystem restrictions, and seccomp filters",
+      "fields": ["isolated_apps", "landlock_rules", "seccomp_policy"]
+    },
+    {
+      "id": "keystore",
+      "name": "Hardware Keystore & HSM",
+      "icon": "channel-secure-symbolic",
+      "daemon": "tpm2-tss",
+      "description": "TPM 2.0 PCR sealing status, FIDO2 WebAuthn tokens, and OpenSC smartcards",
+      "fields": ["tpm2_present", "pcr_quote", "fido2_devices", "keyslots_used"]
+    },
+    {
+      "id": "accessibility",
+      "name": "Accessibility (A11y)",
+      "icon": "preferences-desktop-accessibility-symbolic",
+      "daemon": "speech-dispatcher",
+      "description": "Orca screen reader, eSpeak-ng/Piper speech synthesis, high-contrast themes, and AT-SPI2",
+      "fields": ["screen_reader_active", "high_contrast", "text_scaling", "cursor_size"]
+    },
+    {
+      "id": "locale",
+      "name": "Language & Localization",
+      "icon": "preferences-desktop-locale-symbolic",
+      "daemon": "localed",
+      "description": "System locale, keyboard input maps, FriBiDi RTL rendering, and HarfBuzz fonts",
+      "fields": ["current_locale", "keyboard_variant", "shaping_engine"]
+    },
+    {
+      "id": "updates",
+      "name": "Reproducible Updates & Attestations",
+      "icon": "software-update-available-symbolic",
+      "daemon": "rauc",
+      "description": "Dual-slot A/B atomic updates, bit-for-bit rebuild attestations, and Rekor transparency logs",
+      "fields": ["active_slot", "reproducible_hash", "cosign_signature", "rekor_log_index"]
+    }
+  ]
+}

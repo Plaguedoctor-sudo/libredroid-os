@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack libcamera Tuning File: ThinkPad X200 Integrated UVC Sensor (Task 15.5)
+version: 1.0
+sensor:
+  model: "Integrated Camera (UVC 1.0)"
+  bus: "usb-0000:00:1a.7-1"
+  formats:
+    - pixel_format: YUYV
+      width: 640
+      height: 480
+      fps_max: 30
+    - pixel_format: MJPEG
+      width: 1280
+      height: 720
+      fps_max: 15
+
+algorithms:
+  - AutoExposure:
+      metering_mode: matrix
+      exposure_compensation: 0.0
+      shutter_speed_limits_us: [100, 33333]
+  - AutoWhiteBalance:
+      mode: auto
+      colour_temperature_range_k: [2800, 6500]
+  - DefectPixelCorrection:
+      enabled: false
+  - Sharpness:
+      strength: 1.0

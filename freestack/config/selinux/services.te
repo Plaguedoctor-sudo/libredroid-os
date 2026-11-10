@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack Modular SELinux Policy: Service Domains (Task 1.6)
+policy_module(freestack_services, 1.0.0)
+
+# Base Types & Attributes
+attribute domain;
+attribute fs_daemon;
+attribute fs_network_service;
+
+# Process Types (Domains)
+type fs_init_t;
+type fs_lrdd_t;
+type fs_shell_t;
+type fs_network_t;
+type fs_modem_t;
+type fs_keystore_t;
+type fs_app_t;
+type fs_vault_t;
+type fs_update_t;
+
+# Mark domains
+typeattribute fs_init_t domain;
+typeattribute fs_lrdd_t domain, fs_daemon;
+typeattribute fs_shell_t domain;
+typeattribute fs_network_t domain, fs_network_service;
+typeattribute fs_modem_t domain, fs_network_service;
+typeattribute fs_keystore_t domain, fs_daemon;
+typeattribute fs_app_t domain;
+typeattribute fs_vault_t domain;
+typeattribute fs_update_t domain;
+
+# File & Socket Types
+type fs_bin_t;
+type fs_conf_t;
+type fs_sock_t;
+type fs_data_t;
+type fs_keystore_data_t;
+type fs_vault_data_t;
+type fs_dev_t;
+
+# Role Associations
+role system_r types {
+    fs_init_t
+    fs_lrdd_t
+    fs_network_t
+    fs_modem_t
+    fs_keystore_t
+    fs_update_t
+    fs_vault_t
+};
+
+role user_r types {
+    fs_shell_t
+    fs_app_t
+};
+
+# Permissions: fs_init_t (Supervisor)
+allow fs_init_t self:process { fork sigchld signal };
+allow fs_init_t fs_bin_t:file { read execute execute_no_trans open };
+allow fs_init_t { fs_lrdd_t fs_network_t fs_modem_t fs_keystore_t fs_vault_t }:process { transition sigkill signal };
+
+# Permissions: fs_lrdd_t (System Bus & Hardware Coordinator)
+allow fs_lrdd_t self:unix_stream_socket { create bind listen accept read write };
+allow fs_lrdd_t fs_sock_t:sock_file { create unlink setattr getattr write };
+allow fs_lrdd_t fs_data_t:dir { search read open getattr };
+allow fs_lrdd_t fs_data_t:file { read getattr open };
+allow fs_lrdd_t fs_keystore_t:unix_stream_socket connectto;
+
+# Permissions: fs_shell_t (Compositor & Layer Shell)
+allow fs_shell_t self:unix_stream_socket { create connect read write };
+allow fs_shell_t fs_sock_t:sock_file write;
+allow fs_shell_t fs_dev_t:chr_file { read write open ioctl }; # DRM/KMS/evdev
+
+# Permissions: fs_network_t (nftables, unbound, chrony)
+allow fs_network_t self:tcp_socket { create bind connect read write setopt getopt };
+allow fs_network_t self:udp_socket { create bind connect read write setopt getopt };
+allow fs_network_t self:netlink_route_socket { create bind read write nlmsg_read nlmsg_write };
+allow fs_network_t fs_conf_t:file { read open getattr };
+
+# Permissions: fs_vault_t (Air-gapped Cryptographic Vault)
+# Explicitly denied all network access in neverallow.te
+allow fs_vault_t fs_vault_data_t:dir { create read write open getattr search };
+allow fs_vault_t fs_vault_data_t:file { create read write open getattr unlink };
+allow fs_vault_t fs_lrdd_t:unix_stream_socket { read write };
+
+# Permissions: fs_app_t (Confined User Application)
+allow fs_app_t self:process { fork sigchld };
+allow fs_app_t fs_data_t:dir { search read open };
+allow fs_app_t fs_data_t:file { read open getattr };
+allow fs_app_t fs_sock_t:sock_file write;
+allow fs_app_t fs_shell_t:unix_stream_socket connectto; # Wayland IPC

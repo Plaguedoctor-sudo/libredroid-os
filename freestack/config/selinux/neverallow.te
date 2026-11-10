@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack Security Guardrails: Neverallow Rules (Task 1.8)
+# Enforces non-negotiables R4 (No telemetry), R5 (Default deny egress), R6 (Root of trust)
+
+# 1. Unconfined domains are strictly forbidden
+neverallow * ~{ fs_init_t fs_lrdd_t fs_shell_t fs_network_t fs_modem_t fs_keystore_t fs_app_t fs_vault_t fs_update_t }:process *;
+
+# 2. Air-Gapped Vault Invariant: fs_vault_t must never acquire network capabilities
+neverallow fs_vault_t *:tcp_socket *;
+neverallow fs_vault_t *:udp_socket *;
+neverallow fs_vault_t *:rawip_socket *;
+neverallow fs_vault_t *:netlink_socket *;
+neverallow fs_vault_t *:netlink_route_socket *;
+
+# 3. Block Device Protection: Only init and update domains may write to block storage
+neverallow { fs_shell_t fs_network_t fs_modem_t fs_keystore_t fs_app_t fs_vault_t } *:blk_file { write ioctl append };
+
+# 4. Binary Integrity: System binaries (/bin, /usr/bin) cannot be modified at runtime
+neverallow { fs_lrdd_t fs_shell_t fs_network_t fs_modem_t fs_keystore_t fs_app_t fs_vault_t } fs_bin_t:file { write append setattr relabelfrom };
+
+# 5. Keystore Isolation: Only fs_keystore_t may read or write raw keystore secrets
+neverallow ~{ fs_keystore_t fs_init_t } fs_keystore_data_t:file { read write open create unlink };
+
+# 6. Privilege Escalation Prevention: User apps cannot transition directly to init or daemon domains
+neverallow fs_app_t { fs_init_t fs_lrdd_t fs_keystore_t }:process transition;
+
+# 7. Disallow disabling SELinux or loading unverified policies from userland
+neverallow ~fs_init_t security_t:security { load_policy setenforce setbool };
