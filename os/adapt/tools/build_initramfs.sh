@@ -62,7 +62,8 @@ if [ -n "$BB" ] && [ -f "$BB" ]; then
   cp "$BB" "$WORKDIR/bin/busybox"
   chmod +x "$WORKDIR/bin/busybox"
   # Create symlinks for essential initramfs commands
-  for applet in sh echo mount umount mkdir rm rmdir ls cat sleep switch_root blkid find chmod chown; do
+  for applet in sh echo mount umount mkdir rm rmdir ls cat sleep switch_root blkid find chmod chown \
+                losetup mknod sed tr head grep egrep fgrep printf awk cut blockdev sort uniq sync; do
     ln -sf busybox "$WORKDIR/bin/$applet" 2>/dev/null || true
   done
   echo ":: Installed busybox from $BB"

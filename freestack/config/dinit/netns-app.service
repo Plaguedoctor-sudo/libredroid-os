@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack Network Namespace Application Isolation
+type = process
+command = /usr/bin/bwrap --unshare-all --die-with-parent --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp /bin/sh
+restart = false

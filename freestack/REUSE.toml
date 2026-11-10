@@ -1,0 +1,16 @@
+version = 1
+SPDX-PackageName = "freestack"
+SPDX-PackageSupplier = "FreeStack Foundation"
+SPDX-PackageDownloadLocation = "https://freestack.org"
+
+[[annotations]]
+path = ["keys/*.pub", "keys/ROOT-KEYS.txt", "keys/threshold.json"]
+precedence = "override"
+SPDX-FileCopyrightText = "FreeStack Foundation"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["manifest/hashes.json", "manifest/pins.json", "manifest/freestack.lock.json"]
+precedence = "override"
+SPDX-FileCopyrightText = "FreeStack Foundation"
+SPDX-License-Identifier = "CC0-1.0"

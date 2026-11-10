@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack Early Boot Dinit Service
+type = staged
+command = /bin/sh -c "/sbin/sysctl -p /etc/99-hardening.conf && /usr/sbin/nft -f /etc/default.nft"
+depends-on = early-fs

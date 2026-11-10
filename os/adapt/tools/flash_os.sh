@@ -3,9 +3,9 @@
 # Leaves stock Android in active slot untouched; installs LibreDroid to inactive slot.
 set -Eeuo pipefail
 
-export HOME=/tmp
-export ANDROID_USER_HOME=/tmp/.android
-export ANDROID_SDK_HOME=/tmp
+export ANDROID_USER_HOME="${ANDROID_USER_HOME:-/home/nitin/fkgugal/.adb}"
+export ANDROID_SDK_HOME="${ANDROID_SDK_HOME:-/home/nitin/fkgugal/.adb}"
+export HOME="${HOME:-/home/nitin/fkgugal/.adb}"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="${LRD_BACKUP_DIR:-/home/nitin/fkgugal/lrd-backups}"
@@ -40,7 +40,12 @@ if ! fastboot devices 2>/dev/null | grep -q '[a-zA-Z0-9]'; then
   if command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | grep -w "device" | grep -q .; then
     say "Device detected in ADB. Rebooting to bootloader..."
     adb reboot bootloader
-    sleep 5
+    for i in {1..30}; do
+      if fastboot devices 2>/dev/null | grep -q '[a-zA-Z0-9]'; then
+        break
+      fi
+      sleep 1
+    done
   else
     die "No device detected in fastboot or ADB. Connect device with USB debugging or hold Power+VolDown."
   fi
@@ -112,88 +117,74 @@ if [ "$YES" -ne 1 ]; then
   [ "$ans" = y ] || [ "$ans" = Y ] || exit 0
 fi
 
-# Flash physical boot, init_boot & vbmeta partitions while in bootloader mode
+# Flash physical boot, vendor_boot, dtbo & vbmeta partitions while in bootloader mode
 say "Flashing physical partition boot_${SLOT}..."
 fastboot flash "boot_${SLOT}" "$BOOT_IMG"
 
-INIT_BOOT_IMG=""
-if [ -f "$(dirname "$BOOT_IMG")/init_boot_${SLOT}.img" ]; then
-  INIT_BOOT_IMG="$(dirname "$BOOT_IMG")/init_boot_${SLOT}.img"
-elif [ -f "$(dirname "$BOOT_IMG")/init_boot_a.img" ]; then
-  INIT_BOOT_IMG="$(dirname "$BOOT_IMG")/init_boot_a.img"
+if [ -f "$(dirname "$BOOT_IMG")/vendor_boot_${SLOT}.img" ]; then
+  say "Flashing physical partition vendor_boot_${SLOT} (Android 14 Vendor DTB & Ramdisk)..."
+  fastboot flash "vendor_boot_${SLOT}" "$(dirname "$BOOT_IMG")/vendor_boot_${SLOT}.img" || warn "vendor_boot flash bypassed"
 fi
 
-if [ -n "$INIT_BOOT_IMG" ]; then
-  say "Flashing init_boot_${SLOT} (Android 14 GKI Halium ramdisk: $INIT_BOOT_IMG)..."
-  fastboot flash "init_boot_${SLOT}" "$INIT_BOOT_IMG" || warn "init_boot flash bypassed"
+if [ -f "$(dirname "$BOOT_IMG")/dtbo_${SLOT}.img" ]; then
+  say "Flashing physical partition dtbo_${SLOT} (Android 14 Device Tree Overlay)..."
+  fastboot flash "dtbo_${SLOT}" "$(dirname "$BOOT_IMG")/dtbo_${SLOT}.img" || warn "dtbo flash bypassed"
 fi
 
-VBMETA_IMG=""
-if [ -f "$(dirname "$BOOT_IMG")/vbmeta_disabled.img" ]; then
-  VBMETA_IMG="$(dirname "$BOOT_IMG")/vbmeta_disabled.img"
-elif [ -f "$BACKUP_DIR/vbmeta_${SLOT}.img" ]; then
-  VBMETA_IMG="$BACKUP_DIR/vbmeta_${SLOT}.img"
+
+
+if [ -f "$(dirname "$BOOT_IMG")/vbmeta_${SLOT}.img" ]; then
+  say "Flashing genuine vbmeta_${SLOT} with AVB verification disabled..."
+  fastboot flash "vbmeta_${SLOT}" "$(dirname "$BOOT_IMG")/vbmeta_${SLOT}.img"
+elif [ -f "$(dirname "$BOOT_IMG")/vbmeta_disabled.img" ]; then
+  say "Flashing generic vbmeta_${SLOT}..."
+  fastboot --disable-verity --disable-verification flash "vbmeta_${SLOT}" "$(dirname "$BOOT_IMG")/vbmeta_disabled.img" 2>/dev/null || true
 fi
 
-if [ -n "$VBMETA_IMG" ]; then
-  say "Flashing vbmeta_${SLOT}, vbmeta_system_${SLOT}, vbmeta_vendor_${SLOT} with AVB disabled..."
-  fastboot --disable-verity --disable-verification flash "vbmeta_${SLOT}" "$VBMETA_IMG" 2>/dev/null || \
-    fastboot flash "vbmeta_${SLOT}" "$VBMETA_IMG" 2>/dev/null || warn "vbmeta flash bypassed"
-  fastboot --disable-verity --disable-verification flash "vbmeta_system_${SLOT}" "$VBMETA_IMG" 2>/dev/null || \
-    fastboot flash "vbmeta_system_${SLOT}" "$VBMETA_IMG" 2>/dev/null || true
-  fastboot --disable-verity --disable-verification flash "vbmeta_vendor_${SLOT}" "$VBMETA_IMG" 2>/dev/null || \
-    fastboot flash "vbmeta_vendor_${SLOT}" "$VBMETA_IMG" 2>/dev/null || true
+if [ -f "$(dirname "$BOOT_IMG")/vbmeta_system_${SLOT}.img" ]; then
+  say "Flashing genuine chained vbmeta_system_${SLOT}..."
+  fastboot flash "vbmeta_system_${SLOT}" "$(dirname "$BOOT_IMG")/vbmeta_system_${SLOT}.img"
 fi
 
-# 5. Fastbootd check & logical partition management
+if [ -f "$(dirname "$BOOT_IMG")/vbmeta_vendor_${SLOT}.img" ]; then
+  say "Flashing genuine chained vbmeta_vendor_${SLOT}..."
+  fastboot flash "vbmeta_vendor_${SLOT}" "$(dirname "$BOOT_IMG")/vbmeta_vendor_${SLOT}.img"
+fi
+
+# 5. Fastbootd & Dynamic Partitions Check (Option 4 Fallback)
 IS_USERSPACE="$(fastboot getvar is-userspace 2>&1 | sed -n 's/^is-userspace: //p' | head -1)"
-if [ "$IS_USERSPACE" != "yes" ]; then
-  say "Switching to fastbootd (userspace recovery) for dynamic partition support..."
-  fastboot reboot fastboot 2>/dev/null || true
-  sleep 4
-  WAIT_COUNT=0
-  while ! fastboot getvar is-userspace 2>&1 | grep -q 'yes'; do
-    sleep 2
-    WAIT_COUNT=$((WAIT_COUNT + 1))
-    if [ "$WAIT_COUNT" -ge 20 ]; then
-      warn "Timed out waiting for fastbootd auto-detection; continuing..."
-      break
-    fi
+
+if [ "$IS_USERSPACE" = "yes" ]; then
+  say "Fastbootd userspace active. Flashing logical dynamic partitions to super..."
+  for cow in $(fastboot getvar all 2>&1 | grep -o '[a-zA-Z0-9_-]*-cow' | sort -u); do
+    fastboot delete-logical-partition "$cow" 2>/dev/null || true
   done
+
+  ROOT_BYTES=$(stat -c %s "$SYSTEM_IMG")
+  ROOT_MB=$(( ROOT_BYTES / 1024 / 1024 ))
+  say "Ensuring dynamic logical partition system_${SLOT} is allocated in super (${ROOT_MB}MB)..."
+  fastboot create-logical-partition "system_${SLOT}" "$ROOT_BYTES" 2>/dev/null || true
+  fastboot resize-logical-partition "system_${SLOT}" "$ROOT_BYTES" 2>/dev/null || true
+
+  say "Flashing system_${SLOT}..."
+  fastboot flash "system_${SLOT}" "$SYSTEM_IMG"
+
+  if [ -n "$DATA_IMG" ] && [ -f "$DATA_IMG" ]; then
+    say "Flashing persistent data partition lrddata_${SLOT}..."
+    DATA_BYTES=$(stat -c %s "$DATA_IMG")
+    fastboot create-logical-partition "lrddata_${SLOT}" "$DATA_BYTES" 2>/dev/null || true
+    fastboot resize-logical-partition "lrddata_${SLOT}" "$DATA_BYTES" 2>/dev/null || true
+    fastboot flash "lrddata_${SLOT}" "$DATA_IMG" 2>/dev/null || warn "lrddata flash skipped"
+  fi
+else
+  say "Device bootloader active (ColorOS lacks fastbootd)."
+  say "✔ Option 4 Active: Super dynamic partitions will be mapped at boot via Halium Initramfs Super-Mapper."
+  say "✔ LibreDroid OS Rootfs and Data images are loaded directly from MicroSD storage."
 fi
 
-say "Checking and cleaning orphaned snapshot COW partitions in super..."
-for cow in $(fastboot getvar all 2>&1 | grep -o '[a-zA-Z0-9_-]*-cow' | sort -u); do
-  fastboot delete-logical-partition "$cow" 2>/dev/null || true
-done
-
-ROOT_BYTES=$(stat -c %s "$SYSTEM_IMG")
-ROOT_MB=$(( ROOT_BYTES / 1024 / 1024 ))
-say "Ensuring dynamic logical partition system_${SLOT} is allocated in super (${ROOT_MB}MB)..."
-fastboot create-logical-partition "system_${SLOT}" "$ROOT_BYTES" 2>/dev/null || true
-fastboot resize-logical-partition "system_${SLOT}" "$ROOT_BYTES" 2>/dev/null || true
-
-# 6. Flashing logical rootfs & data partitions
-say "Flashing system_${SLOT}..."
-fastboot flash "system_${SLOT}" "$SYSTEM_IMG"
-
-if [ -n "$DATA_IMG" ] && [ -f "$DATA_IMG" ]; then
-  say "Flashing persistent data partition lrddata_${SLOT}..."
-  DATA_BYTES=$(stat -c %s "$DATA_IMG")
-  fastboot create-logical-partition "lrddata_${SLOT}" "$DATA_BYTES" 2>/dev/null || true
-  fastboot resize-logical-partition "lrddata_${SLOT}" "$DATA_BYTES" 2>/dev/null || true
-  fastboot flash "lrddata_${SLOT}" "$DATA_IMG" 2>/dev/null || warn "lrddata flash skipped (overlay will use tmpfs)"
-fi
-
-# 7. Slot activation (requires fastbootd on modern MediaTek devices)
-say "Setting active slot to ${SLOT}..."
-IS_USERSPACE="$(fastboot getvar is-userspace 2>&1 | sed -n 's/^is-userspace: //p' | head -1)"
-if [ "$IS_USERSPACE" != "yes" ]; then
-  say "Switching to fastbootd to commit slot switch to disk..."
-  fastboot reboot fastboot 2>/dev/null || true
-  while ! fastboot getvar is-userspace 2>&1 | grep -q 'yes'; do sleep 1; done
-fi
-fastboot set_active "$SLOT" || warn "set_active failed"
+# 6. Slot activation
+say "Setting active boot slot to slot_${SLOT}..."
+fastboot set_active "$SLOT" || fastboot --set-active="$SLOT" || warn "set_active failed"
 
 echo -e "\n${GREEN}${BOLD}✔ LibreDroid OS Successfully Flashed!${NC}"
 echo -e "  • Stock Android is safe in slot ${CUR_SLOT}."

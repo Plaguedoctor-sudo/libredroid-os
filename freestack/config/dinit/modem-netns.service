@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack Cellular Modem Network Namespace Isolation
+type = process
+command = /usr/bin/bwrap --unshare-net --unshare-ipc --unshare-uts --die-with-parent --ro-bind / / --dev /dev --proc /proc --tmpfs /run /bin/sh -c "exec /usr/sbin/ModemManager"
+restart = true

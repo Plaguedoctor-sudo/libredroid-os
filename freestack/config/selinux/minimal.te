@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack Minimal Base Policy
+policy_module(minimal, 1.0.0)
+
+type kernel_t;
+type fs_t;
+type init_t;
+type daemon_t;
+type user_t;
+
+# Default access controls
+role system_r types { kernel_t init_t daemon_t fs_t };
+role user_r types { user_t };

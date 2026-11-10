@@ -1,15 +1,16 @@
 #!/bin/busybox sh
-# lrd initramfs — Halium-style: keep the vendor environment, boot our userspace.
+# LibreDroid Halium Initramfs (Option 4: Dynamic Partition Super-Mapper + MicroSD Rootfs)
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
+# 1. Essential virtual filesystems
 mount -t proc     none /proc   2>/dev/null
 mount -t sysfs    none /sys    2>/dev/null
 mount -t devtmpfs none /dev    2>/dev/null
-mkdir -p /dev/pts /run
+mkdir -p /dev/pts /dev/shm /run
 mount -t devpts   none /dev/pts 2>/dev/null
 mount -t tmpfs    none /run 2>/dev/null
 
-CMDLINE="$(cat /proc/cmdline)"
+CMDLINE="$(cat /proc/cmdline 2>/dev/null)"
 get() { printf '%s' "$CMDLINE" | tr ' ' '\n' | sed -n "s/^$1=//p" | head -1; }
 
 SLOT="$(get androidboot.slot_suffix)"
@@ -19,6 +20,13 @@ LEVEL="$(get lrd.level)"
 [ -z "$ROOT_SPEC" ] && ROOT_SPEC="LABEL=LRDROOT"
 
 log() { echo "[lrd-init] $*" > /dev/kmsg 2>/dev/null; echo "[lrd-init] $*"; }
+
+# Pet watchdog in background to prevent SoC hardware reset during bringup
+if [ -c /dev/watchdog ]; then
+  ( while true; do echo -n '\0' > /dev/watchdog 2>/dev/null; sleep 5; done ) &
+  log "Hardware watchdog keep-alive pet active"
+fi
+
 fail() {
   log "FATAL: $*"
   echo "" > /dev/tty0 2>/dev/null
@@ -32,97 +40,171 @@ fail() {
   done
 }
 
+log "=== LibreDroid OS Halium Boot Initiated ==="
 log "slot=${SLOT:-none} hardware=$HARDWARE level=$LEVEL"
 
-# --- 1. the vendor partitions stay exactly where the blobs expect them ---
-for p in vendor odm product vendor_dlkm odm_dlkm; do
-  node="$(find /dev/block -name "${p}${SLOT}" 2>/dev/null | head -1)"
-  [ -z "$node" ] && node="$(find /dev/block -name "$p" 2>/dev/null | head -1)"
-  [ -n "$node" ] || { log "$p partition absent (ok on some devices)"; continue; }
-  mkdir -p "/$p"
-  mount -o ro "$node" "/$p" && log "mounted $p ro" || log "$p mount failed"
-done
-
-# --- 2. binderfs, because libhybris talks to the vendor HALs ---
-mkdir -p /dev/binderfs
-mount -t binder binder /dev/binderfs 2>/dev/null || log "binderfs unavailable"
-
-# --- 3. find our rootfs ---
-resolve_root() {
-  case "$1" in
-    LABEL=*)
-      if command -v blkid >/dev/null 2>&1; then
-        blkid -L "${1#LABEL=}" 2>/dev/null || true
-      fi ;;
-    UUID=*)
-      if command -v blkid >/dev/null 2>&1; then
-        blkid -U "${1#UUID=}" 2>/dev/null || true
-      fi ;;
-    /dev/*)  echo "$1" ;;
-    *)       find /dev/block -name "$1" 2>/dev/null | head -1 ;;
-  esac
-}
-
-# Wait briefly for storage blocks to appear
-for i in 1 2 3 4 5; do
-  [ -e /dev/block/by-name/userdata ] || [ -e /dev/block/by-name/system_a ] && break
+# Wait up to 5s for block devices to settle
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  [ -e /dev/block/by-name/super ] || [ -e /dev/block/mmcblk0p1 ] && break
   sleep 0.5
 done
 
-ROOTDEV=""
-[ -n "$SLOT" ] && ROOTDEV="$(find /dev/block -name "system${SLOT}" 2>/dev/null | head -1)"
-[ -z "$ROOTDEV" ] && ROOTDEV="$(resolve_root "$ROOT_SPEC")"
-# Fallback to direct raw hardware userdata partition if dynamic partition is not mapped
-if [ -z "$ROOTDEV" ] && [ -b /dev/block/by-name/userdata ]; then
-  ROOTDEV="/dev/block/by-name/userdata"
-  log "using hardware userdata partition as rootfs: $ROOTDEV"
+# --- 2. Map Dynamic Vendor Partitions inside 'super' ---
+SUPER_DEV=""
+for cand in /dev/block/by-name/super /dev/block/platform/*/by-name/super /dev/block/sdc72; do
+  [ -b "$cand" ] && { SUPER_DEV="$cand"; break; }
+done
+[ -z "$SUPER_DEV" ] && SUPER_DEV="$(find /dev/block -name "super" 2>/dev/null | head -1)"
+
+map_loop_partition() {
+  local p_name="$1"
+  local p_offset="$2"
+  local p_size="$3"
+  local p_min="$4"
+  local dev_node="/dev/loop$p_min"
+
+  [ -b "$SUPER_DEV" ] || return 1
+  mknod "$dev_node" b 7 "$p_min" 2>/dev/null || true
+  losetup -r -o "$p_offset" --sizelimit "$p_size" "$dev_node" "$SUPER_DEV" 2>/dev/null || true
+  log "Mapped dynamic partition $p_name -> $dev_node (offset $p_offset, size $p_size)"
+}
+
+if [ -b "$SUPER_DEV" ]; then
+  log "Found super partition: $SUPER_DEV"
+  # Slot A dynamic partition table offsets from LP metadata:
+  map_loop_partition "vendor_a"      2008023040 583958528 10
+  map_loop_partition "odm_a"         2856321024 864022528 11
+  map_loop_partition "system_ext_a"  834666496  1172869120 12
+  map_loop_partition "product_a"     2592079872 2191360   13
+  map_loop_partition "my_product_a"  2595225600 260792320 14
+  map_loop_partition "vendor_dlkm_a" 3721396224 39739392  15
+  map_loop_partition "odm_dlkm_a"    3761242112 348160    16
 fi
-[ -n "$ROOTDEV" ] || fail "no rootfs device (looked for system${SLOT}, $ROOT_SPEC, userdata)"
+
+# Mount vendor and hardware partitions
+for p in vendor odm product system_ext vendor_dlkm odm_dlkm; do
+  mkdir -p "/$p"
+  mounted=0
+  # 1. Try physical/mapper nodes first
+  for node in "/dev/block/mapper/${p}${SLOT}" "/dev/block/by-name/${p}${SLOT}" "/dev/block/by-name/$p"; do
+    if [ -b "$node" ]; then
+      mount -o ro "$node" "/$p" 2>/dev/null && { log "Mounted $p ro from $node"; mounted=1; break; }
+    fi
+  done
+  # 2. Try loop-mapped dynamic partitions
+  if [ "$mounted" -eq 0 ]; then
+    case "$p" in
+      vendor)      mount -o ro /dev/loop10 "/$p" 2>/dev/null && mounted=1 ;;
+      odm)         mount -o ro /dev/loop11 "/$p" 2>/dev/null && mounted=1 ;;
+      system_ext)  mount -o ro /dev/loop12 "/$p" 2>/dev/null && mounted=1 ;;
+      product)     mount -o ro /dev/loop13 "/$p" 2>/dev/null && mounted=1 ;;
+      vendor_dlkm) mount -o ro /dev/loop14 "/$p" 2>/dev/null && mounted=1 ;;
+      odm_dlkm)    mount -o ro /dev/loop15 "/$p" 2>/dev/null && mounted=1 ;;
+    esac
+    [ "$mounted" -eq 1 ] && log "Mounted $p ro from dynamic loop partition"
+  fi
+  [ "$mounted" -eq 0 ] && log "$p partition absent or mount skipped"
+done
+
+# Binderfs for libhybris IPC
+mkdir -p /dev/binderfs
+mount -t binder binder /dev/binderfs 2>/dev/null || log "binderfs unavailable"
+
+# --- 3. Locate and Mount LibreDroid Rootfs ---
+mkdir -p /bootmedia
+ROOTFS_FOUND=0
+ROOTFS_IMG=""
+DATA_IMG=""
+
+# Search unencrypted MicroSD card and storage partitions
+for block in /dev/block/mmcblk0p1 /dev/block/mmcblk1p1 /dev/block/mmcblk0 /dev/block/sdc* /dev/block/by-name/userdata; do
+  [ -b "$block" ] || continue
+  mount -o ro "$block" /bootmedia 2>/dev/null || continue
+  if [ -f "/bootmedia/libredroid/system_a.img" ]; then
+    ROOTFS_IMG="/bootmedia/libredroid/system_a.img"
+    [ -f "/bootmedia/libredroid/lrddata_a.img" ] && DATA_IMG="/bootmedia/libredroid/lrddata_a.img"
+    ROOTFS_FOUND=1
+    log "Found LibreDroid rootfs on $block -> $ROOTFS_IMG"
+    break
+  elif [ -f "/bootmedia/system_a.img" ]; then
+    ROOTFS_IMG="/bootmedia/system_a.img"
+    [ -f "/bootmedia/lrddata_a.img" ] && DATA_IMG="/bootmedia/lrddata_a.img"
+    ROOTFS_FOUND=1
+    log "Found LibreDroid rootfs on $block -> $ROOTFS_IMG"
+    break
+  fi
+  umount /bootmedia 2>/dev/null || true
+done
 
 mkdir -p /lower
-mount -o ro "$ROOTDEV" /lower || fail "rootfs mount failed on $ROOTDEV"
-log "rootfs mounted from $ROOTDEV"
-
-# --- 4. writable overlay lives beside the rootfs, never in it ---
-mkdir -p /overlay
-OVER="$(find /dev/block -name "lrddata${SLOT}" 2>/dev/null | head -1)"
-if [ -n "$OVER" ]; then
-  mount -o rw "$OVER" /overlay && log "overlay from $OVER"
+if [ "$ROOTFS_FOUND" -eq 1 ] && [ -n "$ROOTFS_IMG" ]; then
+  mknod /dev/loop0 b 7 0 2>/dev/null || true
+  losetup -r /dev/loop0 "$ROOTFS_IMG" || fail "Failed to set up loop device for $ROOTFS_IMG"
+  mount -o ro /dev/loop0 /lower || fail "Failed to mount rootfs from $ROOTFS_IMG"
+  log "LibreDroid rootfs mounted successfully from loop image"
 else
-  mount -t tmpfs -o size=80% none /overlay && log "overlay is tmpfs — changes are lost on reboot"
+  # Fallback: check if system_a is directly accessible or dynamic
+  DIRECT_SYS="$(find /dev/block -name "system${SLOT}" 2>/dev/null | head -1)"
+  if [ -n "$DIRECT_SYS" ] && [ -b "$DIRECT_SYS" ]; then
+    mount -o ro "$DIRECT_SYS" /lower || fail "Direct system mount failed on $DIRECT_SYS"
+    log "Rootfs mounted from direct hardware block $DIRECT_SYS"
+  elif [ -b "$SUPER_DEV" ]; then
+    log "Fallback: Mapping system_a from super..."
+    map_loop_partition "system_a" 1048576 833077248 20
+    mount -o ro /dev/loop20 /lower || fail "Super system_a mount failed"
+    log "Rootfs mounted from super loop20"
+  else
+    fail "No viable rootfs found (checked MicroSD /libredroid/system_a.img, system${SLOT}, and super)"
+  fi
 fi
-mkdir -p /overlay/upper /overlay/work
 
+# --- 4. Persistent Overlay Setup ---
+mkdir -p /overlay
+OVERLAY_MOUNTED=0
+if [ -n "$DATA_IMG" ] && [ -f "$DATA_IMG" ]; then
+  # Remount bootmedia read-write to allow updating the data image
+  mount -o remount,rw /bootmedia 2>/dev/null || true
+  mknod /dev/loop1 b 7 1 2>/dev/null || true
+  if losetup /dev/loop1 "$DATA_IMG" 2>/dev/null && mount -o rw /dev/loop1 /overlay 2>/dev/null; then
+    log "Persistent overlay mounted from $DATA_IMG"
+    OVERLAY_MOUNTED=1
+  fi
+fi
+
+if [ "$OVERLAY_MOUNTED" -eq 0 ]; then
+  mount -t tmpfs -o size=80% none /overlay && log "Overlay is tmpfs (RAM-only)"
+fi
+
+mkdir -p /overlay/upper /overlay/work
 mkdir -p /newroot
+
 mount -t overlay overlay \
   -o "lowerdir=/lower,upperdir=/overlay/upper,workdir=/overlay/work" /newroot \
   || mount -o bind /lower /newroot \
-  || fail "rootfs handover mount failed"
+  || fail "Failed to assemble newroot filesystem"
 
-# --- 5. hand over ---
+# --- 5. Hand Over to LibreDroid Userspace ---
 mkdir -p /newroot/dev /newroot/proc /newroot/sys /newroot/run
 for d in dev proc sys run; do mount --move "/$d" "/newroot/$d" 2>/dev/null; done
-mkdir -p /newroot/vendor /newroot/odm /newroot/product /newroot/vendor_dlkm /newroot/odm_dlkm
-for p in vendor odm product vendor_dlkm odm_dlkm; do
+
+mkdir -p /newroot/vendor /newroot/odm /newroot/product /newroot/system_ext /newroot/vendor_dlkm /newroot/odm_dlkm /newroot/bootmedia
+for p in vendor odm product system_ext vendor_dlkm odm_dlkm bootmedia; do
   mountpoint -q "/$p" && mount --move "/$p" "/newroot/$p" 2>/dev/null
 done
 
-# record how we booted, so the shell can show it instead of guessing
+# Write boot provenance
 mkdir -p /newroot/run/lrd
 {
   echo "slot=${SLOT:-none}"
-  echo "root=$ROOTDEV"
-  echo "overlay=${OVER:-tmpfs}"
+  echo "root=${ROOTFS_IMG:-direct}"
+  echo "overlay=$([ "$OVERLAY_MOUNTED" -eq 1 ] && echo "$DATA_IMG" || echo "tmpfs")"
   echo "level=$LEVEL"
-  echo "persistent=$( [ -n "$OVER" ] && echo yes || echo no )"
+  echo "super_mapped=yes"
 } > /newroot/run/lrd/boot.json
-
-if [ ! -x /newroot/sbin/init ] && [ ! -x /newroot/init ]; then
-  fail "no executable /sbin/init found in rootfs"
-fi
 
 INIT_BIN="/sbin/init"
 [ ! -x "/newroot$INIT_BIN" ] && [ -x "/newroot/init" ] && INIT_BIN="/init"
+[ -x "/newroot$INIT_BIN" ] || fail "No executable /sbin/init found in assembled rootfs"
 
-log "switch_root to $INIT_BIN"
+log "Executing switch_root -> $INIT_BIN"
 exec switch_root /newroot "$INIT_BIN"

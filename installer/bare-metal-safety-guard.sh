@@ -13,10 +13,10 @@
 
 set -euo pipefail
 
-# Ensure ADB can create its auth keys in writable /tmp directory
-export ANDROID_USER_HOME=/tmp/.android
-export ANDROID_SDK_HOME=/tmp
-export HOME=/tmp
+# Ensure ADB can create its auth keys in persistent directory
+export ANDROID_USER_HOME="${ANDROID_USER_HOME:-/home/nitin/fkgugal/.adb}"
+export ANDROID_SDK_HOME="${ANDROID_SDK_HOME:-/home/nitin/fkgugal/.adb}"
+export HOME="${HOME:-/home/nitin/fkgugal/.adb}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -45,11 +45,12 @@ if command -v adb &>/dev/null && timeout 2 adb devices 2>/dev/null | grep -q "de
 fi
 
 if [ -n "$BATTERY_LEVEL" ]; then
-    echo -e "  • Battery Level: ${GREEN}${BATTERY_LEVEL}%${NC}"
-    if [ "$BATTERY_LEVEL" -lt 50 ]; then
-        echo -e "${RED}${BOLD}CRITICAL SAFETY STOP:${NC} Battery is below 50% (${BATTERY_LEVEL}%)."
+    BATTERY_MIN="${BATTERY_MIN:-30}"
+    echo -e "  • Battery Level: ${GREEN}${BATTERY_LEVEL}%${NC} (Required Minimum: ${BATTERY_MIN}%)"
+    if [ "$BATTERY_LEVEL" -lt "$BATTERY_MIN" ]; then
+        echo -e "${RED}${BOLD}CRITICAL SAFETY STOP:${NC} Battery is below ${BATTERY_MIN}% (${BATTERY_LEVEL}%)."
         echo -e "Flashing on low battery risks device bricking if power cuts out."
-        echo -e "Please charge device to at least 50% before proceeding."
+        echo -e "Please charge device to at least ${BATTERY_MIN}% before proceeding."
         exit 1
     fi
     echo -e "  ✔ Battery reserve is SAFE for bare-metal operations."

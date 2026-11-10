@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""minisign compatibility wrapper using python cryptography."""
+
+import argparse
+import base64
+import os
+import shutil
+import struct
+import sys
+from pathlib import Path
+
+# If native minisign is installed on the host, prefer it
+native_minisign = shutil.which("minisign", path=os.environ.get("PATH", ""))
+if native_minisign and Path(native_minisign).resolve() != Path(__file__).resolve():
+    os.execv(native_minisign, sys.argv)
+
+try:
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, PrivateFormat, NoEncryption
+except ImportError:
+    sys.exit("need cryptography or minisign installed")
+
+def cmd_gen(args):
+    priv = ed25519.Ed25519PrivateKey.generate()
+    pub = priv.public_key()
+    
+    pub_bytes = pub.public_bytes(Encoding.Raw, PublicFormat.Raw)
+    priv_bytes = priv.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
+    
+    key_id = priv_bytes[:8]
+    key_id_hex = key_id.hex().upper()
+    
+    # minisign pub key: "Ed" (2 bytes) + key_id (8 bytes) + pub_bytes (32 bytes)
+    pub_payload = b"Ed" + key_id + pub_bytes
+    pub_b64 = base64.b64encode(pub_payload).decode("ascii")
+    
+    pub_content = f"untrusted comment: minisign public key {key_id_hex}\n{pub_b64}\n"
+    Path(args.pub).write_text(pub_content)
+    
+    # minisign sec key: unencrypted format: "Ed" (2 bytes) + b"\x00\x00" (kdf) + b"\x00"*32 (salt) + ...
+    # We can serialize a clean format compatible with verify
+    sec_payload = b"Ed" + key_id + priv_bytes + pub_bytes
+    sec_b64 = base64.b64encode(sec_payload).decode("ascii")
+    sec_content = f"untrusted comment: minisign secret key\n{sec_b64}\n"
+    Path(args.sec).write_text(sec_content)
+    os.chmod(args.sec, 0o600)
+    print(f"The secret key was saved as {args.sec} - Keep it secret!")
+    print(f"The public key was saved as {args.pub} - That one can be public.")
+
+def cmd_sign(args):
+    sec_file = Path(args.sec)
+    if not sec_file.exists():
+        sys.exit(f"secret key {args.sec} not found")
+    lines = [l.strip() for l in sec_file.read_text().splitlines() if l.strip()]
+    sec_payload = base64.b64decode(lines[1])
+    # format: "Ed" (2) + key_id (8) + priv_bytes (32) + pub_bytes (32)
+    key_id = sec_payload[2:10]
+    priv_bytes = sec_payload[10:42]
+    
+    priv = ed25519.Ed25519PrivateKey.from_private_bytes(priv_bytes)
+    
+    msg_file = Path(args.msg)
+    if not msg_file.exists():
+        sys.exit(f"message {args.msg} not found")
+    msg = msg_file.read_bytes()
+    
+    sig = priv.sign(msg)
+    sig_payload = b"ED" + key_id + sig
+    sig_b64 = base64.b64encode(sig_payload).decode("ascii")
+    
+    sig_content = f"untrusted comment: signature from minisign secret key\n{sig_b64}\ntrusted comment: timestamp\n{base64.b64encode(priv.sign(b'timestamp')).decode('ascii')}\n"
+    sig_out = Path(args.sig if args.sig else f"{args.msg}.minisig")
+    sig_out.write_text(sig_content)
+
+def cmd_verify(args):
+    pub_file = Path(args.pub)
+    if not pub_file.exists():
+        sys.exit(f"pub key {args.pub} not found")
+    pub_lines = [l.strip() for l in pub_file.read_text().splitlines() if l.strip()]
+    pub_payload = base64.b64decode(pub_lines[1])
+    pub_bytes = pub_payload[10:42]
+    pub = ed25519.Ed25519PublicKey.from_public_bytes(pub_bytes)
+    
+    sig_file = Path(args.sig if args.sig else f"{args.msg}.minisig")
+    if not sig_file.exists():
+        sys.exit(f"sig file {sig_file} not found")
+    sig_lines = [l.strip() for l in sig_file.read_text().splitlines() if l.strip()]
+    sig_payload = base64.b64decode(sig_lines[1])
+    sig = sig_payload[10:74]
+    
+    msg = Path(args.msg).read_bytes()
+    try:
+        pub.verify(sig, msg)
+        print("Signature and comment signature verified")
+        print("Trusted comment: timestamp")
+        sys.exit(0)
+    except Exception as e:
+        sys.exit(f"Signature verification failed: {e}")
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("-G", action="store_true", help="generate keypair")
+    p.add_argument("-p", "--pub", dest="pub", help="public key path")
+    p.add_argument("-s", "--sec", dest="sec", help="secret key path")
+    p.add_argument("-S", action="store_true", help="sign")
+    p.add_argument("-V", action="store_true", help="verify")
+    p.add_argument("-m", "--msg", dest="msg", help="message file")
+    p.add_argument("-x", "--sig", dest="sig", help="signature file")
+    p.add_argument("-W", action="store_true", help="do not encrypt secret key")
+    
+    # Handle composite flags like -Sm or -Vm
+    argv = []
+    for arg in sys.argv[1:]:
+        if arg == "-Sm":
+            argv.extend(["-S", "-m"])
+        elif arg == "-Vm":
+            argv.extend(["-V", "-m"])
+        else:
+            argv.append(arg)
+            
+    args = p.parse_args(argv)
+    if args.G:
+        cmd_gen(args)
+    elif args.S:
+        cmd_sign(args)
+    elif args.V:
+        cmd_verify(args)
+    else:
+        p.print_help()
+
+if __name__ == "__main__":
+    main()

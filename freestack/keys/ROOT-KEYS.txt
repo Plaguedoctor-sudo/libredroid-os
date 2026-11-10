@@ -1,0 +1,8 @@
+# FreeStack root keys — generated 2026-11-10T11:52:25Z
+# threshold: 3 of 5. Any 3 sign a manifest.
+
+foundation-a         RWRTWq7JiXJSiiLngYsmNII89Z8Uf/BuMdyohGtqxCdunWmW7b8tjdnX
+foundation-b         RWTWZht6KmqvHQfVGZWDURDqN/z0ZR8iYXB8sxNz8FWnGkywzgu5rSjr
+foundation-auditor   RWS42rhu2MhbvpIPIg/l6IzJ3f9thCTdhq3Llw8cFGWNoqqBbDEEfZwa
+community-a          RWT6B01sLImUIYKQvAdjCwvPdaPmZ+wNxuGoXn7gPTF0PDJMRN7XenJg
+community-b          RWRua3hvq/8oWbXfbZ5uRQOEb9WVB4fBiAyOQmfmeNMekSuj9hpYlUUu

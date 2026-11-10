@@ -1,0 +1,255 @@
+{
+  "generated": "2026-11-10T12:03:24Z",
+  "pins": {
+    "at-spi2-core": {
+      "commit": "3a214cddffbf345b8c0d0b17e458abbc5ed851b1",
+      "kind": "tag_glob",
+      "tag": "2.*"
+    },
+    "audit-userspace": {
+      "commit": "00659601cc23dc243bb0f451977636ff77fcf80f",
+      "kind": "tag_glob",
+      "tag": "v4.*"
+    },
+    "blob-firmware-ath10k": {
+      "commit": "a2dcb924f0897368b0b4f305cbf9808cdda90ce0",
+      "kind": "tag_glob",
+      "tag": "2026*"
+    },
+    "bubblewrap": {
+      "commit": "362936aea0d5c6e70f7af75d2d44b5a914cb4ba2",
+      "kind": "tag_glob",
+      "tag": "v0.*"
+    },
+    "chrony": {
+      "commit": "d77973ee3ce2d2209ccd55cd0665103024a12a43",
+      "kind": "tag_glob",
+      "tag": "4.*"
+    },
+    "coreboot": {
+      "commit": "2ff24090376ae8eaf963696de0e20e3bc8bbe54f",
+      "kind": "tag_glob",
+      "tag": "4.*"
+    },
+    "cosign": {
+      "commit": "3e82f50a2839855693aacf7b3d0e7e2f30774cb4",
+      "kind": "tag_glob",
+      "tag": "v2.*"
+    },
+    "cryptsetup": {
+      "commit": "f1dbcce190719c9e177e8fbaf3df0b908f87d920",
+      "kind": "tag_glob",
+      "tag": "v2.*"
+    },
+    "diffoscope": {
+      "commit": "5681cefe141ba3fc694d0b0b6fb519472020a8dd",
+      "kind": "tag_glob",
+      "tag": "2[0-9][0-9]"
+    },
+    "dinit": {
+      "commit": "1da9c8f19117f9d35faca5cf062adea6f150206f",
+      "kind": "tag_glob",
+      "tag": "v0.*"
+    },
+    "erofs-utils": {
+      "commit": "f36cadb5c563995ab3aa8572a60ed6b721b9557d",
+      "kind": "tag_glob",
+      "tag": "v1.*"
+    },
+    "espeak-ng": {
+      "commit": "4870adfa25b1a32b4361592f1be8a40337c58d6c",
+      "kind": "tag_glob",
+      "tag": "1.*"
+    },
+    "fdroidserver": {
+      "commit": "c17a9253ffacc2d99eda2720bd789a9f96f3fa95",
+      "kind": "tag_glob",
+      "tag": "2.*"
+    },
+    "ffmpeg": {
+      "commit": "d66e84695b1a9627e04c77d2fdb4fdd7762c8c30",
+      "kind": "tag_glob",
+      "tag": "n[789].*"
+    },
+    "flutter-engine": {
+      "commit": "6a75cb6a6a57ae5a05309a43f0fba6cd50c65752",
+      "kind": "tag_glob",
+      "tag": "3.*"
+    },
+    "geoclue": {
+      "commit": "97df14726a95a06e0e3f1b3c9c4388ed1aff7e8c",
+      "kind": "tag_glob",
+      "tag": "2.*"
+    },
+    "guix": {
+      "commit": "2d4ed08662714ea46cfe0b41ca195d1ef845fd1b",
+      "kind": "tag_glob",
+      "tag": "v1.*"
+    },
+    "heads": {
+      "commit": "7f2eb15b59c07f450f5e22f5699fb59a469b4425",
+      "kind": "tag_glob",
+      "tag": "v0.*"
+    },
+    "iio-sensor-proxy": {
+      "commit": "0085ddf8ecb173a1c5fcf2344aa40e561125354f",
+      "kind": "tag_glob",
+      "tag": "3.*"
+    },
+    "keepassxc": {
+      "commit": "9e0f57a4a4c6c629fa6d0a593acb7d089b1d95cd",
+      "kind": "tag_glob",
+      "tag": "2.*"
+    },
+    "libcamera": {
+      "commit": "df8e348d64b4932a0676256ed24f0da3ee9438bc",
+      "kind": "tag_glob",
+      "tag": "v0.*"
+    },
+    "libfido2": {
+      "commit": "b974e7cf2ee7392134cc12c08b76a068cf250dd8",
+      "kind": "tag_glob",
+      "tag": "1.*"
+    },
+    "librewolf": {
+      "commit": "d769db8f69785dd4db18b9e8596defba380c7b1b",
+      "kind": "tag_glob",
+      "tag": "1*"
+    },
+    "libseccomp": {
+      "commit": "a81cc2de8ee7a33633defc88bb8a2d986b421613",
+      "kind": "tag_glob",
+      "tag": "v2.*"
+    },
+    "libsodium": {
+      "commit": "77e1ce5d6dee871c49ef211222ba18ef0c486bda",
+      "kind": "tag_glob",
+      "tag": "1.0.*"
+    },
+    "linux-libre": {
+      "commit": "https://linux-libre.fsfla.org/pub/linux-libre/releases/6.12.1-gnu/linux-libre-6.12.1-gnu.tar.xz",
+      "kind": "tarball",
+      "tag": "https://linux-libre.fsfla.org/pub/linux-libre/releases/6.12.1-gnu/linux-libre-6.12.1-gnu.tar.xz"
+    },
+    "me_cleaner": {
+      "commit": "d5b0806cdfa28be0c10066d0728135c2ea968365",
+      "kind": "tag_glob",
+      "tag": "v1.*"
+    },
+    "mesa": {
+      "commit": "90a959ebba9dbb36f2ea5176091c15d6ebdd0af0",
+      "kind": "tag_glob",
+      "tag": "mesa-2*"
+    },
+    "minisign": {
+      "commit": "b85e15d45ac9eab34e44596fd309f5b07db9545c",
+      "kind": "tag_glob",
+      "tag": "0.*"
+    },
+    "musl": {
+      "commit": "9fa28ece75d8a2191de7c5bb53bed224c5947417",
+      "kind": "tag_glob",
+      "tag": "v1.2.*"
+    },
+    "nftables": {
+      "commit": "8c2f60661c9e8e85869f82db25961b45a8d07554",
+      "kind": "tag_glob",
+      "tag": "v1.*"
+    },
+    "opensnitch": {
+      "commit": "b404c4c6316760fa7bc415509d3f8d747f7dc9cc",
+      "kind": "tag_glob",
+      "tag": "v1.*"
+    },
+    "perfetto": {
+      "commit": "33a4fd07897a9a648664926ea27769278a19ff13",
+      "kind": "tag_glob",
+      "tag": "v4*"
+    },
+    "phosh": {
+      "commit": "f67e5fa85ffca538da25a0512ca0ed5162c79d92",
+      "kind": "tag_glob",
+      "tag": "v0.*"
+    },
+    "pipewire": {
+      "commit": "4287f31510771fc999f8a58a024c81ca10b8d55f",
+      "kind": "tag_glob",
+      "tag": "1.*"
+    },
+    "rauc": {
+      "commit": "4fb7c798d6ae412344fb8f8d310d773046af3441",
+      "kind": "tag_glob",
+      "tag": "v1.*"
+    },
+    "rebuilderd": {
+      "commit": "7f31d847539e3b41c587202447abf3d43a9b9d18",
+      "kind": "tag_glob",
+      "tag": "v0.*"
+    },
+    "reuse": {
+      "commit": "ba42a0ba0a9ada6e89660cb8363fcf01181f1675",
+      "kind": "tag_glob",
+      "tag": "v5.*"
+    },
+    "selinux-userspace": {
+      "commit": "d812eac4489babc1371b6923463d7eb8c6fff288",
+      "kind": "tag_glob",
+      "tag": "3.*"
+    },
+    "strace": {
+      "commit": "1d78a4ce1bfa3754b3b99b1e4bb15790001b77cb",
+      "kind": "tag_glob",
+      "tag": "v6.*"
+    },
+    "syncthing": {
+      "commit": "0945304a79d6bbaeac7fc2cc1b06f57d3cf66622",
+      "kind": "tag_glob",
+      "tag": "v1.*"
+    },
+    "syzkaller": {
+      "commit": "d93796125b088dd12b6795fea4d01f284abf4e38",
+      "kind": "branch",
+      "tag": "master"
+    },
+    "toybox": {
+      "commit": "a57b091d05ec366dcd4dd737784c03761cb6a4b1",
+      "kind": "tag_glob",
+      "tag": "0.*"
+    },
+    "tpm2-tss": {
+      "commit": "624f6ab3b4f277c18ac6d96054e15705f1f066c8",
+      "kind": "tag_glob",
+      "tag": "4.*"
+    },
+    "unbound": {
+      "commit": "a45da353d3feb5d8fc00685fa1ceda3816d5108f",
+      "kind": "tag_glob",
+      "tag": "release-1.*"
+    },
+    "wasm-micro-runtime": {
+      "commit": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+      "kind": "tag_glob",
+      "tag": "WAMR-2.*"
+    },
+    "wayland": {
+      "commit": "87cc8a8728a923fc57938faa81ba0e74f34ecdc7",
+      "kind": "tag_glob",
+      "tag": "1.*"
+    },
+    "wireguard-linux": {
+      "commit": "49ce333da02056ae7b22ee2aeb6afe8aaed79b19",
+      "kind": "tag_glob",
+      "tag": "v1.0.*"
+    },
+    "wlroots": {
+      "commit": "88a869855742281c98c22cab9641b317b8d065ef",
+      "kind": "tag_glob",
+      "tag": "0.1*"
+    },
+    "xdg-desktop-portal": {
+      "commit": "1d20fadc304f6601452b5db65ed91197dba77041",
+      "kind": "tag_glob",
+      "tag": "1.*"
+    }
+  }
+}

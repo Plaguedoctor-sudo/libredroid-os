@@ -1,0 +1,9 @@
+.store/
+out/
+dist/
+keys/*.key
+keys/*.sig
+*.tmp
+__pycache__/
+*.pyc
+.pytest_cache/

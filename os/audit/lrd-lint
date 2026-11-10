@@ -40,6 +40,7 @@ want(){ [ -z "$CATS" ] && return 0; case ",$CATS," in *",$1,"*) return 0 ;; *) r
 mapfile -t ALL < <(cd "$ROOT" && find . -type f \
   -not -path './node_modules/*' -not -path './.git/*' -not -path '*/dist/*' \
   -not -path './build-out/*' -not -path '*/adapt-out/*' -not -path '*/out-pad-go/*' \
+  -not -path '*/out/*' -not -path '*/.store/*' \
   -not -path './stock_firmware/*' | sed 's|^\./||' | sort)
 
 echo "lrd-lint — $ROOT"
@@ -129,6 +130,7 @@ if want units; then
 say "systemd units"
 have systemd-analyze && for f in "${ALL[@]}"; do
   case "$f" in
+    */dinit/*) continue ;;
     *.service|*.target|*.timer|*.slice|*.socket|*.mount)
       raw_out="$(systemd-analyze --man=no verify "$ROOT/$f" 2>&1 | grep -v '^$' || true)"
       # Filter out host-environment missing file errors for binaries/units present in this repo

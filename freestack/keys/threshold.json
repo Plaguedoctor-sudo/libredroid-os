@@ -1,0 +1,13 @@
+{
+  "threshold": {
+    "m": 3,
+    "n": 5
+  },
+  "holders": [
+    "community-a",
+    "community-b",
+    "foundation-a",
+    "foundation-auditor",
+    "foundation-b"
+  ]
+}

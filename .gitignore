@@ -45,4 +45,6 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+.adb/
 stock_firmware/
+out/

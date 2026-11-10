@@ -11,12 +11,12 @@ if ! command -v fastboot &>/dev/null; then
     exit 1
 fi
 
-echo "Switching active hardware slot back to original working slot ()..."
-fastboot set_active a 2>/dev/null || true
+echo "Switching active hardware slot back to original working slot (b)..."
+fastboot set_active b 2>/dev/null || true
 
-if [ -f "backups/android_device_20261027_234427/vbmeta.img" ]; then
+if [ -f "backups/android_device_20261108_213607/vbmeta.img" ]; then
     echo "Restoring original vbmeta signature..."
-    fastboot flash vbmeta "backups/android_device_20261027_234427/vbmeta.img" 2>/dev/null || true
+    fastboot flash vbmeta "backups/android_device_20261108_213607/vbmeta.img" 2>/dev/null || true
 fi
 
 echo "Rebooting device back into original factory Android..."

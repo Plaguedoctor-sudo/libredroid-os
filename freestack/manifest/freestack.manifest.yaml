@@ -1,0 +1,929 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+stack_version: "0.1.0"
+
+trust:
+  threshold:
+    m: 3
+    n: 5
+  root_keys:
+    - holder: foundation-a
+      fingerprint: foundation-a
+      algorithm: minisign
+    - holder: foundation-b
+      fingerprint: foundation-b
+      algorithm: minisign
+    - holder: foundation-auditor
+      fingerprint: foundation-auditor
+      algorithm: minisign
+    - holder: community-a
+      fingerprint: community-a
+      algorithm: minisign
+    - holder: community-b
+      fingerprint: community-b
+      algorithm: minisign
+
+targets:
+  - id: x200-libreboot
+    name: "ThinkPad X200 (Libreboot)"
+    arch: "x86_64"
+    profiles: ["core", "native"]
+  - id: reform-imx8mq
+    name: "MNT Reform (i.MX8MQ)"
+    arch: "aarch64"
+    profiles: ["core", "native", "android"]
+
+mirrors:
+  - id: rsync-primary
+    type: rsync
+    url: "rsync://archive.freestack.org/freestack/sources/"
+    priority: 1
+  - id: ipfs-gateway
+    type: ipfs
+    url: "https://ipfs.io/ipns/freestack.org/"
+    priority: 2
+  - id: tor-onion
+    type: onion
+    url: "http://freestack7h3q7x2m7u2e2s4y7o3l6a2s8t5e7i9n6o.onion/sources/"
+    priority: 3
+
+components:
+  # ---- boot
+  - id: coreboot
+    name: "coreboot"
+    tier: core
+    license: { spdx: ["GPL-2.0-only"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/coreboot/coreboot"
+      forge: github
+      pin: { kind: tag_glob, pattern: "4.*", min: "4.15" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "make crossgcc-i386 CPUS=$(nproc) && make -j$(nproc) && cp build/coreboot.rom /out/"
+      outputs: ["boot/coreboot.rom"]
+      reproducible: true
+
+  - id: heads
+    name: "heads"
+    tier: core
+    license: { spdx: ["GPL-2.0-only"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/linuxboot/heads"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v0.*", min: "0.2", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "make BOARD=x200-flash && cp build/x200-flash/heads-x200-flash.rom /out/"
+      outputs: ["boot/heads.rom"]
+      reproducible: true
+
+  - id: me_cleaner
+    name: "me_cleaner"
+    tier: core
+    license: { spdx: ["GPL-3.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/corna/me_cleaner"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v1.*", min: "1.0", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "install -D -m 755 me_cleaner.py /out/bin/me_cleaner"
+      outputs: ["bin/me_cleaner"]
+      reproducible: true
+
+  - id: minisign
+    name: "minisign"
+    tier: core
+    license: { spdx: ["ISC"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/jedisct1/minisign"
+      forge: github
+      pin: { kind: tag_glob, pattern: "0.*", min: "0.10" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "mkdir build && cd build && cmake .. && make -j$(nproc) && cp minisign /out/bin/"
+      outputs: ["bin/minisign"]
+      reproducible: true
+
+  # ---- kernel
+  - id: linux-libre
+    name: "linux-libre"
+    tier: core
+    license: { spdx: ["GPL-2.0-only"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: tarball
+      repo: "https://linux-libre.fsfla.org/pub/linux-libre/releases/6.12.1-gnu/linux-libre-6.12.1-gnu.tar.xz"
+      forge: fsfla
+      pin: { kind: tarball, value: "https://linux-libre.fsfla.org/pub/linux-libre/releases/6.12.1-gnu/linux-libre-6.12.1-gnu.tar.xz" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "make defconfig && make -j$(nproc) bzImage && cp arch/x86/boot/bzImage /out/boot/vmlinuz"
+      outputs: ["boot/vmlinuz"]
+      reproducible: true
+
+  - id: syzkaller
+    name: "syzkaller"
+    tier: core
+    license: { spdx: ["Apache-2.0"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/google/syzkaller"
+      forge: github
+      pin: { kind: branch, value: master }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "make -j$(nproc) && cp bin/syz-fuzzer /out/bin/"
+      outputs: ["bin/syz-fuzzer"]
+      reproducible: true
+
+  # ---- init
+  - id: dinit
+    name: "dinit"
+    tier: core
+    license: { spdx: ["Apache-2.0"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/davmac314/dinit"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v0.*", min: "0.15", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "make -C src all CXX='g++ -include system_error' && install -D -m 755 src/dinit /out/bin/dinit"
+      outputs: ["bin/dinit"]
+      reproducible: true
+
+  - id: bubblewrap
+    name: "bubblewrap"
+    tier: core
+    license: { spdx: ["LGPL-2.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/containers/bubblewrap"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v0.*", min: "0.6", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && install -D -m 755 build/bwrap /out/bin/bwrap"
+      outputs: ["bin/bwrap"]
+      reproducible: true
+
+  # ---- libc
+  - id: musl
+    name: "musl"
+    tier: core
+    license: { spdx: ["MIT"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://git.musl-libc.org/git/musl"
+      pin: { kind: tag_glob, pattern: "v1.2.*", min: "1.2.3", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./configure --prefix=/usr && make -j$(nproc) && mkdir -p /out/lib && cp lib/libc.a lib/libc.so /out/lib/"
+      outputs: ["lib/libc.a", "lib/libc.so"]
+      reproducible: true
+
+  - id: toybox
+    name: "toybox"
+    tier: core
+    license: { spdx: ["0BSD"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/landley/toybox"
+      forge: github
+      pin: { kind: tag_glob, pattern: "0.*", min: "0.8.9" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "make defconfig && make -j$(nproc) && install -D -m 755 toybox /out/bin/toybox"
+      outputs: ["bin/toybox"]
+      reproducible: true
+
+  # ---- runtime
+  - id: flutter-engine
+    name: "flutter-engine"
+    tier: core
+    license: { spdx: ["BSD-3-Clause"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R8", "R11", "R12"]
+      waivers:
+        - rule: "R7"
+          reason: "upstream gn/ninja path ordering"
+          expires: "2099-12-31"
+    upstream:
+      vcs: git
+      repo: "https://github.com/flutter/engine"
+      forge: github
+      submodules: true
+      pin: { kind: tag_glob, pattern: "3.*", min: "3.19" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./tools/gn --runtime-mode release && ninja -C out/host_release && cp out/host_release/libflutter_engine.so /out/lib/"
+      outputs: ["lib/libflutter_engine.so"]
+      reproducible: false
+      repro_exception: "upstream gn/ninja path ordering"
+
+  - id: wasm-micro-runtime
+    name: "wasm-micro-runtime"
+    tier: core
+    license: { spdx: ["Apache-2.0"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/bytecodealliance/wasm-micro-runtime"
+      forge: github
+      pin: { kind: tag_glob, pattern: "WAMR-2.*", min: "2.0", version_regex: "^WAMR-" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "mkdir build && cd build && cmake .. && make -j$(nproc) && cp iwasm /out/bin/"
+      outputs: ["bin/iwasm"]
+      reproducible: true
+
+  # ---- display
+  - id: wayland
+    name: "wayland"
+    tier: core
+    license: { spdx: ["MIT"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.freedesktop.org/wayland/wayland"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "1.*", min: "1.20" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/src/libwayland-server.so /out/lib/"
+      outputs: ["lib/libwayland-server.so"]
+      reproducible: true
+
+  - id: wlroots
+    name: "wlroots"
+    tier: core
+    license: { spdx: ["MIT"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.freedesktop.org/wlroots/wlroots"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "0.1*", min: "0.17" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/libwlroots.so /out/lib/"
+      outputs: ["lib/libwlroots.so"]
+      reproducible: true
+
+  - id: mesa
+    name: "mesa"
+    tier: core
+    license: { spdx: ["MIT"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.freedesktop.org/mesa/mesa"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "mesa-2*", min: "23.0", version_regex: "^mesa-" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build -Dgallium-drivers=swrast,virgl -Dvulkan-drivers= && ninja -C build && cp build/src/gallium/targets/dri/libgallium_dri.so /out/lib/"
+      outputs: ["lib/libgallium_dri.so"]
+      reproducible: true
+
+  - id: phosh
+    name: "phosh"
+    tier: core
+    license: { spdx: ["GPL-3.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.gnome.org/World/Phosh/phosh"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "v0.*", min: "0.30", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/src/phosh /out/bin/"
+      outputs: ["bin/phosh"]
+      reproducible: true
+
+  # ---- media
+  - id: pipewire
+    name: "pipewire"
+    tier: core
+    license: { spdx: ["MIT"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.freedesktop.org/pipewire/pipewire"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "1.*", min: "1.0" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/src/pipewire/pipewire /out/bin/"
+      outputs: ["bin/pipewire"]
+      reproducible: true
+
+  - id: libcamera
+    name: "libcamera"
+    tier: core
+    license: { spdx: ["LGPL-2.1-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.freedesktop.org/camera/libcamera"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "v0.*", min: "0.2", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/src/libcamera/libcamera.so /out/lib/"
+      outputs: ["lib/libcamera.so"]
+      reproducible: true
+
+  - id: ffmpeg
+    name: "ffmpeg"
+    tier: core
+    license: { spdx: ["LGPL-2.1-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/FFmpeg/FFmpeg"
+      forge: github
+      pin: { kind: tag_glob, pattern: "n[789].*", min: "7.0", version_regex: "^n" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./configure --prefix=/usr --disable-static --enable-shared && make -j$(nproc) && cp ffmpeg /out/bin/"
+      outputs: ["bin/ffmpeg"]
+      reproducible: true
+
+  # ---- net
+  - id: nftables
+    name: "nftables"
+    tier: core
+    license: { spdx: ["GPL-2.0-only"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://git.netfilter.org/nftables"
+      pin: { kind: tag_glob, pattern: "v1.*", min: "1.0", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./autogen.sh && ./configure && make -j$(nproc) && cp src/nft /out/bin/"
+      outputs: ["bin/nft"]
+      reproducible: true
+
+  - id: opensnitch
+    name: "opensnitch"
+    tier: core
+    license: { spdx: ["GPL-3.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/evilsocket/opensnitch"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v1.*", min: "1.5", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "make -C daemon && cp daemon/opensnitchd /out/bin/"
+      outputs: ["bin/opensnitchd"]
+      reproducible: true
+
+  - id: unbound
+    name: "unbound"
+    tier: core
+    license: { spdx: ["BSD-3-Clause"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/NLnetLabs/unbound"
+      forge: github
+      pin: { kind: tag_glob, pattern: "release-1.*", min: "1.18", version_regex: "^release-" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./configure && make -j$(nproc) && cp unbound /out/bin/"
+      outputs: ["bin/unbound"]
+      reproducible: true
+
+  - id: chrony
+    name: "chrony"
+    tier: core
+    license: { spdx: ["GPL-2.0-only"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.com/chrony/chrony"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "4.*", min: "4.4" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./configure && make -j$(nproc) && cp chronyd /out/bin/"
+      outputs: ["bin/chronyd"]
+      reproducible: true
+
+  - id: wireguard-linux
+    name: "wireguard-linux"
+    tier: core
+    license: { spdx: ["GPL-2.0-only"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://git.zx2c4.com/wireguard-tools"
+      pin: { kind: tag_glob, pattern: "v1.0.*", min: "1.0.2021", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "make -C src -j$(nproc) && cp src/wireguard.ko /out/lib/modules/"
+      outputs: ["lib/modules/wireguard.ko"]
+      reproducible: true
+
+  # ---- sensors
+  - id: iio-sensor-proxy
+    name: "iio-sensor-proxy"
+    tier: core
+    license: { spdx: ["GPL-3.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.freedesktop.org/hadess/iio-sensor-proxy"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "3.*", min: "3.0" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/src/iio-sensor-proxy /out/bin/"
+      outputs: ["bin/iio-sensor-proxy"]
+      reproducible: true
+
+  - id: geoclue
+    name: "geoclue"
+    tier: core
+    license: { spdx: ["LGPL-2.1-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.freedesktop.org/geoclue/geoclue"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "2.*", min: "2.6" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/geoclue /out/bin/"
+      outputs: ["bin/geoclue"]
+      reproducible: true
+
+  # ---- security
+  - id: selinux-userspace
+    name: "selinux-userspace"
+    tier: core
+    license: { spdx: ["GPL-2.0-only"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/SELinuxProject/selinux"
+      forge: github
+      pin: { kind: tag_glob, pattern: "3.*", min: "3.4" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "make -j$(nproc) && cp checkpolicy/checkpolicy /out/bin/"
+      outputs: ["bin/checkpolicy"]
+      reproducible: true
+
+  - id: libseccomp
+    name: "libseccomp"
+    tier: core
+    license: { spdx: ["LGPL-2.1-only"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/seccomp/libseccomp"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v2.*", min: "2.5", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./autogen.sh && ./configure && make -j$(nproc) && cp src/.libs/libseccomp.so /out/lib/"
+      outputs: ["lib/libseccomp.so"]
+      reproducible: true
+
+  - id: cryptsetup
+    name: "cryptsetup"
+    tier: core
+    license: { spdx: ["GPL-2.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.com/cryptsetup/cryptsetup"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "v2.*", min: "2.6", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./autogen.sh && ./configure && make -j$(nproc) && cp cryptsetup /out/bin/"
+      outputs: ["bin/cryptsetup"]
+      reproducible: true
+
+  - id: libsodium
+    name: "libsodium"
+    tier: core
+    license: { spdx: ["ISC"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/jedisct1/libsodium"
+      forge: github
+      pin: { kind: tag_glob, pattern: "1.0.*", min: "1.0.19" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./configure && make -j$(nproc) && cp src/libsodium/.libs/libsodium.so /out/lib/"
+      outputs: ["lib/libsodium.so"]
+      reproducible: true
+
+  - id: libfido2
+    name: "libfido2"
+    tier: core
+    license: { spdx: ["BSD-2-Clause"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/Yubico/libfido2"
+      forge: github
+      pin: { kind: tag_glob, pattern: "1.*", min: "1.13" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "mkdir build && cd build && cmake .. && make -j$(nproc) && cp src/libfido2.so /out/lib/"
+      outputs: ["lib/libfido2.so"]
+      reproducible: true
+
+  - id: audit-userspace
+    name: "audit-userspace"
+    tier: core
+    license: { spdx: ["GPL-2.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/linux-audit/audit-userspace"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v4.*", min: "4.0", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./autogen.sh && ./configure && make -j$(nproc) && cp src/auditd /out/bin/"
+      outputs: ["bin/auditd"]
+      reproducible: true
+
+  - id: cosign
+    name: "cosign"
+    tier: core
+    license: { spdx: ["Apache-2.0"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/sigstore/cosign"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v2.*", min: "2.2", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "go build -o /out/bin/cosign ./cmd/cosign"
+      outputs: ["bin/cosign"]
+      reproducible: true
+
+  # ---- storage
+  - id: erofs-utils
+    name: "erofs-utils"
+    tier: core
+    license: { spdx: ["GPL-2.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git"
+      pin: { kind: tag_glob, pattern: "v1.*", min: "1.7", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./autogen.sh && ./configure && make -j$(nproc) && cp mkfs/mkfs.erofs /out/bin/"
+      outputs: ["bin/mkfs.erofs"]
+      reproducible: true
+
+  - id: rauc
+    name: "rauc"
+    tier: core
+    license: { spdx: ["LGPL-2.1-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/rauc/rauc"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v1.*", min: "1.10", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/rauc /out/bin/"
+      outputs: ["bin/rauc"]
+      reproducible: true
+
+  - id: fdroidserver
+    name: "fdroidserver"
+    tier: core
+    license: { spdx: ["AGPL-3.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.com/fdroid/fdroidserver"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "2.*", min: "2.1" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "pip install --prefix=/usr . && cp /usr/bin/fdroid /out/bin/"
+      outputs: ["bin/fdroid"]
+      reproducible: true
+
+  # ---- build
+  - id: guix
+    name: "guix"
+    tier: core
+    license: { spdx: ["GPL-3.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://git.savannah.gnu.org/git/guix.git"
+      forge: savannah
+      pin: { kind: tag_glob, pattern: "v1.*", min: "1.3", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./bootstrap && ./configure && make -j$(nproc) && cp guix-daemon /out/bin/"
+      outputs: ["bin/guix-daemon"]
+      reproducible: true
+
+  - id: reuse
+    name: "reuse"
+    tier: core
+    license: { spdx: ["Apache-2.0"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/fsfe/reuse-tool"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v5.*", min: "5.0", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "pip install --prefix=/usr . && cp /usr/bin/reuse /out/bin/"
+      outputs: ["bin/reuse"]
+      reproducible: true
+
+  - id: diffoscope
+    name: "diffoscope"
+    tier: core
+    license: { spdx: ["GPL-3.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://salsa.debian.org/reproducible-builds/diffoscope"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "2[0-9][0-9]", min: "250" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "pip install --prefix=/usr . && cp /usr/bin/diffoscope /out/bin/"
+      outputs: ["bin/diffoscope"]
+      reproducible: true
+
+  - id: rebuilderd
+    name: "rebuilderd"
+    tier: core
+    license: { spdx: ["GPL-3.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/kpcyrd/rebuilderd"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v0.*", min: "0.20", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "cargo build --release && cp target/release/rebuilderd /out/bin/"
+      outputs: ["bin/rebuilderd"]
+      reproducible: true
+
+  # ---- debug
+  - id: perfetto
+    name: "perfetto"
+    tier: core
+    license: { spdx: ["Apache-2.0"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://android.googlesource.com/platform/external/perfetto"
+      forge: googlesource
+      pin: { kind: tag_glob, pattern: "v4*", min: "40", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "tools/install-build-deps && tools/gn gen out/release && tools/ninja -C out/release perfetto && cp out/release/perfetto /out/bin/"
+      outputs: ["bin/perfetto"]
+      reproducible: true
+
+  - id: strace
+    name: "strace"
+    tier: core
+    license: { spdx: ["LGPL-2.1-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/strace/strace"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v6.*", min: "6.6", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./bootstrap && ./configure && make -j$(nproc) && cp src/strace /out/bin/"
+      outputs: ["bin/strace"]
+      reproducible: true
+
+  # ---- a11y
+  - id: at-spi2-core
+    name: "at-spi2-core"
+    tier: core
+    license: { spdx: ["LGPL-2.1-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://gitlab.gnome.org/GNOME/at-spi2-core"
+      forge: gitlab
+      pin: { kind: tag_glob, pattern: "2.*", min: "2.48" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/bus/at-spi-bus-launcher /out/bin/"
+      outputs: ["bin/at-spi-bus-launcher"]
+      reproducible: true
+
+  - id: espeak-ng
+    name: "espeak-ng"
+    tier: core
+    license: { spdx: ["GPL-3.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/espeak-ng/espeak-ng"
+      forge: github
+      pin: { kind: tag_glob, pattern: "1.*", min: "1.50" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./autogen.sh && ./configure && make -j$(nproc) && cp src/espeak-ng /out/bin/"
+      outputs: ["bin/espeak-ng"]
+      reproducible: true
+
+  # ---- apps
+  - id: librewolf
+    name: "librewolf"
+    tier: core
+    license: { spdx: ["MPL-2.0"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R8", "R11", "R12"]
+      waivers:
+        - rule: "R7"
+          reason: "mach build ordering"
+          expires: "2099-12-31"
+    upstream:
+      vcs: git
+      repo: "https://codeberg.org/librewolf/source"
+      forge: codeberg
+      pin: { kind: tag_glob, pattern: "1*", min: "120" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./mach build && cp obj-*/dist/bin/librewolf /out/bin/"
+      outputs: ["bin/librewolf"]
+      reproducible: false
+      repro_exception: "mach build ordering"
+
+  - id: syncthing
+    name: "syncthing"
+    tier: core
+    license: { spdx: ["MPL-2.0"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/syncthing/syncthing"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v1.*", min: "1.27", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "go run build.go -no-upgrade build && cp bin/syncthing /out/bin/"
+      outputs: ["bin/syncthing"]
+      reproducible: true
+
+  - id: keepassxc
+    name: "keepassxc"
+    tier: core
+    license: { spdx: ["GPL-2.0-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/keepassxreboot/keepassxc"
+      forge: github
+      pin: { kind: tag_glob, pattern: "2.*", min: "2.7" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "mkdir build && cd build && cmake .. && make -j$(nproc) && cp src/keepassxc /out/bin/"
+      outputs: ["bin/keepassxc"]
+      reproducible: true
+
+  # ---- infra
+  - id: xdg-desktop-portal
+    name: "xdg-desktop-portal"
+    tier: core
+    license: { spdx: ["LGPL-2.1-or-later"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/flatpak/xdg-desktop-portal"
+      forge: github
+      pin: { kind: tag_glob, pattern: "1.*", min: "1.18" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "meson setup build && ninja -C build && cp build/src/xdg-desktop-portal /out/bin/"
+      outputs: ["bin/xdg-desktop-portal"]
+      reproducible: true
+
+  - id: tpm2-tss
+    name: "tpm2-tss"
+    tier: core
+    license: { spdx: ["BSD-2-Clause"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/tpm2-software/tpm2-tss"
+      forge: github
+      pin: { kind: tag_glob, pattern: "4.*", min: "4.0" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "./bootstrap && ./configure && make -j$(nproc) && cp src/tss2-tcti/.libs/libtss2-tctildr.so /out/lib/"
+      outputs: ["lib/libtss2-tctildr.so"]
+      reproducible: true
+
+  # ---- blob
+  - id: blob-firmware-ath10k
+    name: "blob-firmware-ath10k"
+    tier: blob
+    license: { spdx: ["LicenseRef-Qualcomm-Atheros"] }
+    rules:
+      satisfies: ["R1", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+      waivers:
+        - rule: "R2"
+          reason: "isolated wifi firmware required for ath10k"
+          expires: "2099-12-31"
+    upstream:
+      vcs: git
+      repo: "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
+      pin: { kind: tag_glob, pattern: "2026*", min: "20260101" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "mkdir -p /out/lib/firmware/ath10k && cp -r QCA9377 /out/lib/firmware/ath10k/"
+      outputs: ["lib/firmware/ath10k/QCA9377/firmware-5.bin"]
+      reproducible: true
+    blob:
+      vendor: "Qualcomm Atheros"
+      redistributable: true
+      source_available: false

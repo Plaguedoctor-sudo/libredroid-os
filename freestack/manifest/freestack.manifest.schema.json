@@ -1,0 +1,204 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FreeStackManifest",
+  "type": "object",
+  "required": ["stack_version", "trust", "components", "targets"],
+  "properties": {
+    "stack_version": { "type": "string" },
+    "trust": {
+      "type": "object",
+      "required": ["threshold", "root_keys"],
+      "properties": {
+        "threshold": {
+          "type": "object",
+          "required": ["m", "n"],
+          "properties": {
+            "m": { "type": "integer", "minimum": 1 },
+            "n": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "root_keys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["holder", "fingerprint", "algorithm"],
+            "properties": {
+              "holder": { "type": "string" },
+              "fingerprint": { "type": "string" },
+              "algorithm": { "type": "string", "enum": ["minisign", "gpg"] }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "tier", "license", "rules", "upstream", "build"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "tier": { "type": "string", "enum": ["core", "blob", "optional"] },
+          "license": {
+            "type": "object",
+            "required": ["spdx"],
+            "properties": {
+              "spdx": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          },
+          "rules": {
+            "type": "object",
+            "required": ["satisfies"],
+            "properties": {
+              "satisfies": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "waivers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["rule", "reason", "expires"],
+                  "properties": {
+                    "rule": { "type": "string" },
+                    "reason": { "type": "string" },
+                    "expires": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "upstream": {
+            "type": "object",
+            "required": ["vcs", "repo", "pin"],
+            "properties": {
+              "vcs": { "type": "string", "enum": ["git", "tarball"] },
+              "repo": { "type": "string" },
+              "forge": { "type": "string", "enum": ["github", "gitlab", "codeberg", "googlesource", "savannah", "fsfla"] },
+              "submodules": { "type": "boolean" },
+              "pin": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "value"],
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["commit"] },
+                      "value": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "value"],
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["tag"] },
+                      "value": { "type": "string" }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "pattern"],
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["tag_glob"] },
+                      "pattern": { "type": "string" },
+                      "min": { "type": "string" },
+                      "version_regex": { "type": "string" }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "value"],
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["branch"] },
+                      "value": { "type": "string" }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "value"],
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["tarball"] },
+                      "value": { "type": "string" }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "url", "pattern"],
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["dir_glob"] },
+                      "url": { "type": "string" },
+                      "pattern": { "type": "string" }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "verify": {
+            "type": "object",
+            "properties": {
+              "sha256": { "type": "string" }
+            }
+          },
+          "build": {
+            "type": "object",
+            "required": ["entrypoint", "outputs", "reproducible"],
+            "properties": {
+              "entrypoint": { "type": "string" },
+              "outputs": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "reproducible": { "type": "boolean" },
+              "env": { "type": "object" },
+              "repro_exception": { "type": "string" }
+            }
+          },
+          "blob": {
+            "type": "object",
+            "required": ["vendor", "redistributable", "source_available"],
+            "properties": {
+              "vendor": { "type": "string" },
+              "redistributable": { "type": "boolean" },
+              "source_available": { "type": "boolean" }
+            }
+          },
+          "conformance": {
+            "type": "object",
+            "properties": {
+              "tiers": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "arch"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "arch": { "type": "string" },
+          "profiles": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

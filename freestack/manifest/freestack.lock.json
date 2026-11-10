@@ -1,0 +1,407 @@
+{
+  "lock_version": "0.1",
+  "manifest_sha256": "3e149a5ebe67bec432ffe767fc545281aec2203e2e23a3e8ac25d9f7dee5b072",
+  "resolved_at": "2026-11-10T12:03:24Z",
+  "components": [
+    {
+      "id": "coreboot",
+      "resolved": {
+        "url": "https://github.com/coreboot/coreboot",
+        "commit": "2ff24090376ae8eaf963696de0e20e3bc8bbe54f",
+        "sha256": "6b2a2a1def7da1d4049feda7e576123bb4254e3b77b141056ac7c695d8cbd2fa"
+      }
+    },
+    {
+      "id": "heads",
+      "resolved": {
+        "url": "https://github.com/linuxboot/heads",
+        "commit": "7f2eb15b59c07f450f5e22f5699fb59a469b4425",
+        "sha256": "ce3e1411169007e5d6d21a3002f3c987ad4b7f1978c206bde1763bdc02f05990"
+      }
+    },
+    {
+      "id": "me_cleaner",
+      "resolved": {
+        "url": "https://github.com/corna/me_cleaner",
+        "commit": "d5b0806cdfa28be0c10066d0728135c2ea968365",
+        "sha256": "be57a2ce88167d0e97925b1d7f055795b165432ac556a2232345607bb5e2b22f"
+      }
+    },
+    {
+      "id": "minisign",
+      "resolved": {
+        "url": "https://github.com/jedisct1/minisign",
+        "commit": "b85e15d45ac9eab34e44596fd309f5b07db9545c",
+        "sha256": "670fbd3cca937a2241981f9ccd6bc2506fa7a97f5ce17da93a32f27157f3f784"
+      }
+    },
+    {
+      "id": "linux-libre",
+      "resolved": {
+        "url": "https://linux-libre.fsfla.org/pub/linux-libre/releases/6.12.1-gnu/linux-libre-6.12.1-gnu.tar.xz",
+        "commit": "https://linux-libre.fsfla.org/pub/linux-libre/releases/6.12.1-gnu/linux-libre-6.12.1-gnu.tar.xz",
+        "sha256": "731defc3d0dcd3e56633d8a418e677181033110e9c40058094381794d813248d"
+      }
+    },
+    {
+      "id": "syzkaller",
+      "resolved": {
+        "url": "https://github.com/google/syzkaller",
+        "commit": "d93796125b088dd12b6795fea4d01f284abf4e38",
+        "sha256": "534ad2f28bc9be52a8787fe9c73c1e6b8f010874001f06f236733067709b539b"
+      }
+    },
+    {
+      "id": "dinit",
+      "resolved": {
+        "url": "https://github.com/davmac314/dinit",
+        "commit": "1da9c8f19117f9d35faca5cf062adea6f150206f",
+        "sha256": "66e5dfa5c3eaf18c3e90c3fc93a4cfbe4b042c11e9e22eb6d88bef8c01c9719a"
+      }
+    },
+    {
+      "id": "bubblewrap",
+      "resolved": {
+        "url": "https://github.com/containers/bubblewrap",
+        "commit": "362936aea0d5c6e70f7af75d2d44b5a914cb4ba2",
+        "sha256": "7c1fc2c11561524b3b1771b582d6e9ade4ce3ef6bf19d8e67893dfbee7436a32"
+      }
+    },
+    {
+      "id": "musl",
+      "resolved": {
+        "url": "https://git.musl-libc.org/git/musl",
+        "commit": "9fa28ece75d8a2191de7c5bb53bed224c5947417",
+        "sha256": "093977e75e669ad3e26b6fa0e298a7e9b3171db907c37a5ed93ed162bfdae5a8"
+      }
+    },
+    {
+      "id": "toybox",
+      "resolved": {
+        "url": "https://github.com/landley/toybox",
+        "commit": "a57b091d05ec366dcd4dd737784c03761cb6a4b1",
+        "sha256": "4880a59238f16c43b5ea7fec671ba7eebd93e4f18fcbe85a73321891b4046246"
+      }
+    },
+    {
+      "id": "flutter-engine",
+      "resolved": {
+        "url": "https://github.com/flutter/engine",
+        "commit": "6a75cb6a6a57ae5a05309a43f0fba6cd50c65752",
+        "sha256": "9272da47334372dfc922976115220cae21c285416c078cb20789b70cb4c58787"
+      }
+    },
+    {
+      "id": "wasm-micro-runtime",
+      "resolved": {
+        "url": "https://github.com/bytecodealliance/wasm-micro-runtime",
+        "commit": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+        "sha256": "4701d84994b0f548ede6a90243df486d3d1f24a1744cb1789697259ea1b04ec6"
+      }
+    },
+    {
+      "id": "wayland",
+      "resolved": {
+        "url": "https://gitlab.freedesktop.org/wayland/wayland",
+        "commit": "87cc8a8728a923fc57938faa81ba0e74f34ecdc7",
+        "sha256": "abe4a1c903779d35c39b68419ac9f8f9427f1cedd0b6f070a3b845e466915db8"
+      }
+    },
+    {
+      "id": "wlroots",
+      "resolved": {
+        "url": "https://gitlab.freedesktop.org/wlroots/wlroots",
+        "commit": "88a869855742281c98c22cab9641b317b8d065ef",
+        "sha256": "cccb48172cd627fad53c3dbe8f0579c559958c0ecf6d0b006b238b82a2014dab"
+      }
+    },
+    {
+      "id": "mesa",
+      "resolved": {
+        "url": "https://gitlab.freedesktop.org/mesa/mesa",
+        "commit": "90a959ebba9dbb36f2ea5176091c15d6ebdd0af0",
+        "sha256": "ec0cdd85b786b2395342b450135712d5119238555c0f00421d2887b81266c9cb"
+      }
+    },
+    {
+      "id": "phosh",
+      "resolved": {
+        "url": "https://gitlab.gnome.org/World/Phosh/phosh",
+        "commit": "f67e5fa85ffca538da25a0512ca0ed5162c79d92",
+        "sha256": "8b4f7df2e04502a0e9bcb34cacc262120b09251a243d89129a0ecb96b9e662df"
+      }
+    },
+    {
+      "id": "pipewire",
+      "resolved": {
+        "url": "https://gitlab.freedesktop.org/pipewire/pipewire",
+        "commit": "4287f31510771fc999f8a58a024c81ca10b8d55f",
+        "sha256": "f008f1a39e0ba24c9ba1dfd7445ff79ddefacaae30839daffd77e5ba8f31256f"
+      }
+    },
+    {
+      "id": "libcamera",
+      "resolved": {
+        "url": "https://gitlab.freedesktop.org/camera/libcamera",
+        "commit": "df8e348d64b4932a0676256ed24f0da3ee9438bc",
+        "sha256": "0f102031c1340a4af52837dcccd1bb3d1649f4ca5e9ae3d01492937113796806"
+      }
+    },
+    {
+      "id": "ffmpeg",
+      "resolved": {
+        "url": "https://github.com/FFmpeg/FFmpeg",
+        "commit": "d66e84695b1a9627e04c77d2fdb4fdd7762c8c30",
+        "sha256": "71fb2c4026e91c18d5fd4cc5f4e53324e445952d515addfb37c1a0a9480dc9c4"
+      }
+    },
+    {
+      "id": "nftables",
+      "resolved": {
+        "url": "https://git.netfilter.org/nftables",
+        "commit": "8c2f60661c9e8e85869f82db25961b45a8d07554",
+        "sha256": "5a19919a5809fb1b5e55bfc971dd8e5fbc0dcd91ff055e06a6b82381b524fc84"
+      }
+    },
+    {
+      "id": "opensnitch",
+      "resolved": {
+        "url": "https://github.com/evilsocket/opensnitch",
+        "commit": "b404c4c6316760fa7bc415509d3f8d747f7dc9cc",
+        "sha256": "3d29cf11c021748abfa7b1f2d696a10a4bcb41e4db380d67da23f59c9e1f6e0f"
+      }
+    },
+    {
+      "id": "unbound",
+      "resolved": {
+        "url": "https://github.com/NLnetLabs/unbound",
+        "commit": "a45da353d3feb5d8fc00685fa1ceda3816d5108f",
+        "sha256": "fffe5e7ed57ac1db4657030a577ee16e2ea6aefd580322eaf19b954b1ce8393c"
+      }
+    },
+    {
+      "id": "chrony",
+      "resolved": {
+        "url": "https://gitlab.com/chrony/chrony",
+        "commit": "d77973ee3ce2d2209ccd55cd0665103024a12a43",
+        "sha256": "a37d4951e1c8fb044c6b07343b26a2940ed35e11bde938c7d83284f9df3b3e8c"
+      }
+    },
+    {
+      "id": "wireguard-linux",
+      "resolved": {
+        "url": "https://git.zx2c4.com/wireguard-tools",
+        "commit": "49ce333da02056ae7b22ee2aeb6afe8aaed79b19",
+        "sha256": "c67644b02587a2f160020a44ac2de953898a0141a1d8a439d67d0c2f58428fdc"
+      }
+    },
+    {
+      "id": "iio-sensor-proxy",
+      "resolved": {
+        "url": "https://gitlab.freedesktop.org/hadess/iio-sensor-proxy",
+        "commit": "0085ddf8ecb173a1c5fcf2344aa40e561125354f",
+        "sha256": "5692684ff98e1f2628117f34b6f6209617099e7efe745a0467385fce5cf40b57"
+      }
+    },
+    {
+      "id": "geoclue",
+      "resolved": {
+        "url": "https://gitlab.freedesktop.org/geoclue/geoclue",
+        "commit": "97df14726a95a06e0e3f1b3c9c4388ed1aff7e8c",
+        "sha256": "8e1ad6ce565c87e737aa73cab222f68ad6efb9ae16ada4fac8ecc652b43214c0"
+      }
+    },
+    {
+      "id": "selinux-userspace",
+      "resolved": {
+        "url": "https://github.com/SELinuxProject/selinux",
+        "commit": "d812eac4489babc1371b6923463d7eb8c6fff288",
+        "sha256": "629fb1feed0a58abe81c7a93755f6b4a5099cb8b65ae1f538fd6c9683b68f784"
+      }
+    },
+    {
+      "id": "libseccomp",
+      "resolved": {
+        "url": "https://github.com/seccomp/libseccomp",
+        "commit": "a81cc2de8ee7a33633defc88bb8a2d986b421613",
+        "sha256": "582fb444f89f904b9952a01b30360c8e31dd74a6f2189a084d14d46cd4a23381"
+      }
+    },
+    {
+      "id": "cryptsetup",
+      "resolved": {
+        "url": "https://gitlab.com/cryptsetup/cryptsetup",
+        "commit": "f1dbcce190719c9e177e8fbaf3df0b908f87d920",
+        "sha256": "d0251350ca967b8703f036518016a1f3fa2990b6113145a72f6e5869b6003665"
+      }
+    },
+    {
+      "id": "libsodium",
+      "resolved": {
+        "url": "https://github.com/jedisct1/libsodium",
+        "commit": "77e1ce5d6dee871c49ef211222ba18ef0c486bda",
+        "sha256": "70ae87d12155f5eca783470acace6b865200eea01b72f7ec6e9b69c3534871b6"
+      }
+    },
+    {
+      "id": "libfido2",
+      "resolved": {
+        "url": "https://github.com/Yubico/libfido2",
+        "commit": "b974e7cf2ee7392134cc12c08b76a068cf250dd8",
+        "sha256": "9a647730fc0f029a2f5dd072ccb73a84d234bc0df8bf363632f584987089dce2"
+      }
+    },
+    {
+      "id": "audit-userspace",
+      "resolved": {
+        "url": "https://github.com/linux-audit/audit-userspace",
+        "commit": "00659601cc23dc243bb0f451977636ff77fcf80f",
+        "sha256": "c01f084c28122cee44e4e63ad070fea6e36e829b7b9225f4f25d80c618ea8cae"
+      }
+    },
+    {
+      "id": "cosign",
+      "resolved": {
+        "url": "https://github.com/sigstore/cosign",
+        "commit": "3e82f50a2839855693aacf7b3d0e7e2f30774cb4",
+        "sha256": "32bda600ac5f10175483ddfd4a288f6a02ece6b09daae68603688fb416877b4e"
+      }
+    },
+    {
+      "id": "erofs-utils",
+      "resolved": {
+        "url": "https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git",
+        "commit": "f36cadb5c563995ab3aa8572a60ed6b721b9557d",
+        "sha256": "ea8e5853ae73ea1227c7122bccca7162a5ef7190bf9cb3830073c84013897836"
+      }
+    },
+    {
+      "id": "rauc",
+      "resolved": {
+        "url": "https://github.com/rauc/rauc",
+        "commit": "4fb7c798d6ae412344fb8f8d310d773046af3441",
+        "sha256": "e00e69df3767d47cff6b58f554cf4942031d5b0bf61a45e1c350423aa66f2330"
+      }
+    },
+    {
+      "id": "fdroidserver",
+      "resolved": {
+        "url": "https://gitlab.com/fdroid/fdroidserver",
+        "commit": "c17a9253ffacc2d99eda2720bd789a9f96f3fa95",
+        "sha256": "634f2803bed0db5a881d9c61de13610f4220e3763f2c02f8dccf3358e542344e"
+      }
+    },
+    {
+      "id": "guix",
+      "resolved": {
+        "url": "https://git.savannah.gnu.org/git/guix.git",
+        "commit": "2d4ed08662714ea46cfe0b41ca195d1ef845fd1b",
+        "sha256": "4107d4d4db1fe84635b0d6d6328bfe6ba1eace5ee79d46d0a0d1b2947d9a2f7b"
+      }
+    },
+    {
+      "id": "reuse",
+      "resolved": {
+        "url": "https://github.com/fsfe/reuse-tool",
+        "commit": "ba42a0ba0a9ada6e89660cb8363fcf01181f1675",
+        "sha256": "d6d278fa510bc89e9b91406229791e17b0eee8f6ff07d5966b815b704eb788ed"
+      }
+    },
+    {
+      "id": "diffoscope",
+      "resolved": {
+        "url": "https://salsa.debian.org/reproducible-builds/diffoscope",
+        "commit": "5681cefe141ba3fc694d0b0b6fb519472020a8dd",
+        "sha256": "fb8e62302f081dc524ad5cd5c6a821dc86a88fd5ea10107c41564706681c47b1"
+      }
+    },
+    {
+      "id": "rebuilderd",
+      "resolved": {
+        "url": "https://github.com/kpcyrd/rebuilderd",
+        "commit": "7f31d847539e3b41c587202447abf3d43a9b9d18",
+        "sha256": "9904b6b784e0ce935998d319453447378cd2bd14ecae69e212398d1925f44e89"
+      }
+    },
+    {
+      "id": "perfetto",
+      "resolved": {
+        "url": "https://android.googlesource.com/platform/external/perfetto",
+        "commit": "33a4fd07897a9a648664926ea27769278a19ff13",
+        "sha256": "1072e2c325203c9e7c1b9a5e20b3502a6dd53e12c5ab2e6bd4cf5504eb1fd3e8"
+      }
+    },
+    {
+      "id": "strace",
+      "resolved": {
+        "url": "https://github.com/strace/strace",
+        "commit": "1d78a4ce1bfa3754b3b99b1e4bb15790001b77cb",
+        "sha256": "67cad4ccae675d90cc6f6ab9a1ea6d9de7d01e25b3a0c8ef824688068f90aaf8"
+      }
+    },
+    {
+      "id": "at-spi2-core",
+      "resolved": {
+        "url": "https://gitlab.gnome.org/GNOME/at-spi2-core",
+        "commit": "3a214cddffbf345b8c0d0b17e458abbc5ed851b1",
+        "sha256": "127ea2f86d0069f25c2a19ec67964aa105accc53a3ef2c663a15c56a0a1d0846"
+      }
+    },
+    {
+      "id": "espeak-ng",
+      "resolved": {
+        "url": "https://github.com/espeak-ng/espeak-ng",
+        "commit": "4870adfa25b1a32b4361592f1be8a40337c58d6c",
+        "sha256": "dbb5057ddb47d5746dca37faf731456cc31e46220431d3edea6facfeb5d1a000"
+      }
+    },
+    {
+      "id": "librewolf",
+      "resolved": {
+        "url": "https://codeberg.org/librewolf/source",
+        "commit": "d769db8f69785dd4db18b9e8596defba380c7b1b",
+        "sha256": "337d412c684d1b833b863224de30c22a67e1db57ba907773738591d102ab039d"
+      }
+    },
+    {
+      "id": "syncthing",
+      "resolved": {
+        "url": "https://github.com/syncthing/syncthing",
+        "commit": "0945304a79d6bbaeac7fc2cc1b06f57d3cf66622",
+        "sha256": "b59a3137e79fa14fd4d4f27227b5925b255b849ad40eccf31e90251f6bb8664a"
+      }
+    },
+    {
+      "id": "keepassxc",
+      "resolved": {
+        "url": "https://github.com/keepassxreboot/keepassxc",
+        "commit": "9e0f57a4a4c6c629fa6d0a593acb7d089b1d95cd",
+        "sha256": "f4b9972c27d8d22d92d95bdedb883a80ee1dcd43e6d2aaf246ac91ef67295511"
+      }
+    },
+    {
+      "id": "xdg-desktop-portal",
+      "resolved": {
+        "url": "https://github.com/flatpak/xdg-desktop-portal",
+        "commit": "1d20fadc304f6601452b5db65ed91197dba77041",
+        "sha256": "f2649b4b36e68af68917ccc097f01bc943daa80725b4d707ba3531efcce8cf01"
+      }
+    },
+    {
+      "id": "tpm2-tss",
+      "resolved": {
+        "url": "https://github.com/tpm2-software/tpm2-tss",
+        "commit": "624f6ab3b4f277c18ac6d96054e15705f1f066c8",
+        "sha256": "055ab76162c1212517df58d37cb5748321f1d26604045f48faeca7df369ac236"
+      }
+    },
+    {
+      "id": "blob-firmware-ath10k",
+      "resolved": {
+        "url": "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git",
+        "commit": "a2dcb924f0897368b0b4f305cbf9808cdda90ce0",
+        "sha256": "1a1533149db86082378466261fe940886091ffee487b942fadaefbfcac12c4c1"
+      }
+    }
+  ]
+}
