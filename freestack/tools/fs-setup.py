@@ -11,7 +11,7 @@ import json
 import subprocess
 import argparse
 
-SETUP_MARKER = "/etc/freestack/setup-complete.json"
+SETUP_MARKER = os.environ.get("FS_SETUP_MARKER", "/tmp/setup-complete.json" if not os.access("/etc", os.W_OK) else "/etc/freestack/setup-complete.json")
 
 def run_step_locale():
     print("\n[Step 1/4] Select System Language & Keyboard Layout")
@@ -82,13 +82,14 @@ def complete_setup(locale: str, net_mode: str, non_interactive: bool = False):
 def main():
     parser = argparse.ArgumentParser(description="FreeStack First-Run Setup Logic (Task 10.8)")
     parser.add_argument("--unattended", action="store_true", help="Run unattended setup with safe sovereign defaults")
+    parser.add_argument("--test-headless", "--offline", dest="test_headless", action="store_true", help="Run test headless setup offline without prompts")
     args = parser.parse_args()
 
-    if os.path.exists(SETUP_MARKER):
+    if os.path.exists(SETUP_MARKER) and not args.test_headless:
         print(f"Setup already completed ({SETUP_MARKER} exists).")
         sys.exit(0)
 
-    if args.unattended or not sys.stdin.isatty():
+    if args.unattended or args.test_headless or not sys.stdin.isatty():
         complete_setup("en_US.UTF-8", "airgap", non_interactive=True)
         sys.exit(0)
 

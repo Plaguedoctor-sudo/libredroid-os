@@ -1,0 +1,54 @@
+# Spanish translation for FreeStack Core
+# SPDX-License-Identifier: GPL-3.0-or-later
+msgid ""
+msgstr ""
+"Project-Id-Version: FreeStack 0.1.0\n"
+"Report-Msgid-Bugs-To: sovereign@freestack.org\n"
+"POT-Creation-Date: 2026-11-10 14:00+0000\n"
+"PO-Revision-Date: 2026-11-10 14:10+0000\n"
+"Last-Translator: FreeStack Community <es@freestack.org>\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: tools/fs-setup.py:25
+msgid "Welcome to FreeStack OS — Sovereign & Verified"
+msgstr "Bienvenido a FreeStack OS — Soberano y Verificado"
+
+#: tools/fs-setup.py:32
+msgid "Offline-First Installation: No online account or telemetry required."
+msgstr "Instalación local prioritaria: No requiere cuenta en línea ni telemetría."
+
+#: tools/fs-setup.py:45
+msgid "Choose Root Encryption Passphrase"
+msgstr "Elija la frase de paso de cifrado raíz"
+
+#: tools/fs-setup.py:58
+msgid "Hardware Keystore Initialized (TPM2 PCR Sealed)"
+msgstr "Depósito de claves de hardware inicializado (sellado TPM2 PCR)"
+
+#: tools/fs-permissions.py:40
+msgid "Network Access Request: Allow egress connection?"
+msgstr "Solicitud de acceso a la red: ¿Permitir conexión de salida?"
+
+#: tools/fs-permissions.py:48
+msgid "Deny (Default)"
+msgstr "Denegar (Predeterminado)"
+
+#: tools/fs-permissions.py:49
+msgid "Grant Once"
+msgstr "Permitir una vez"
+
+#: tools/fs-permissions.py:50
+msgid "Grant Always"
+msgstr "Permitir siempre"
+
+#: tools/fs-permissions.py:65
+msgid "Keystore Access Request: Application requests signing capability"
+msgstr "Solicitud de acceso a claves: La aplicación solicita capacidad de firma"
+
+#: keystore/src/fskeystored.c:85
+msgid "Hardware Attestation Statement Generated"
+msgstr "Declaración de atestación de hardware generada"

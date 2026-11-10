@@ -1,0 +1,6 @@
+# FreeStack Dinit Service Definition for Sovereign Sample Daemon
+type = process
+command = /usr/bin/bwrap --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --seccomp 9 9< /etc/freestack/seccomp/sample-daemon.json /usr/libexec/sample-daemon
+depends-on = fskeystored
+smooth-recovery = true
+restart = true

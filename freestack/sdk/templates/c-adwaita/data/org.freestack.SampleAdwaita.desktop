@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=FreeStack Sample App
+Comment=Sovereign C / Libadwaita Application
+Exec=sample-adwaita
+Icon=org.freestack.SampleAdwaita
+Terminal=false
+Type=Application
+Categories=Utility;GTK;GNOME;
+StartupNotify=true

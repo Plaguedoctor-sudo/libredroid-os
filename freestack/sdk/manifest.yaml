@@ -1,0 +1,59 @@
+# FreeStack Software Development Kit (SDK) Manifest (Task 13.6)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+sdk:
+  name: "freestack-sdk"
+  version: "1.0.0"
+  release_channel: "stable"
+  abi_compatibility: "FreeStack-ABI-v1"
+  architectures:
+    - "x86_64"
+    - "aarch64"
+  license: "GPL-3.0-or-later"
+  vendor: "FreeStack Sovereign OS Project"
+
+toolchains:
+  c_compiler:
+    min_version: "gcc-12.0"
+    recommended: "gcc-13.2"
+    llvm_alternative: "clang-16.0"
+  build_systems:
+    - name: "meson"
+      min_version: "1.0.0"
+    - name: "cmake"
+      min_version: "3.25.0"
+    - name: "ninja"
+      min_version: "1.11.0"
+  package_config:
+    pkgconf_min: "1.8.0"
+    sysroot_dir: "${FREESTACK_SDK_ROOT}/sysroot"
+
+core_libraries:
+  - name: "libfskeystore"
+    version: "1.0.0"
+    description: "Sovereign hardware-backed cryptographic keystore & attestation library"
+    headers:
+      - "fskeystore.h"
+    library: "libfskeystore.a"
+    pkgconfig: "libfskeystore.pc"
+
+  - name: "libadwaita-1"
+    version: "1.5.0"
+    description: "Adaptive GTK4 UI components for FreeStack sovereign desktop"
+    pkgconfig: "libadwaita-1.pc"
+
+  - name: "gtk4"
+    version: "4.14.0"
+    description: "Wayland-native widget toolkit"
+    pkgconfig: "gtk4.pc"
+
+  - name: "libseccomp"
+    version: "2.5.5"
+    description: "Enhanced Berkeley Packet Filter syscall filtering"
+    pkgconfig: "libseccomp.pc"
+
+guidelines:
+  reproducibility: "SOURCE_DATE_EPOCH must be exported during app builds."
+  sandboxing: "Every app must provide a companion seccomp and bubblewrap profile."
+  accessibility: "All UI elements must expose AT-SPI2 / AtkObject descriptors."
+  telemetry: "Third-party analytics or phoning home is strictly prohibited under R4."
