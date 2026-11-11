@@ -23,9 +23,9 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Build Dependencies
+      - name: Install Build Dependencies (Strict Deterministic CI)
         run: |
-          npm ci || npm install
+          npm ci --no-audit --fund=false
           npm run build
 
       - name: Run LibreDroid Linter & Architectural Audit
