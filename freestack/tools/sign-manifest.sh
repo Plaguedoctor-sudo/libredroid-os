@@ -14,10 +14,17 @@ THRESH="${2:-3}"
 HOLDERS=($(python3 -c "import yaml;print(' '.join(k['holder'] for k in yaml.safe_load(open('$MAN'))['trust']['root_keys']))"))
 : > "$SIG.tmp"
 got=0
+KEYSTORE="${FS_KEYSTORE_DIR:-$HOME/.freestack/offline_keystore}"
 for h in "${HOLDERS[@]:-}"; do
   [ "$got" -ge "$THRESH" ] && break
-  key="$ROOT/keys/$h.key"
-  [ -f "$key" ] || { echo "skip $h (no key here)"; continue; }
+  if [ -f "$KEYSTORE/$h.key" ]; then
+    key="$KEYSTORE/$h.key"
+  elif [ -f "$ROOT/keys/$h.key" ]; then
+    key="$ROOT/keys/$h.key"
+  else
+    key=""
+  fi
+  [ -n "$key" ] || { echo "skip $h (no key found in keystore)"; continue; }
   echo "--- signing as $h ---"
   minisign -Sm "$MAN" -s "$key" -x "/tmp/.fs_$h.minisig"
   { echo "# holder=$h"; cat "/tmp/.fs_$h.minisig"; } >> "$SIG.tmp"

@@ -5,6 +5,12 @@
 #   2. lrddata_b.img (ext4, labeled LRDDATA for persistent /overlay)
 set -Eeuo pipefail
 
+# Deterministic Reproducible Build Environment
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}"
+export E2FSPROGS_FAKE_TIME="${SOURCE_DATE_EPOCH:-1700000000}"
+export TZ="UTC"
+export LC_ALL="C.UTF-8"
+
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TOP="$(cd "$HERE/../../.." && pwd)"
 OUT_DIR="${1:-$PWD/os-build-out}"
@@ -174,23 +180,43 @@ echo "127.0.0.1 localhost libredroid" > "$STAGE/etc/hosts"
 chmod +x "$STAGE/usr/bin/"* 2>/dev/null || true
 chmod +x "$STAGE/usr/lib/lrd/adapt/"* 2>/dev/null || true
 
-# 6. Build the ext4 system image
+# 6. Build the ext4 system image (Deterministic Bit-for-Bit)
 SYSTEM_IMG="$OUT/system_${SLOT}.img"
 rm -f "$SYSTEM_IMG"
-say "Creating ext4 filesystem $SYSTEM_IMG (Label: LRDROOT, Size: $SIZE)..."
-mke2fs -t ext4 -L LRDROOT -d "$STAGE" "$SYSTEM_IMG" "$SIZE"
+say "Creating deterministic ext4 filesystem $SYSTEM_IMG (Label: LRDROOT, Size: $SIZE)..."
+find "$STAGE" -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} +
+MKE2FS_UUID="6a2659b4-f389-edff-e907-35ebf5f96cef"
+MKE2FS_HASH_SEED="deadbeef-cafe-0000-0000-000000000000"
+
+mke2fs -t ext4 \
+       -T default \
+       -U "$MKE2FS_UUID" \
+       -E hash_seed="$MKE2FS_HASH_SEED" \
+       -L LRDROOT \
+       -d "$STAGE" \
+       "$SYSTEM_IMG" "$SIZE"
+
 # Also provide alias/symlink if needed
 [ "$SLOT" != "b" ] && ln -sf "system_${SLOT}.img" "$OUT/system_b.img" || true
 [ "$SLOT" != "a" ] && ln -sf "system_${SLOT}.img" "$OUT/system_a.img" || true
 
-# 7. Build the persistent data image
+# 7. Build the persistent data image (Deterministic Bit-for-Bit)
 DATA_IMG="$OUT/lrddata_${SLOT}.img"
 rm -f "$DATA_IMG"
-say "Creating ext4 filesystem $DATA_IMG (Label: LRDDATA, Size: $DATA_SIZE)..."
+say "Creating deterministic ext4 filesystem $DATA_IMG (Label: LRDDATA, Size: $DATA_SIZE)..."
 DATA_STAGE="$OUT/data-stage"
 rm -rf "$DATA_STAGE"
 mkdir -p "$DATA_STAGE"/{upper,work}
-mke2fs -t ext4 -L LRDDATA -d "$DATA_STAGE" "$DATA_IMG" "$DATA_SIZE"
+find "$DATA_STAGE" -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} +
+DATA_UUID="8c14e015-3b99-44ea-8b17-74be3f218a99"
+
+mke2fs -t ext4 \
+       -T default \
+       -U "$DATA_UUID" \
+       -E hash_seed="$MKE2FS_HASH_SEED" \
+       -L LRDDATA \
+       -d "$DATA_STAGE" \
+       "$DATA_IMG" "$DATA_SIZE"
 [ "$SLOT" != "b" ] && ln -sf "lrddata_${SLOT}.img" "$OUT/lrddata_b.img" || true
 [ "$SLOT" != "a" ] && ln -sf "lrddata_${SLOT}.img" "$OUT/lrddata_a.img" || true
 rm -rf "$DATA_STAGE" "$STAGE"

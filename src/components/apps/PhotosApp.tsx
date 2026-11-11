@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Image, Heart, Share2, Sparkles, X, ShieldCheck, Folder, RefreshCw, Camera, Bot } from 'lucide-react';
+import { SOVEREIGN_SAMPLE_PHOTOS } from '../../assets/sovereignAssets';
 import { useWindow } from '../../context/WindowContext';
 import type { AppIntent } from '../../types/apps';
 import { fetchDevicePhotos, DevicePhoto } from '../../services/hardwareBridgeClient';
@@ -39,13 +40,13 @@ export const PhotosApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
       setPhotos([
         {
           id: '1',
-          url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+          url: SOVEREIGN_SAMPLE_PHOTOS[0],
           caption: 'Mountain Lake Sunrise',
           date: 'Sample Vault',
         },
         {
           id: '2',
-          url: 'https://images.unsplash.com/photo-1511497584788-87676104235f?auto=format&fit=crop&w=800&q=80',
+          url: SOVEREIGN_SAMPLE_PHOTOS[1],
           caption: 'Misty Evergreen Forest',
           date: 'Sample Vault',
         },

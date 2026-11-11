@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SOVEREIGN_SAMPLE_PHOTOS } from '../../assets/sovereignAssets';
 import { 
   ChevronLeft, 
   MoreHorizontal, 
@@ -296,14 +297,7 @@ const EntePhotosView: React.FC = () => {
       </div>
 
       <div className="flex-1 p-3 grid grid-cols-3 gap-2 overflow-y-auto">
-        {[
-          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80',
-          'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=400&q=80',
-          'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=400&q=80',
-          'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=400&q=80',
-          'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=400&q=80',
-          'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=400&q=80',
-        ].map((src, i) => (
+        {SOVEREIGN_SAMPLE_PHOTOS.slice(0, 6).map((src, i) => (
           <div key={i} className="aspect-square rounded-xl overflow-hidden relative group">
             <img src={src} alt="Photo" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
             <div className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-[9px] text-cyan-300">🔒</div>

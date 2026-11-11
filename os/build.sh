@@ -2,6 +2,10 @@
 # LibreDroid OS — reference image builder (x86_64, hybrid BIOS+EFI live ISO)
 set -euo pipefail
 
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}"
+export TZ="UTC"
+export LC_ALL="C.UTF-8"
+
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$REPO/os/build"
 DIST="$REPO/dist"
