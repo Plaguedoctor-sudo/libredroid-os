@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack LAVA Automated Hardware Lab Test Job: ThinkPad X200 (Task 9.2)
+device_type: x86-64
+job_name: freestack-baremetal-acceptance-x200
+timeouts:
+  job:
+    minutes: 60
+  action:
+    minutes: 15
+  connection:
+    minutes: 5
+priority: high
+visibility: public
+
+actions:
+  - deploy:
+      to: tftp
+      kernel:
+        url: http://ci.freestack.org/builds/vmlinuz-x200
+      ramdisk:
+        url: http://ci.freestack.org/builds/initramfs-x200.cpio.gz
+      os: debian
+
+  - boot:
+      method: ipxe
+      commands: ramdisk
+      prompts:
+        - "freestack-login:"
+        - "root@freestack:~#"
+
+  - test:
+      timeout:
+        minutes: 30
+      definitions:
+        - repository: http://git.freestack.org/freestack/freestack.git
+          from: git
+          path: freestack/tests/acceptance.bats
+          name: freestack-acceptance-matrix

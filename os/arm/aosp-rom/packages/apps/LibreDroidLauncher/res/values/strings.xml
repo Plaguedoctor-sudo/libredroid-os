@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<resources>
+    <string name="app_name">LibreDroid</string>
+    <string name="search_hint">Search sovereign apps...</string>
+    <string name="no_apps_found">No applications match your filter</string>
+    <string name="app_icon_desc">Application Icon</string>
+</resources>

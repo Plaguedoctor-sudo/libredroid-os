@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+cc_defaults {
+    name: "libredroid_netd_defaults",
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+        "-DSOVEREIGN_FIREWALL_DEFAULT_DENY=1",
+    ],
+}

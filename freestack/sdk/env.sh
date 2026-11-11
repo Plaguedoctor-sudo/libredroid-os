@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # FreeStack SDK Environment Setup (Task 13.6)
+set -e
 
 SDK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export FREESTACK_SDK_ROOT="$SDK_DIR"

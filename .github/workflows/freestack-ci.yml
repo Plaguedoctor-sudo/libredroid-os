@@ -1,0 +1,25 @@
+name: FreeStack CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats libseccomp-dev
+          pip install pytest pyyaml
+      - name: Execute FreeStack CI Gate
+        run: |
+          bash freestack/.ci/build-gate.sh

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack Tor Hidden Service Configuration for Sovereign Mirror (Task 8.2)
+DataDirectory /var/lib/tor
+HiddenServiceDir /var/lib/tor/freestack_mirror/
+HiddenServicePort 80 127.0.0.1:8080
+HiddenServiceVersion 3
+Log notice syslog
+ClientOnly 0
+SocksPort 0

@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# LibreDroid SELinux File Contexts for Convergent AOSP Target
+/system/priv-app/LibreDroidLauncher(/.*)?           u:object_r:libredroid_launcher_exec:s0
+/system/bin/lrd-.*                                  u:object_r:libredroid_daemon_exec:s0
+/data/system/libredroid(/.*)?                       u:object_r:libredroid_data_file:s0

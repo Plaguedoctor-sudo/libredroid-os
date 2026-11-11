@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SELinux domain definition for LibreDroid Sovereign Launcher
+type libredroid_launcher, domain, coredomain;
+type libredroid_launcher_exec, exec_type, file_type, system_file_type;
+type libredroid_data_file, file_type, data_file_type, core_data_file_type;
+
+app_domain(libredroid_launcher)
+
+# Launcher capabilities
+allow libredroid_launcher app_data_file:dir create_dir_perms;
+allow libredroid_launcher app_data_file:file create_file_perms;
+allow libredroid_launcher activity_service:service_manager find;
+allow libredroid_launcher display_service:service_manager find;
+allow libredroid_launcher package_service:service_manager find;
+allow libredroid_launcher surfaceflinger_service:service_manager find;
+allow libredroid_launcher wallpaper_service:service_manager find;
+
+# Zero background analytics or telemetry socket bindings
+neverallow libredroid_launcher self:rawip_socket *;

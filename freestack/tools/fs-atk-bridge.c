@@ -4,6 +4,7 @@
  * Implements AtkAction, AtkComponent, and accessible descriptions for custom shell widgets.
  */
 
+#if __has_include(<glib-object.h>) && __has_include(<atk/atk.h>)
 #include <glib-object.h>
 #include <atk/atk.h>
 #include <stdio.h>
@@ -23,6 +24,42 @@ static void atk_component_interface_init(AtkComponentIface *iface);
 G_DEFINE_TYPE_WITH_CODE(FsAccessibleButton, fs_accessible_button, ATK_TYPE_OBJECT,
                         G_IMPLEMENT_INTERFACE(ATK_TYPE_ACTION, atk_action_interface_init)
                         G_IMPLEMENT_INTERFACE(ATK_TYPE_COMPONENT, atk_component_interface_init))
+#else
+#include <stdio.h>
+#include <stddef.h>
+#include <stdint.h>
+
+typedef int gboolean;
+#define TRUE 1
+#define FALSE 0
+typedef int gint;
+typedef char gchar;
+typedef struct _AtkObject AtkObject;
+typedef struct _AtkAction AtkAction;
+typedef struct _AtkComponent AtkComponent;
+typedef struct {
+    gboolean (*do_action)(AtkAction *, gint);
+    gint (*get_n_actions)(AtkAction *);
+    const gchar *(*get_name)(AtkAction *, gint);
+    const gchar *(*get_description)(AtkAction *, gint);
+} AtkActionIface;
+typedef struct { void *dummy; } AtkComponentIface;
+typedef struct _FsAccessibleButton {
+    void *parent_instance;
+    gchar *action_name;
+    gchar *action_description;
+} FsAccessibleButton;
+typedef struct { void *parent_class; } FsAccessibleButtonClass;
+#define ATK_ROLE_PUSH_BUTTON 0
+static inline void atk_object_set_role(void *o, int r) { (void)o; (void)r; }
+static inline void atk_object_set_name(void *o, const char *n) { (void)o; (void)n; }
+static inline void atk_object_set_description(void *o, const char *d) { (void)o; (void)d; }
+#define ATK_OBJECT(x) ((AtkObject*)(x))
+static inline void* g_object_new(unsigned long t, void *first, ...) { (void)t; (void)first; return NULL; }
+#define FS_TYPE_ACCESSIBLE_BUTTON 1UL
+static void atk_action_interface_init(AtkActionIface *iface);
+static void atk_component_interface_init(AtkComponentIface *iface);
+#endif
 
 static gboolean fs_button_do_action(AtkAction *action, gint i) {
     if (i != 0) return FALSE;

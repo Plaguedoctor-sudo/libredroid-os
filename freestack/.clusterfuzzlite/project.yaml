@@ -1,0 +1,10 @@
+homepage: "https://github.com/Plaguedoctor-sudo/libredroid-os"
+language: c++
+primary_contact: "sonarenitin3@gmail.com"
+auto_ccs:
+  - "sonarenitin3@gmail.com"
+sanitizers:
+  - address
+  - undefined
+fuzzing_engines:
+  - libfuzzer

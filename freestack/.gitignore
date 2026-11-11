@@ -7,3 +7,4 @@ keys/*.sig
 __pycache__/
 *.pyc
 .pytest_cache/
+tools/fs-landlock-jail

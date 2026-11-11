@@ -1,0 +1,22 @@
+{
+  "id": "x200-libreboot",
+  "name": "ThinkPad X200 (Libreboot)",
+  "arch": "x86_64",
+  "kernel": {
+    "arch": "x86_64",
+    "defconfig": "x86_64_defconfig",
+    "fragments": [
+      "config/kernel/fragment-x86_64.config"
+    ],
+    "image_target": "bzImage"
+  },
+  "firmware": {
+    "payload": "grub",
+    "blobs_required": false
+  },
+  "rootfs": {
+    "filesystem": "erofs",
+    "integrity": "dm-verity",
+    "profiles": ["core", "native"]
+  }
+}

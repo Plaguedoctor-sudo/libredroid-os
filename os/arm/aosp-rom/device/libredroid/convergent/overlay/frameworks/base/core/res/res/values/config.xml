@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SPDX-License-Identifier: GPL-3.0-or-later
+    LibreDroid Core Framework Configuration Overlay
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Default Home Launcher Component -->
+    <string name="config_defaultLauncherPackage" translatable="false">org.libredroid.launcher</string>
+
+    <!-- Disable Default Captive Portal Check to eliminate Google telemetry pings -->
+    <bool name="config_captive_portal_required">false</bool>
+
+    <!-- Disable Network Recommendation Service -->
+    <string name="config_networkRecommendationServicePackage" translatable="false"></string>
+
+    <!-- Enable Ambient & Convergent Display Features -->
+    <bool name="config_dozeAlwaysOnDisplayAvailable">true</bool>
+</resources>

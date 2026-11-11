@@ -24,7 +24,7 @@ report_fail() {
     echo "  ❌ [R$1] $2: FAIL ($3)"
 }
 
-cd "$FS_ROOT"
+cd "$FS_ROOT" || exit 1
 
 # R1: Source build toolchain
 if grep -q "entrypoint:" manifest/freestack.manifest.yaml; then

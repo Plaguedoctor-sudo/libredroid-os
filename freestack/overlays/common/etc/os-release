@@ -1,0 +1,9 @@
+NAME="FreeStack"
+ID=freestack
+VERSION="1.0.0-sovereign"
+VERSION_ID="1.0.0"
+PRETTY_NAME="FreeStack Sovereign OS 1.0.0"
+HOME_URL="https://freestack.org"
+SUPPORT_URL="https://freestack.org/support"
+BUG_REPORT_URL="https://github.com/Plaguedoctor-sudo/libredroid-os/issues"
+PRIVACY_POLICY_URL="https://freestack.org/privacy"
