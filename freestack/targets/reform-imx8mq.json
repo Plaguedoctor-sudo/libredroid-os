@@ -1,0 +1,22 @@
+{
+  "id": "reform-imx8mq",
+  "name": "MNT Reform (i.MX8MQ)",
+  "arch": "aarch64",
+  "kernel": {
+    "arch": "arm64",
+    "defconfig": "defconfig",
+    "fragments": [
+      "config/kernel/fragment-x86_64.config"
+    ],
+    "image_target": "Image.gz"
+  },
+  "firmware": {
+    "payload": "u-boot",
+    "blobs_required": false
+  },
+  "rootfs": {
+    "filesystem": "erofs",
+    "integrity": "dm-verity",
+    "profiles": ["core", "native", "android"]
+  }
+}

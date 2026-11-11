@@ -6,10 +6,13 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FREESTACK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 DURATION="${1:-72h}"
-CORPUS_DIR="fuzz/corpus"
-CRASH_DIR="fuzz/crashes"
-REPORT_DIR="dist/fuzz-reports"
+CORPUS_DIR="$SCRIPT_DIR/corpus"
+CRASH_DIR="$SCRIPT_DIR/crashes"
+REPORT_DIR="$FREESTACK_DIR/dist/fuzz-reports"
 
 mkdir -p "$CORPUS_DIR" "$CRASH_DIR" "$REPORT_DIR"
 
@@ -24,15 +27,15 @@ FUZZERS=("manifest_parser_fuzz" "keystore_ipc_fuzz" "verity_metadata_fuzz")
 
 # Compile harnesses in standalone or libFuzzer mode
 echo "[*] Building fuzz harnesses..."
-for f in "${FUZZERS[@]}"; do
-    if [ -f "fuzz/${f}.cc" ]; then
+for f in "${FUZZERS[@]:-}"; do
+    if [ -f "$SCRIPT_DIR/${f}.cc" ]; then
         if command -v clang++ >/dev/null 2>&1; then
-            clang++ -O2 -fsanitize=address,undefined -DFUZZ_STANDALONE_MAIN "fuzz/${f}.cc" -o "fuzz/${f}_bin" || \
-            g++ -O2 -DFUZZ_STANDALONE_MAIN "fuzz/${f}.cc" -o "fuzz/${f}_bin"
+            clang++ -O2 -fsanitize=address,undefined -DFUZZ_STANDALONE_MAIN "$SCRIPT_DIR/${f}.cc" -o "$SCRIPT_DIR/${f}_bin" || \
+            g++ -O2 -DFUZZ_STANDALONE_MAIN "$SCRIPT_DIR/${f}.cc" -o "$SCRIPT_DIR/${f}_bin"
         else
-            g++ -O2 -DFUZZ_STANDALONE_MAIN "fuzz/${f}.cc" -o "fuzz/${f}_bin"
+            g++ -O2 -DFUZZ_STANDALONE_MAIN "$SCRIPT_DIR/${f}.cc" -o "$SCRIPT_DIR/${f}_bin"
         fi
-        echo "    Compiled fuzz/${f}_bin"
+        echo "    Compiled $SCRIPT_DIR/${f}_bin"
     fi
 done
 
@@ -40,8 +43,8 @@ echo "[*] Executing soak iteration..."
 TOTAL_EXECS=0
 TOTAL_CRASHES=0
 
-for f in "${FUZZERS[@]}"; do
-    BIN="fuzz/${f}_bin"
+for f in "${FUZZERS[@]:-}"; do
+    BIN="$SCRIPT_DIR/${f}_bin"
     if [ -x "$BIN" ]; then
         echo "    Executing harness $f..."
         # In CI or short mode run quick batch; in soak mode runs duration

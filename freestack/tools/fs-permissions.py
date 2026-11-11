@@ -12,7 +12,10 @@ import json
 import argparse
 from typing import Dict, Any
 
-POLICY_STORE = "/etc/freestack/permissions.json"
+POLICY_STORE = os.environ.get("FREESTACK_PERMISSIONS_STORE") or (
+    "/etc/freestack/permissions.json" if os.access("/etc", os.W_OK)
+    else os.path.expanduser("~/.config/freestack/permissions.json")
+)
 
 PERMISSIONS_MAP = {
     "camera": "Access device video capture hardware (MIPI-CSI2 / V4L2)",
@@ -84,7 +87,16 @@ def main():
     parser.add_argument("--app", required=True, help="Sandboxed application identifier")
     parser.add_argument("--perm", required=True, choices=list(PERMISSIONS_MAP.keys()), help="Requested permission")
     parser.add_argument("--revoke", action="store_true", help="Revoke stored permission")
+    parser.add_argument("--auto-grant", action="store_true", help="Non-interactive auto-grant for testing")
     args = parser.parse_args()
+
+    if args.auto_grant:
+        pol = load_policies()
+        app_pol = pol.setdefault(args.app, {})
+        app_pol[args.perm] = "ALLOW"
+        save_policies(pol)
+        print(f"Granted {args.perm} to {args.app}.")
+        sys.exit(0)
 
     if args.revoke:
         pol = load_policies()

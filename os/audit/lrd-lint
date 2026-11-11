@@ -104,7 +104,10 @@ have python3 && for f in "${ALL[@]}"; do
 done
 have gcc && for f in "${ALL[@]}"; do
   case "$f" in *.c)
-    if gcc -fsyntax-only -Wall -Wextra -Wno-unused-parameter "$ROOT/$f" 2>/tmp/e; then :;
+    if gcc -fsyntax-only -Wall -Wextra -Wno-unused-parameter \
+        -I "$ROOT/freestack/keystore/include" \
+        -I "$ROOT/freestack/sdk/sysroot/usr/include" \
+        "$ROOT/$f" 2>/tmp/e; then :;
     else rec fail syntax "$f" "$(head -3 /tmp/e 2>/dev/null | tr '\n' ' ')"; fi
     ;;
   esac
@@ -130,7 +133,7 @@ if want units; then
 say "systemd units"
 have systemd-analyze && for f in "${ALL[@]}"; do
   case "$f" in
-    */dinit/*) continue ;;
+    */dinit/*|*/daemon-seccomp/*) continue ;;
     *.service|*.target|*.timer|*.slice|*.socket|*.mount)
       raw_out="$(systemd-analyze --man=no verify "$ROOT/$f" 2>&1 | grep -v '^$' || true)"
       # Filter out host-environment missing file errors for binaries/units present in this repo

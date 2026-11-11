@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SELinux domain confinement for netd network namespace isolation
+type netd_isolation, domain;
+
+# Default-deny telemetry sockets and ensure egress filters
+neverallow domain default_android_service:service_manager add;

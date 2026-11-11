@@ -1,0 +1,8 @@
+# FreeStack System Environment Variables
+LANG=C.UTF-8
+LC_ALL=C.UTF-8
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+XDG_CURRENT_DESKTOP=FreeStack
+WAYLAND_DISPLAY=wayland-0
+GDK_BACKEND=wayland
+QT_QPA_PLATFORM=wayland

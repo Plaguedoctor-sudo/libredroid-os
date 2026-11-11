@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack Dinit Service: restorecond label restore at boot (Task 1.10)
+type = scripted
+command = /usr/sbin/restorecon -R -F /etc /var /run /usr/libexec
+smooth-recovery = true
+restart = false

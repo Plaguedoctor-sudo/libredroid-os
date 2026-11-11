@@ -1,0 +1,9 @@
+# /etc/fstab: FreeStack MNT Reform (i.MX8MQ) mount configuration
+# <file system>    <mount point>   <type>      <options>                   <dump>  <pass>
+/dev/mapper/root   /               erofs       ro,nodev,noatime            0       1
+/dev/mmcblk0p1     /boot           ext4        ro,nosuid,nodev             0       2
+tmpfs              /tmp            tmpfs       nosuid,nodev,noexec,mode=1777 0     0
+tmpfs              /run            tmpfs       nosuid,nodev,mode=0755      0       0
+devpts             /dev/pts        devpts      gid=5,mode=620              0       0
+proc               /proc           proc        nosuid,nodev,noexec         0       0
+sysfs              /sys            sysfs       nosuid,nodev,noexec         0       0

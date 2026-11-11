@@ -578,6 +578,16 @@ def cmd_stage(a):
         target_dinit.mkdir(parents=True, exist_ok=True)
         for s in dinit_dir.glob("*.service"):
             shutil.copy2(s, target_dinit / s.name)
+    overlays_dir = ROOT / "overlays"
+    for ov in ("common", a.target):
+        ov_path = overlays_dir / ov
+        if ov_path.is_dir():
+            for src_item in ov_path.rglob("*"):
+                if src_item.is_file():
+                    rel = src_item.relative_to(ov_path)
+                    dst = root / rel
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src_item, dst)
     if blobs:
         lines = []
         for b_id in blobs:
