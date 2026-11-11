@@ -17,6 +17,7 @@
 #include <math.h>
 #include <signal.h>
 #include <time.h>
+#include <dirent.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/stat.h>
@@ -25,10 +26,12 @@
 #define FALLBACK_SOCK "/tmp/libredroid/sensors.sock"
 #define STATE_DIR "/run/libredroid"
 #define FALLBACK_STATE_DIR "/tmp/libredroid"
+#define IIO_BASE_DIR "/sys/bus/iio/devices"
 
 static volatile sig_atomic_t g_running = 1;
 static char active_sock_path[108];
 static char active_state_dir[256];
+static int g_hardware_iio_detected = 0;
 
 typedef struct {
     int accel_x;
@@ -53,6 +56,70 @@ static sensor_state_t g_sensors = {
     .auto_brightness_pct = 60,
     .compass_heading = 45
 };
+
+static int read_sysfs_int(const char *path, int *out) {
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    if (fscanf(f, "%d", out) != 1) {
+        fclose(f);
+        return -1;
+    }
+    fclose(f);
+    return 0;
+}
+
+static void poll_physical_iio_hardware(void) {
+    DIR *d = opendir(IIO_BASE_DIR);
+    if (!d) return;
+
+    struct dirent *de;
+    while ((de = readdir(d)) != NULL) {
+        if (strncmp(de->d_name, "iio:device", 10) != 0) continue;
+
+        char path[512];
+        int val = 0;
+
+        // 1. Accelerometer detection (in_accel_x_raw / in_accel_y_raw / in_accel_z_raw)
+        snprintf(path, sizeof(path), "%s/%s/in_accel_x_raw", IIO_BASE_DIR, de->d_name);
+        if (read_sysfs_int(path, &val) == 0) {
+            g_hardware_iio_detected = 1;
+            g_sensors.accel_x = val;
+            snprintf(path, sizeof(path), "%s/%s/in_accel_y_raw", IIO_BASE_DIR, de->d_name);
+            if (read_sysfs_int(path, &val) == 0) g_sensors.accel_y = val;
+            snprintf(path, sizeof(path), "%s/%s/in_accel_z_raw", IIO_BASE_DIR, de->d_name);
+            if (read_sysfs_int(path, &val) == 0) g_sensors.accel_z = val;
+        }
+
+        // 2. Ambient light sensor detection (in_illuminance_input or in_illuminance_raw)
+        snprintf(path, sizeof(path), "%s/%s/in_illuminance_input", IIO_BASE_DIR, de->d_name);
+        if (read_sysfs_int(path, &val) == 0 || (snprintf(path, sizeof(path), "%s/%s/in_illuminance_raw", IIO_BASE_DIR, de->d_name) && read_sysfs_int(path, &val) == 0)) {
+            g_hardware_iio_detected = 1;
+            g_sensors.ambient_lux = (val < 0) ? 0 : val;
+        }
+
+        // 3. Proximity sensor detection (in_proximity_raw)
+        snprintf(path, sizeof(path), "%s/%s/in_proximity_raw", IIO_BASE_DIR, de->d_name);
+        if (read_sysfs_int(path, &val) == 0) {
+            g_hardware_iio_detected = 1;
+            g_sensors.proximity_near = (val > 0) ? 1 : 0;
+            g_sensors.screen_blanked = g_sensors.proximity_near;
+        }
+
+        // 4. Magnetometer / Compass (in_magn_x_raw, in_magn_y_raw)
+        snprintf(path, sizeof(path), "%s/%s/in_magn_x_raw", IIO_BASE_DIR, de->d_name);
+        int mx = 0, my = 0;
+        if (read_sysfs_int(path, &mx) == 0) {
+            snprintf(path, sizeof(path), "%s/%s/in_magn_y_raw", IIO_BASE_DIR, de->d_name);
+            if (read_sysfs_int(path, &my) == 0) {
+                g_hardware_iio_detected = 1;
+                double rad = atan2((double)my, (double)mx);
+                int deg = (int)(rad * 180.0 / 3.1415926535);
+                g_sensors.compass_heading = (deg % 360 + 360) % 360;
+            }
+        }
+    }
+    closedir(d);
+}
 
 static void sig_handler(int sig) {
     (void)sig;
@@ -122,11 +189,17 @@ static void handle_client(int cfd) {
     memset(resp, 0, sizeof(resp));
 
     if (strcmp(cmd, "status") == 0) {
+        poll_physical_iio_hardware();
+        if (g_hardware_iio_detected) {
+            update_orientation();
+            update_brightness();
+        }
         snprintf(resp, sizeof(resp),
-            "{\"status\":\"ok\",\"orientation\":\"%s\",\"accel\":{\"x\":%d,\"y\":%d,\"z\":%d},"
+            "{\"status\":\"ok\",\"hardware_iio_active\":%s,\"orientation\":\"%s\",\"accel\":{\"x\":%d,\"y\":%d,\"z\":%d},"
             "\"proximity\":{\"near\":%s,\"screen_blanked\":%s},"
             "\"ambient_light\":{\"lux\":%d,\"brightness_pct\":%d},"
             "\"compass\":{\"heading_deg\":%d}}\n",
+            g_hardware_iio_detected ? "true" : "false",
             g_sensors.orientation, g_sensors.accel_x, g_sensors.accel_y, g_sensors.accel_z,
             g_sensors.proximity_near ? "true" : "false",
             g_sensors.screen_blanked ? "true" : "false",

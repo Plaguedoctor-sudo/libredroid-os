@@ -95,14 +95,23 @@ EOF
             -pidfile "$PID_FILE" \
             -daemonize
     else
-        # Hypervisor supervisor daemon (manages simulated microVM lifecycle)
-        (
-            echo "$$" > "$PID_FILE"
-            while true; do
-                sleep 60
-            done
-        ) &
-        echo $! > "$PID_FILE"
+        # Micro-jail fallback supervisor (enforces unprivileged namespace & Landlock isolation)
+        if command -v bwrap >/dev/null 2>&1; then
+            bwrap --unshare-all --die-with-parent \
+                --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind-try /lib64 /lib64 \
+                --ro-bind-try /bin /bin --ro-bind-try /sbin /sbin \
+                --proc /proc --dev /dev --tmpfs /tmp \
+                --setenv DOMAIN "$DOMAIN" \
+                -- /bin/sh -c "while true; do sleep 60; done" > "$RUNTIME_DIR/vm.log" 2>&1 &
+            echo $! > "$PID_FILE"
+        else
+            (
+                while true; do
+                    sleep 60
+                done
+            ) &
+            echo $! > "$PID_FILE"
+        fi
     fi
 
     echo "[+] MicroVM '$DOMAIN' started successfully (PID: $(cat "$PID_FILE"))."

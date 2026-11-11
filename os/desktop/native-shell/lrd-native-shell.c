@@ -14,6 +14,8 @@
 #include <time.h>
 #include <signal.h>
 #include <poll.h>
+#include <stdint.h>
+#include <fcntl.h>
 
 #define LRDD_SOCK "/run/libredroid/lrdd.sock"
 #define LRDD_FALLBACK "/tmp/lrdd.sock"
@@ -23,6 +25,50 @@ static volatile sig_atomic_t g_running = 1;
 static void sig_handler(int sig) {
     (void)sig;
     g_running = 0;
+}
+
+static int connect_wayland(const char *display_name) {
+    const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+
+    if (runtime_dir && strlen(runtime_dir) > 0) {
+        snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", runtime_dir, display_name);
+    } else {
+        snprintf(addr.sun_path, sizeof(addr.sun_path), "/run/user/%d/%s", getuid(), display_name);
+        if (access(addr.sun_path, F_OK) != 0) {
+            snprintf(addr.sun_path, sizeof(addr.sun_path), "/tmp/%s", display_name);
+        }
+    }
+
+    if (access(addr.sun_path, F_OK) != 0) {
+        return -1;
+    }
+
+    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    if (fd < 0) return -1;
+
+    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        if (errno != EINPROGRESS) {
+            close(fd);
+            return -1;
+        }
+    }
+
+    // Send wl_display.get_registry (object_id=1, opcode=1, size=12, registry_new_id=2)
+    struct {
+        uint32_t obj_id;
+        uint16_t opcode;
+        uint16_t size;
+        uint32_t new_id;
+    } __attribute__((packed)) get_reg = { 1, 1, 12, 2 };
+
+    if (write(fd, &get_reg, sizeof(get_reg)) < 0) {
+        // Non-fatal if socket still connecting
+    }
+
+    return fd;
 }
 
 static int connect_lrdd() {
@@ -78,7 +124,13 @@ int main(int argc, char **argv) {
     if (!wayland_display) {
         wayland_display = "wayland-0";
     }
-    printf("[lrd-native-shell] Connecting to Wayland display '%s'...\n", wayland_display);
+
+    int wl_fd = connect_wayland(wayland_display);
+    if (wl_fd >= 0) {
+        printf("[lrd-native-shell] Connected to live Wayland compositor on '%s' (FD=%d)\n", wayland_display, wl_fd);
+    } else {
+        printf("[lrd-native-shell] Wayland display '%s' not active; headless session standby.\n", wayland_display);
+    }
 
     // Initial query to lrdd daemon
     char status_resp[1024];
@@ -94,16 +146,34 @@ int main(int argc, char **argv) {
     printf("[lrd-native-shell] Ready. Active domain: [VAULT]. Touch & input pipeline active.\n");
     fflush(stdout);
 
-    // Main shell event loop
+    // Event poll loop for Wayland events & system telemetry
+    struct pollfd pfd;
+    pfd.fd = (wl_fd >= 0) ? wl_fd : -1;
+    pfd.events = POLLIN;
+
     int counter = 0;
     while (g_running) {
-        sleep(1);
+        int timeout_ms = 1000;
+        int ret = poll(&pfd, (pfd.fd >= 0) ? 1 : 0, timeout_ms);
+
+        if (ret > 0 && (pfd.revents & POLLIN)) {
+            char buf[512];
+            ssize_t n = read(wl_fd, buf, sizeof(buf));
+            if (n <= 0) {
+                close(wl_fd);
+                pfd.fd = -1;
+            }
+        }
+
         counter++;
         if (counter % 10 == 0) {
             char power_resp[512];
             query_lrdd("GetPowerInfo", power_resp, sizeof(power_resp));
-            // printf("[lrd-native-shell] Power telemetry tick: %s\n", power_resp);
         }
+    }
+
+    if (wl_fd >= 0) {
+        close(wl_fd);
     }
 
     printf("[lrd-native-shell] Clean exit signal received. Releasing Wayland surfaces.\n");
