@@ -5,8 +5,7 @@
  */
 
 export const API_BASE =
-  (window as any).__LRD_API__ ??
-  (location.port === "3001" ? "http://127.0.0.1:3002" : "");
+  (window as any).__LRD_API__ ?? "";
 
 export interface RpcResponse<T = any> {
   ok: boolean;
