@@ -1,0 +1,17 @@
+# Optional non-free hardware firmware and CPU microcode
+# To include these packages in the build:
+# 1. Rename this file to remove '.optional':
+#    mv firmware-nonfree.list.chroot.optional firmware-nonfree.list.chroot
+# 2. Add 'contrib non-free non-free-firmware' to --archive-areas in os/build/auto/config
+#
+# Warning: Including non-free packages compromises pure FSDG/DFSG compliance
+# and may restrict sovereign/unencumbered free redistribution rights.
+
+firmware-linux-nonfree
+firmware-misc-nonfree
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
+bluez-firmware
+intel-microcode
+amd64-microcode

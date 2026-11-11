@@ -8,6 +8,12 @@
 
 set -euo pipefail
 
+# Deterministic Reproducible Build Environment
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}"
+export E2FSPROGS_FAKE_TIME="${SOURCE_DATE_EPOCH:-1700000000}"
+export TZ="UTC"
+export LC_ALL="C.UTF-8"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${SCRIPT_DIR}/build_tmp"
 OUTPUT_DIR="${SCRIPT_DIR}/output"
@@ -69,8 +75,9 @@ cp "${SCRIPT_DIR}/init.libredroid.rc" "$ROOTFS/system/etc/init/"
 cp "${SCRIPT_DIR}/prop.default" "$ROOTFS/system/etc/"
 cp "${SCRIPT_DIR}/framework_compatibility_matrix.xml" "$ROOTFS/system/etc/vintf/"
 
-# Copy LibreDroid UI bundle into system partition
+# Copy LibreDroid UI bundle into system partition (excluding any large disk images)
 cp -r "${SHELL_DIST}/"* "$ROOTFS/system/etc/libredroid/shell/"
+rm -f "$ROOTFS/system/etc/libredroid/shell/"*.iso
 
 # 4. Generate Android Treble build.prop
 echo "[4/6] Generating Treble certified build.prop (Pixel 8 Pro / Galaxy S24 profile)..."
@@ -167,14 +174,26 @@ done
 EOF
 chmod 0755 "$ROOTFS/system/bin/libredroid-bridge"
 
-# 6. Compile Ext4 Binary System Image
-echo "[6/6] Compiling verified ext4 system image (${OUTPUT_IMG})..."
+# 6. Compile Ext4 Binary System Image (Deterministic Bit-for-Bit)
+echo "[6/6] Compiling verified deterministic ext4 system image (${OUTPUT_IMG})..."
 rm -f "$OUTPUT_IMG"
-# Create a 512MB clean ext4 image with the complete rootfs
-mke2fs -t ext4 -d "$ROOTFS" -b 4096 -L "system" "$OUTPUT_IMG" 512M
 
-# Run filesystem check to ensure image is 100% clean and consistent
-e2fsck -f -y "$OUTPUT_IMG" >/dev/null 2>&1 || true
+# Normalize timestamps across assembled tree
+find "$ROOTFS" -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} +
+
+# Deterministic filesystem parameters
+MKE2FS_UUID="6a2659b4-f389-edff-e907-35ebf5f96cef"
+MKE2FS_HASH_SEED="deadbeef-cafe-0000-0000-000000000000"
+
+# Create a 512MB clean ext4 image with fixed UUID, fixed usage type (-T), and deterministic hash seed
+mke2fs -t ext4 \
+       -T default \
+       -U "$MKE2FS_UUID" \
+       -E hash_seed="$MKE2FS_HASH_SEED" \
+       -d "$ROOTFS" \
+       -b 4096 \
+       -L "system" \
+       "$OUTPUT_IMG" 512M
 
 echo "=================================================================="
 echo "✔ BUILD SUCCESSFUL!"

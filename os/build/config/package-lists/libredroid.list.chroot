@@ -23,12 +23,12 @@ wvkbd squeekboard fcitx5
 
 # ── hardware & power management ──
 upower brightnessctl pipewire wireplumber pipewire-pulse libcamera-tools
-iio-sensor-proxy geoclue-2.0 bluez bluez-firmware rfkill alsa-utils
+iio-sensor-proxy geoclue-2.0 bluez rfkill alsa-utils
 
-# ── non-free bare-metal firmware & CPU microcode ──
-firmware-linux-free firmware-linux-nonfree firmware-misc-nonfree
-firmware-iwlwifi firmware-realtek firmware-atheros
-intel-microcode amd64-microcode
+# ── free bare-metal firmware (100% DFSG / FSDG compliant) ──
+# Note: For proprietary Intel/AMD microcode and non-free Wi-Fi/BT firmware,
+# see firmware-nonfree.list.chroot.optional
+firmware-linux-free
 
 # ── storage & partitioning tools ──
 cryptsetup lvm2 gdisk dosfstools e2fsprogs nvme-cli zram-tools

@@ -15,6 +15,7 @@ import {
 import { useSecurity } from '../../context/SecurityContext';
 import { useWindow } from '../../context/WindowContext';
 import { hardwareHalBridge } from '../../services/hardwareHalBridge';
+import { SOVEREIGN_SAMPLE_PHOTOS } from '../../assets/sovereignAssets';
 
 export const CameraApp: React.FC = () => {
   const { openApp } = useWindow();
@@ -22,8 +23,8 @@ export const CameraApp: React.FC = () => {
   const [halState, setHalState] = useState(() => hardwareHalBridge.getState());
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [photos, setPhotos] = useState<string[]>([
-    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1511497584788-87676104235f?auto=format&fit=crop&w=400&q=80',
+    SOVEREIGN_SAMPLE_PHOTOS[0],
+    SOVEREIGN_SAMPLE_PHOTOS[1],
   ]);
   const [flash, setFlash] = useState(false);
   const [filter, setFilter] = useState<'none' | 'sepia' | 'grayscale' | 'cyber'>('none');
@@ -118,8 +119,8 @@ export const CameraApp: React.FC = () => {
     }
 
     const samplePhotos = [
-      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80',
-      'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=400&q=80',
+      SOVEREIGN_SAMPLE_PHOTOS[2],
+      SOVEREIGN_SAMPLE_PHOTOS[3],
     ];
     const picked = samplePhotos[Math.floor(Math.random() * samplePhotos.length)];
     setPhotos((prev) => [picked, ...prev]);
@@ -229,7 +230,7 @@ export const CameraApp: React.FC = () => {
           <div 
             className="w-full h-full relative flex items-center justify-center bg-cover bg-center"
             style={{ 
-              backgroundImage: 'url("https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=1200&q=80")',
+              backgroundImage: `url("${SOVEREIGN_SAMPLE_PHOTOS[0]}")`,
               filter: getFilterStyle(),
             }}
           >

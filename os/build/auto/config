@@ -1,22 +1,40 @@
 #!/bin/sh
 set -eu
+
+# Deterministic Reproducible Build Environment
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}"
+export TZ="UTC"
+export LC_ALL="C.UTF-8"
+
+SNAPSHOT_TIMESTAMP="${SNAPSHOT_TIMESTAMP:-20240401T000000Z}"
+DEBIAN_SNAPSHOT_URL="http://snapshot.debian.org/archive/debian/${SNAPSHOT_TIMESTAMP}/"
+DEBIAN_SECURITY_SNAPSHOT_URL="http://snapshot.debian.org/archive/debian-security/${SNAPSHOT_TIMESTAMP}/"
+
 lb config noauto \
     --mode debian --system live --initsystem systemd \
     --architectures amd64 \
     --distribution trixie --parent-distribution trixie \
-    --archive-areas "main contrib non-free non-free-firmware" \
-    --parent-archive-areas "main contrib non-free non-free-firmware" \
+    --mirror-bootstrap "${DEBIAN_SNAPSHOT_URL}" \
+    --mirror-chroot "${DEBIAN_SNAPSHOT_URL}" \
+    --mirror-chroot-security "${DEBIAN_SECURITY_SNAPSHOT_URL}" \
+    --mirror-binary "${DEBIAN_SNAPSHOT_URL}" \
+    --parent-mirror-bootstrap "${DEBIAN_SNAPSHOT_URL}" \
+    --parent-mirror-chroot "${DEBIAN_SNAPSHOT_URL}" \
+    --parent-mirror-chroot-security "${DEBIAN_SECURITY_SNAPSHOT_URL}" \
+    --parent-mirror-binary "${DEBIAN_SNAPSHOT_URL}" \
+    --archive-areas "main" \
+    --parent-archive-areas "main" \
     --linux-flavours amd64 --linux-packages linux-image \
     --bootloader "grub-efi grub-pc" \
     --binary-images iso-hybrid \
     --uefi-secure-boot auto \
     --debian-installer false --memtest none \
     --apt-recommends false \
-    --apt-options "--yes --no-install-recommends" \
+    --apt-options "--yes --no-install-recommends -o Acquire::Check-Valid-Until=false" \
     --debootstrap-options "--variant=minbase --include=apt-utils,ca-certificates" \
-    --firmware-binary true --firmware-chroot true \
-    --updates true --security true --backports false \
-    --source false --checksums sha512 \
+    --firmware-binary false --firmware-chroot false \
+    --updates false --security false --backports false \
+    --source true --checksums sha512 \
     --cache-packages true --cache-indices true \
     --iso-application "LibreDroid OS" \
     --iso-publisher "LibreDroid Project" \

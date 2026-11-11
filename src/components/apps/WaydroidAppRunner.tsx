@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
 import { 
+  SOVEREIGN_SAMPLE_PHOTOS, 
+  SOVEREIGN_MAP_TEXTURE, 
+  SOVEREIGN_VIDEO_POSTER 
+} from '../../assets/sovereignAssets';
+import { 
   Play, 
   Pause, 
   Volume2, 
@@ -233,7 +238,7 @@ const VLCPlayerView: React.FC = () => {
       <div className="flex-1 relative flex items-center justify-center bg-black">
         <video
           className="w-full h-full object-contain"
-          poster="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80"
+          poster={SOVEREIGN_VIDEO_POSTER}
           controls
         />
       </div>
@@ -268,13 +273,13 @@ const NewPipeView: React.FC = () => {
             title: 'Linux 6.6 on Mobile: The End of Proprietary Mobile OSes',
             channel: 'Free Software Foundation',
             views: '342K views',
-            thumb: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=600&q=80',
+            thumb: SOVEREIGN_SAMPLE_PHOTOS[3],
           },
           {
             title: 'How to Build an Independent Smartphone in 2026',
             channel: 'FOSS Mobile Lab',
             views: '189K views',
-            thumb: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80',
+            thumb: SOVEREIGN_SAMPLE_PHOTOS[4],
           },
         ].map((video, i) => (
           <div key={i} className="bg-neutral-900 rounded-2xl overflow-hidden border border-neutral-800">
@@ -304,7 +309,7 @@ const OsmAndMapView: React.FC = () => {
       <div 
         className="flex-1 relative bg-cover bg-center flex items-center justify-center"
         style={{
-          backgroundImage: 'url("https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1200&q=80")',
+          backgroundImage: `url("${SOVEREIGN_MAP_TEXTURE}")`,
         }}
       >
         <div className="bg-black/70 backdrop-blur-md p-4 rounded-3xl border border-white/10 text-center max-w-xs shadow-2xl">

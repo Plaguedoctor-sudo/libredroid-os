@@ -1,28 +1,42 @@
 # Dependencies
 node_modules/
 
+# Proprietary OEM Firmware & Blobs (NEVER COMMIT OR DISTRIBUTE)
+stock_firmware/
+out-pad-go/
+adapt-out/
+backups/
+lrd-backups/
+firmware/
+vendor_blobs/
+*.zip
+*.bin
+*.auth
+*.so
+*.so.*
+*.img
+*.iso
+*.deb
+*.apk
+*.tar
+*.tar.gz
+*.tgz
+
+# Cryptographic Private Keys & Secrets (NEVER COMMIT OR DISTRIBUTE)
+*.key
+keys/*.key
+freestack/keys/*.key
+freestack/keys/*.sig
+
 # Build artifacts and distributions
 dist/
 /build/
 build-out/
-*.iso
-*.img
-*.deb
-*.apk
-*.zip
-*.tar
-*.tar.gz
-*.tgz
-*.so
-
-# Device build, flash, & backup outputs
-adapt-out/
-audit-out/
-out-pad-go/
-backups/
-lrd-backups/
+out/
 os/arm/treble/build_tmp/
 os/arm/treble/output/*.img
+audit-out/
+public/*.iso
 
 # Logs and system dumps
 *.log

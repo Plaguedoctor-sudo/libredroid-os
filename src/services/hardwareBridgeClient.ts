@@ -1,3 +1,5 @@
+import { SOVEREIGN_SAMPLE_PHOTOS } from '../assets/sovereignAssets';
+
 /**
  * LibreDroid Hardware & System Bridge Client — ZERO ADB DEPENDENCIES.
  * Directly communicates with the Linux kernel, systemd-nspawn domains,
@@ -365,7 +367,7 @@ export async function fetchDevicePhotos(): Promise<DevicePhoto[]> {
       name: 'secure_enclave_diagram.png',
       caption: 'LibreDroid Hardware Isolation Architecture',
       path: '/storage/emulated/0/DCIM/Camera/secure_enclave_diagram.png',
-      url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=80',
+      url: SOVEREIGN_SAMPLE_PHOTOS[0],
       date: '2026-10-24 10:14',
     },
     {
@@ -373,7 +375,7 @@ export async function fetchDevicePhotos(): Promise<DevicePhoto[]> {
       name: 'tor_onion_routing.jpg',
       caption: 'Three Hop Guard-Middle-Exit Circuit',
       path: '/storage/emulated/0/DCIM/Camera/tor_onion_routing.jpg',
-      url: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=80',
+      url: SOVEREIGN_SAMPLE_PHOTOS[1],
       date: '2026-10-23 22:30',
     },
     {
@@ -381,7 +383,7 @@ export async function fetchDevicePhotos(): Promise<DevicePhoto[]> {
       name: 'open_hardware_board.png',
       caption: 'Open Hardware RISC-V Reference Board',
       path: '/storage/emulated/0/DCIM/Camera/open_hardware_board.png',
-      url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80',
+      url: SOVEREIGN_SAMPLE_PHOTOS[2],
       date: '2026-10-22 17:45',
     },
   ];

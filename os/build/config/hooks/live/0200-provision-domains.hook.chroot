@@ -6,7 +6,9 @@ for m in proc sys dev dev/pts; do
 done
 
 ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
-MIRROR="${LRD_DEBIAN_MIRROR:-http://deb.debian.org/debian}"
+SNAPSHOT_TIMESTAMP="${SNAPSHOT_TIMESTAMP:-20240401T000000Z}"
+DEFAULT_SNAPSHOT_MIRROR="http://snapshot.debian.org/archive/debian/${SNAPSHOT_TIMESTAMP}/"
+MIRROR="${LRD_DEBIAN_MIRROR:-${DEBIAN_SNAPSHOT_URL:-$DEFAULT_SNAPSHOT_MIRROR}}"
 COMMON="systemd systemd-sysv dbus dbus-user-session ca-certificates tzdata \
 locales iproute2 iputils-ping curl nano less procps"
 
@@ -78,6 +80,11 @@ build() {
   rm -f "$tgt/etc/machine-id"
   if command -v systemd-machine-id-setup >/dev/null 2>&1; then
     systemd-machine-id-setup --root="$tgt" >/dev/null 2>&1 || true
+  fi
+
+  # 6. Normalize timestamps if reproducible build mode is active
+  if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+    find "$tgt" -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} + 2>/dev/null || true
   fi
 }
 

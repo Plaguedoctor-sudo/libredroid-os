@@ -18,33 +18,9 @@ import { PREDATORY_KEYWORDS } from '../services/antiPredatoryEngine';
 import { persistenceService } from '../services/persistenceService';
 import { systemBus } from '../services/systemBus';
 import { shutdown } from '../platform/lifecycle';
+import { SOVEREIGN_WALLPAPERS, SOVEREIGN_AVATAR } from '../assets/sovereignAssets';
 
-export const WALLPAPERS: SystemWallpaper[] = [
-  {
-    id: 'material-waves',
-    name: 'Cosmic Emerald Waves',
-    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2000&q=80',
-    themeColor: '#10b981',
-  },
-  {
-    id: 'aurora-borealis',
-    name: 'Nordic Aurora',
-    url: 'https://images.unsplash.com/photo-1517411032315-54ef2cb783bb?auto=format&fit=crop&w=2000&q=80',
-    themeColor: '#00bfa5',
-  },
-  {
-    id: 'cyber-dusk',
-    name: 'Dusk Mountain Peaks',
-    url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=80',
-    themeColor: '#ff6d00',
-  },
-  {
-    id: 'deep-space',
-    name: 'Deep Nebula',
-    url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=2000&q=80',
-    themeColor: '#3d5afe',
-  },
-];
+export const WALLPAPERS: SystemWallpaper[] = SOVEREIGN_WALLPAPERS;
 
 interface SystemContextType {
   deviceMode: DeviceMode;
@@ -307,7 +283,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [account, setAccount] = useState<UserAccount>({
     name: 'Sovereign User',
     email: 'user@matrix.libredroid.local',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+    avatarUrl: SOVEREIGN_AVATAR,
     syncedDevicesCount: 3,
     storageUsedGb: 18.4,
     storageTotalGb: 512,
