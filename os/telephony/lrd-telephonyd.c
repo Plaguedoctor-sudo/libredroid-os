@@ -29,6 +29,8 @@
 static volatile sig_atomic_t g_running = 1;
 static char active_sock_path[108];
 static char active_sms_store[256];
+static int g_real_modem_detected = 0;
+static char g_modem_index[16] = "0";
 
 // Telephony state
 typedef struct {
@@ -59,6 +61,47 @@ static telephony_state_t g_state = {
     .is_emergency_call = 0,
     .call_start_time = 0
 };
+
+static void probe_real_modem(void) {
+    if (access("/usr/bin/mmcli", X_OK) != 0) return;
+    FILE *fp = popen("mmcli -L 2>/dev/null", "r");
+    if (!fp) return;
+    char line[512];
+    int found = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        char *p = strstr(line, "/ModemManager1/Modem/");
+        if (p) {
+            p += strlen("/ModemManager1/Modem/");
+            int idx = atoi(p);
+            snprintf(g_modem_index, sizeof(g_modem_index), "%d", idx);
+            found = 1;
+            break;
+        }
+    }
+    pclose(fp);
+
+    if (found) {
+        g_real_modem_detected = 1;
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "mmcli -m %s --output-keyvalue 2>/dev/null", g_modem_index);
+        fp = popen(cmd, "r");
+        if (fp) {
+            while (fgets(line, sizeof(line), fp)) {
+                if (strncmp(line, "modem.3gpp.operator-name", 24) == 0) {
+                    char *val = strchr(line, ':');
+                    if (val && strlen(val) > 2) {
+                        val++;
+                        while (*val == ' ') val++;
+                        char *end = val + strlen(val) - 1;
+                        while (end > val && (*end == '\n' || *end == '\r')) *end-- = '\0';
+                        if (strlen(val) > 0) snprintf(g_state.carrier, sizeof(g_state.carrier), "%s", val);
+                    }
+                }
+            }
+            pclose(fp);
+        }
+    }
+}
 
 static void sig_handler(int sig) {
     (void)sig;
@@ -114,6 +157,7 @@ static void handle_client(int cfd) {
     memset(resp, 0, sizeof(resp));
 
     if (strcmp(cmd, "status") == 0 || strcmp(cmd, "signal") == 0) {
+        probe_real_modem();
         snprintf(resp, sizeof(resp),
             "{\"status\":\"ok\",\"carrier\":\"%s\",\"tech\":\"%s\",\"backend\":\"%s\",\"volte_ims_registered\":true,\"rsrp\":%d,\"bars\":%d,\"roaming\":%s,\"sim_locked\":%s,\"call_state\":%d}\n",
             g_state.carrier, g_state.tech, get_telephony_backend(), g_state.rsrp, g_state.bars,
@@ -148,6 +192,12 @@ static void handle_client(int cfd) {
                 snprintf(g_state.active_call_number, sizeof(g_state.active_call_number), "%s", arg1);
                 g_state.is_emergency_call = emergency;
                 g_state.call_start_time = time(NULL);
+                if (g_real_modem_detected) {
+                    char mcmd[512];
+                    snprintf(mcmd, sizeof(mcmd), "mmcli -m %s --voice-create-call=\"number=%s\" >/dev/null 2>&1", g_modem_index, arg1);
+                    int ret = system(mcmd);
+                    (void)ret;
+                }
                 snprintf(resp, sizeof(resp),
                     "{\"status\":\"ok\",\"call\":\"active\",\"number\":\"%s\",\"emergency\":%s,\"audio_routing\":\"earpiece_voice\"}\n",
                     g_state.active_call_number, emergency ? "true" : "false");
@@ -162,6 +212,12 @@ static void handle_client(int cfd) {
             g_state.call_state = 0;
             g_state.active_call_number[0] = '\0';
             g_state.is_emergency_call = 0;
+            if (g_real_modem_detected) {
+                char mcmd[256];
+                snprintf(mcmd, sizeof(mcmd), "mmcli -m %s --voice-hangup-all >/dev/null 2>&1", g_modem_index);
+                int ret = system(mcmd);
+                (void)ret;
+            }
             snprintf(resp, sizeof(resp),
                 "{\"status\":\"ok\",\"call\":\"terminated\",\"duration_sec\":%ld}\n", (long)duration);
         }
