@@ -343,6 +343,62 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 1.4 Hardware & System Bridge APIs
+  if (pathname === '/api/status' && method === 'GET') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({
+      host: 'libredroid-box',
+      kernel: 'Linux 7.0.0-sovereign x86_64',
+      uptimeSec: 3600,
+      battery: { level: 90, charging: false },
+      mem: { totalMb: 16384, availMb: 12000 },
+      netns: ['vault', 'anon-ws', 'work', 'dispos'],
+      domains: [
+        { name: 'vault', active: true },
+        { name: 'anon-ws', active: true },
+        { name: 'work', active: true },
+        { name: 'dispos', active: true },
+      ],
+      tor: { running: true, raw: ['10.152.152.10:9040 (TransPort)'] },
+      waydroid: { installed: true, raw: ['Session: RUNNING'] },
+      freeform: true,
+    }));
+  }
+
+  if (pathname === '/api/domains' && method === 'GET') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify([
+      { name: 'vault', active: true },
+      { name: 'anon-ws', active: true },
+      { name: 'work', active: true },
+      { name: 'dispos', active: true },
+    ]));
+  }
+
+  if (pathname === '/api/hardware/status' && method === 'GET') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({
+      connected: true,
+      deviceModel: 'LibreDroid Sovereign Reference Workstation',
+      osVersion: 'Linux 7.0 (Zero-ADB Sovereign Core)',
+      battery: { level: 90, isCharging: false, temperature: 31.0 },
+      wifi: { enabled: true, ssid: 'LibreMesh-Isolated', ip: '127.0.0.1', linkSpeed: '866 Mbps' },
+      bluetooth: { enabled: true },
+      hotspot: { enabled: false, ready: true },
+      camera: { status: 'Hardware Sandboxed (Virtual Loopback)' },
+    }));
+  }
+
+  if (pathname === '/api/rpc' && method === 'POST') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true, result: { active: true } }));
+  }
+
+  if ((pathname.startsWith('/api/shell/') || pathname.startsWith('/api/wm/')) && method === 'POST') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true }));
+  }
+
   // 2. Manifest
   if (pathname === '/manifest.webmanifest') {
     const mPath = fs.existsSync(path.join(DIST_DIR, 'manifest.webmanifest'))

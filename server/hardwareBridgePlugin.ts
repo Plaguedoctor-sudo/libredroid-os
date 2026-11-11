@@ -618,6 +618,174 @@ export function hardwareBridgePlugin(): Plugin {
           }));
         }
 
+        // ---------------------------------------------------------------------
+        // 12. Platform Core & Sovereign Shell Protocol APIs
+        // ---------------------------------------------------------------------
+        if (pathname === '/api/host/caps' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({
+            backend: 'linux-desktop',
+            sdk: 34,
+            abis: ['x86_64'],
+            root: true,
+            termuxApi: false,
+            pm: true,
+            installMode: 'native',
+            tor: true,
+            vnc: true,
+            ok: true,
+          }));
+        }
+
+        if (pathname === '/api/system/caps' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({
+            source: 'live',
+            netns: true,
+            cgroup2: true,
+            nft: true,
+            systemd: true,
+            backlight: true,
+            drm: true,
+            powerSupply: true,
+            thermal: true,
+            cpufreq: true,
+            logind: true,
+            sysupdate: true,
+            ab: true,
+            verity: { active: true, strength: 'full-chain' },
+            slot: 'a',
+            security: { score: 100, verdict: 'VERIFIED_SOVEREIGN' },
+          }));
+        }
+
+        if (pathname === '/api/device' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({
+            model: 'LibreDroid Sovereign Workstation',
+            manufacturer: 'LibreDroid OS Project',
+            product: 'libredroid-box',
+            device: 'desktop',
+            sdk: 34,
+            abis: ['x86_64'],
+            kernel: 'Linux 7.0 Sovereign',
+            hostname: 'localhost',
+            unlocked: true,
+            slot: 'a',
+            verifiedBoot: true,
+            verity: 'full-chain',
+            dynamicPartitions: true,
+            external: [],
+            usb: [],
+            fingerprint: 'libredroid/x86_64/sovereign',
+          }));
+        }
+
+        if (pathname === '/api/device/power' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({
+            present: true,
+            percent: 92,
+            charging: false,
+            ac: true,
+            usb: false,
+            thermal: 31.5,
+            throttling: false,
+            mode: 'balanced',
+          }));
+        }
+
+        if (pathname === '/api/device/display' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({
+            brightness: 0.85,
+            maxBrightness: 1.0,
+            autoBrightness: false,
+            refreshHz: 60,
+            external: [],
+            docked: false,
+            screenOn: true,
+          }));
+        }
+
+        if (pathname === '/api/device/net' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({
+            online: true,
+            type: 'wifi',
+            metered: false,
+            ssid: 'LibreDroid-Sovereign-Mesh',
+            operator: 'Private AP',
+            ip: '127.0.0.1',
+            gateway: '127.0.0.1',
+            proxy: null,
+          }));
+        }
+
+        if (pathname === '/api/device/volumes' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify([
+            { id: 'rootfs', mount: '/', label: 'LRDROOT', free: 21474836480, total: 68719476736, removable: false },
+            { id: 'data', mount: '/home', label: 'LRDDATA', free: 53687091200, total: 107374182400, removable: false },
+          ]));
+        }
+
+        if (pathname.startsWith('/api/device/') && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({ ok: true, success: true }));
+        }
+
+        if (pathname === '/api/events' && req.method === 'GET') {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache, no-transform',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'X-Accel-Buffering': 'no',
+          });
+          res.write(': libredroid event stream\n\n');
+          res.write('retry: 3000\n\n');
+          res.write(`event: hello\ndata: ${JSON.stringify({ ok: true, topics: ['power', 'thermal', 'net', 'display', 'input', 'lifecycle', 'apps', 'storage', 'tor', 'exec'] })}\n\n`);
+          const interval = setInterval(() => {
+            try {
+              res.write(`event: ping\ndata: {"t":${Date.now()}}\n\n`);
+            } catch {
+              clearInterval(interval);
+            }
+          }, 15000);
+          req.on('close', () => clearInterval(interval));
+          return;
+        }
+
+        if (pathname === '/api/apps/native' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({
+            ok: true,
+            apps: [
+              { id: 'terminal', name: 'Disposable Alpine Shell', category: 'System', source: 'native' },
+              { id: 'browser', name: 'LibreBrowse (Tor Routed)', category: 'Internet', source: 'native' },
+              { id: 'files', name: 'Encrypted Vault Files', category: 'Utility', source: 'native' },
+              { id: 'camera', name: 'Open Camera', category: 'Media', source: 'native' },
+              { id: 'settings', name: 'System Settings', category: 'Settings', source: 'native' },
+            ],
+          }));
+        }
+
+        if ((pathname === '/api/rpc' || pathname.startsWith('/api/shell/') || pathname.startsWith('/api/wm/')) && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({ ok: true, result: { active: true } }));
+        }
+
         next();
       });
     },
