@@ -23,8 +23,9 @@ python3 tools/fsbuild/fsbuild.py stage --target x200-libreboot --profile native
 echo "[4/6] Python Integration & Security Tests..."
 pytest tests/test_freestack.py
 
-echo "[5/6] Bats Constitutional Acceptance Suite (A1-A14)..."
-bash tests/run-bats.sh tests/acceptance.bats
+echo "[5/6] Bats Constitutional Rules (R1-R14) & Behavioural (A1-A14) Suites..."
+bash tests/run-bats.sh tests/rules.bats
+bash tests/run-bats.sh tests/behaviour.bats
 
 echo "[6/6] Fuzzing Smoke Triage..."
 bash fuzz/soak-triage.sh quick

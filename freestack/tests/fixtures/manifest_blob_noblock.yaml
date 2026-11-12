@@ -1,0 +1,1791 @@
+components:
+- build:
+    entrypoint: make crossgcc-i386 CPUS=$(nproc) && make -j$(nproc) && cp build/coreboot.rom
+      /out/
+    outputs:
+    - boot/coreboot.rom
+    reproducible: true
+  id: coreboot
+  license:
+    spdx:
+    - GPL-2.0-only
+  name: coreboot
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '4.15'
+      pattern: 4.*
+    repo: https://github.com/coreboot/coreboot
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: make BOARD=x200-flash && cp build/x200-flash/heads-x200-flash.rom
+      /out/
+    outputs:
+    - boot/heads.rom
+    reproducible: true
+  id: heads
+  license:
+    spdx:
+    - GPL-2.0-only
+  name: heads
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '0.2'
+      pattern: v0.*
+      version_regex: ^v
+    repo: https://github.com/linuxboot/heads
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: install -D -m 755 me_cleaner.py /out/bin/me_cleaner
+    outputs:
+    - bin/me_cleaner
+    reproducible: true
+  id: me_cleaner
+  license:
+    spdx:
+    - GPL-3.0-or-later
+  name: me_cleaner
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '1.0'
+      pattern: v1.*
+      version_regex: ^v
+    repo: https://github.com/corna/me_cleaner
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: mkdir build && cd build && cmake .. && make -j$(nproc) && cp minisign
+      /out/bin/
+    outputs:
+    - bin/minisign
+    reproducible: true
+  id: minisign
+  license:
+    spdx:
+    - ISC
+  name: minisign
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '0.10'
+      pattern: 0.*
+    repo: https://github.com/jedisct1/minisign
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: make defconfig && make -j$(nproc) bzImage && cp arch/x86/boot/bzImage
+      /out/boot/vmlinuz
+    outputs:
+    - boot/vmlinuz
+    reproducible: true
+  id: linux-libre
+  license:
+    spdx:
+    - GPL-2.0-only
+  name: linux-libre
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: fsfla
+    pin:
+      kind: tarball
+      value: https://linux-libre.fsfla.org/pub/linux-libre/releases/6.12.1-gnu/linux-libre-6.12.1-gnu.tar.xz
+    repo: https://linux-libre.fsfla.org/pub/linux-libre/releases/6.12.1-gnu/linux-libre-6.12.1-gnu.tar.xz
+    vcs: tarball
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: make -j$(nproc) && cp bin/syz-fuzzer /out/bin/
+    outputs:
+    - bin/syz-fuzzer
+    reproducible: true
+  id: syzkaller
+  license:
+    spdx:
+    - Apache-2.0
+  name: syzkaller
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: branch
+      value: master
+    repo: https://github.com/google/syzkaller
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: make -C src all CXX='g++ -include system_error' && install -D -m 755
+      src/dinit /out/bin/dinit
+    outputs:
+    - bin/dinit
+    reproducible: true
+  id: dinit
+  license:
+    spdx:
+    - Apache-2.0
+  name: dinit
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '0.15'
+      pattern: v0.*
+      version_regex: ^v
+    repo: https://github.com/davmac314/dinit
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && install -D -m 755 build/bwrap
+      /out/bin/bwrap
+    outputs:
+    - bin/bwrap
+    reproducible: true
+  id: bubblewrap
+  license:
+    spdx:
+    - LGPL-2.0-or-later
+  name: bubblewrap
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '0.6'
+      pattern: v0.*
+      version_regex: ^v
+    repo: https://github.com/containers/bubblewrap
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./configure --prefix=/usr && make -j$(nproc) && mkdir -p /out/lib
+      && cp lib/libc.a lib/libc.so /out/lib/
+    outputs:
+    - lib/libc.a
+    - lib/libc.so
+    reproducible: true
+  id: musl
+  license:
+    spdx:
+    - MIT
+  name: musl
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    pin:
+      kind: tag_glob
+      min: 1.2.3
+      pattern: v1.2.*
+      version_regex: ^v
+    repo: https://git.musl-libc.org/git/musl
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: make defconfig && make -j$(nproc) && install -D -m 755 toybox /out/bin/toybox
+    outputs:
+    - bin/toybox
+    reproducible: true
+  id: toybox
+  license:
+    spdx:
+    - 0BSD
+  name: toybox
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: 0.8.9
+      pattern: 0.*
+    repo: https://github.com/landley/toybox
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./tools/gn --runtime-mode release && ninja -C out/host_release &&
+      cp out/host_release/libflutter_engine.so /out/lib/
+    outputs:
+    - lib/libflutter_engine.so
+    repro_exception: upstream gn/ninja path ordering
+    reproducible: false
+  id: flutter-engine
+  license:
+    spdx:
+    - BSD-3-Clause
+  name: flutter-engine
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R8
+    - R11
+    - R12
+    waivers:
+    - expires: '2099-12-31'
+      reason: upstream gn/ninja path ordering
+      rule: R7
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '3.19'
+      pattern: 3.*
+    repo: https://github.com/flutter/engine
+    submodules: true
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: mkdir build && cd build && cmake .. && make -j$(nproc) && cp iwasm
+      /out/bin/
+    outputs:
+    - bin/iwasm
+    reproducible: true
+  id: wasm-micro-runtime
+  license:
+    spdx:
+    - Apache-2.0
+  name: wasm-micro-runtime
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '2.0'
+      pattern: WAMR-2.*
+      version_regex: ^WAMR-
+    repo: https://github.com/bytecodealliance/wasm-micro-runtime
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/src/libwayland-server.so
+      /out/lib/
+    outputs:
+    - lib/libwayland-server.so
+    reproducible: true
+  id: wayland
+  license:
+    spdx:
+    - MIT
+  name: wayland
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '1.20'
+      pattern: 1.*
+    repo: https://gitlab.freedesktop.org/wayland/wayland
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/libwlroots.so /out/lib/
+    outputs:
+    - lib/libwlroots.so
+    reproducible: true
+  id: wlroots
+  license:
+    spdx:
+    - MIT
+  name: wlroots
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '0.17'
+      pattern: 0.1*
+    repo: https://gitlab.freedesktop.org/wlroots/wlroots
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build -Dgallium-drivers=swrast,virgl -Dvulkan-drivers=
+      && ninja -C build && cp build/src/gallium/targets/dri/libgallium_dri.so /out/lib/
+    outputs:
+    - lib/libgallium_dri.so
+    reproducible: true
+  id: mesa
+  license:
+    spdx:
+    - MIT
+  name: mesa
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '23.0'
+      pattern: mesa-2*
+      version_regex: ^mesa-
+    repo: https://gitlab.freedesktop.org/mesa/mesa
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/src/phosh /out/bin/
+    outputs:
+    - bin/phosh
+    reproducible: true
+  id: phosh
+  license:
+    spdx:
+    - GPL-3.0-or-later
+  name: phosh
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '0.30'
+      pattern: v0.*
+      version_regex: ^v
+    repo: https://gitlab.gnome.org/World/Phosh/phosh
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/src/pipewire/pipewire
+      /out/bin/
+    outputs:
+    - bin/pipewire
+    reproducible: true
+  id: pipewire
+  license:
+    spdx:
+    - MIT
+  name: pipewire
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '1.0'
+      pattern: 1.*
+    repo: https://gitlab.freedesktop.org/pipewire/pipewire
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/src/libcamera/libcamera.so
+      /out/lib/
+    outputs:
+    - lib/libcamera.so
+    reproducible: true
+  id: libcamera
+  license:
+    spdx:
+    - LGPL-2.1-or-later
+  name: libcamera
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '0.2'
+      pattern: v0.*
+      version_regex: ^v
+    repo: https://gitlab.freedesktop.org/camera/libcamera
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./configure --prefix=/usr --disable-static --enable-shared && make
+      -j$(nproc) && cp ffmpeg /out/bin/
+    outputs:
+    - bin/ffmpeg
+    reproducible: true
+  id: ffmpeg
+  license:
+    spdx:
+    - LGPL-2.1-or-later
+  name: ffmpeg
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '7.0'
+      pattern: n[789].*
+      version_regex: ^n
+    repo: https://github.com/FFmpeg/FFmpeg
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./autogen.sh && ./configure && make -j$(nproc) && cp src/nft /out/bin/
+    outputs:
+    - bin/nft
+    reproducible: true
+  id: nftables
+  license:
+    spdx:
+    - GPL-2.0-only
+  name: nftables
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    pin:
+      kind: tag_glob
+      min: '1.0'
+      pattern: v1.*
+      version_regex: ^v
+    repo: https://git.netfilter.org/nftables
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: make -C daemon && cp daemon/opensnitchd /out/bin/
+    outputs:
+    - bin/opensnitchd
+    reproducible: true
+  id: opensnitch
+  license:
+    spdx:
+    - GPL-3.0-or-later
+  name: opensnitch
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '1.5'
+      pattern: v1.*
+      version_regex: ^v
+    repo: https://github.com/evilsocket/opensnitch
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./configure && make -j$(nproc) && cp unbound /out/bin/
+    outputs:
+    - bin/unbound
+    reproducible: true
+  id: unbound
+  license:
+    spdx:
+    - BSD-3-Clause
+  name: unbound
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '1.18'
+      pattern: release-1.*
+      version_regex: ^release-
+    repo: https://github.com/NLnetLabs/unbound
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./configure && make -j$(nproc) && cp chronyd /out/bin/
+    outputs:
+    - bin/chronyd
+    reproducible: true
+  id: chrony
+  license:
+    spdx:
+    - GPL-2.0-only
+  name: chrony
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '4.4'
+      pattern: 4.*
+    repo: https://gitlab.com/chrony/chrony
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: make -C src -j$(nproc) && cp src/wireguard.ko /out/lib/modules/
+    outputs:
+    - lib/modules/wireguard.ko
+    reproducible: true
+  id: wireguard-linux
+  license:
+    spdx:
+    - GPL-2.0-only
+  name: wireguard-linux
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    pin:
+      kind: tag_glob
+      min: 1.0.2021
+      pattern: v1.0.*
+      version_regex: ^v
+    repo: https://git.zx2c4.com/wireguard-tools
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/src/iio-sensor-proxy
+      /out/bin/
+    outputs:
+    - bin/iio-sensor-proxy
+    reproducible: true
+  id: iio-sensor-proxy
+  license:
+    spdx:
+    - GPL-3.0-or-later
+  name: iio-sensor-proxy
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '3.0'
+      pattern: 3.*
+    repo: https://gitlab.freedesktop.org/hadess/iio-sensor-proxy
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/geoclue /out/bin/
+    outputs:
+    - bin/geoclue
+    reproducible: true
+  id: geoclue
+  license:
+    spdx:
+    - LGPL-2.1-or-later
+  name: geoclue
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '2.6'
+      pattern: 2.*
+    repo: https://gitlab.freedesktop.org/geoclue/geoclue
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: make -j$(nproc) && cp checkpolicy/checkpolicy /out/bin/
+    outputs:
+    - bin/checkpolicy
+    reproducible: true
+  id: selinux-userspace
+  license:
+    spdx:
+    - GPL-2.0-only
+  name: selinux-userspace
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '3.4'
+      pattern: 3.*
+    repo: https://github.com/SELinuxProject/selinux
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./autogen.sh && ./configure && make -j$(nproc) && cp src/.libs/libseccomp.so
+      /out/lib/
+    outputs:
+    - lib/libseccomp.so
+    reproducible: true
+  id: libseccomp
+  license:
+    spdx:
+    - LGPL-2.1-only
+  name: libseccomp
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '2.5'
+      pattern: v2.*
+      version_regex: ^v
+    repo: https://github.com/seccomp/libseccomp
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./autogen.sh && ./configure && make -j$(nproc) && cp cryptsetup /out/bin/
+    outputs:
+    - bin/cryptsetup
+    reproducible: true
+  id: cryptsetup
+  license:
+    spdx:
+    - GPL-2.0-or-later
+  name: cryptsetup
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '2.6'
+      pattern: v2.*
+      version_regex: ^v
+    repo: https://gitlab.com/cryptsetup/cryptsetup
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./configure && make -j$(nproc) && cp src/libsodium/.libs/libsodium.so
+      /out/lib/
+    outputs:
+    - lib/libsodium.so
+    reproducible: true
+  id: libsodium
+  license:
+    spdx:
+    - ISC
+  name: libsodium
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: 1.0.19
+      pattern: 1.0.*
+    repo: https://github.com/jedisct1/libsodium
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: mkdir build && cd build && cmake .. && make -j$(nproc) && cp src/libfido2.so
+      /out/lib/
+    outputs:
+    - lib/libfido2.so
+    reproducible: true
+  id: libfido2
+  license:
+    spdx:
+    - BSD-2-Clause
+  name: libfido2
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '1.13'
+      pattern: 1.*
+    repo: https://github.com/Yubico/libfido2
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./autogen.sh && ./configure && make -j$(nproc) && cp src/auditd /out/bin/
+    outputs:
+    - bin/auditd
+    reproducible: true
+  id: audit-userspace
+  license:
+    spdx:
+    - GPL-2.0-or-later
+  name: audit-userspace
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '4.0'
+      pattern: v4.*
+      version_regex: ^v
+    repo: https://github.com/linux-audit/audit-userspace
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: go build -o /out/bin/cosign ./cmd/cosign
+    outputs:
+    - bin/cosign
+    reproducible: true
+  id: cosign
+  license:
+    spdx:
+    - Apache-2.0
+  name: cosign
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '2.2'
+      pattern: v2.*
+      version_regex: ^v
+    repo: https://github.com/sigstore/cosign
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./autogen.sh && ./configure && make -j$(nproc) && cp mkfs/mkfs.erofs
+      /out/bin/
+    outputs:
+    - bin/mkfs.erofs
+    reproducible: true
+  id: erofs-utils
+  license:
+    spdx:
+    - GPL-2.0-or-later
+  name: erofs-utils
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    pin:
+      kind: tag_glob
+      min: '1.7'
+      pattern: v1.*
+      version_regex: ^v
+    repo: https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/rauc /out/bin/
+    outputs:
+    - bin/rauc
+    reproducible: true
+  id: rauc
+  license:
+    spdx:
+    - LGPL-2.1-or-later
+  name: rauc
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '1.10'
+      pattern: v1.*
+      version_regex: ^v
+    repo: https://github.com/rauc/rauc
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: pip install --prefix=/usr . && cp /usr/bin/fdroid /out/bin/
+    outputs:
+    - bin/fdroid
+    reproducible: true
+  id: fdroidserver
+  license:
+    spdx:
+    - AGPL-3.0-or-later
+  name: fdroidserver
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '2.1'
+      pattern: 2.*
+    repo: https://gitlab.com/fdroid/fdroidserver
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./bootstrap && ./configure && make -j$(nproc) && cp guix-daemon /out/bin/
+    outputs:
+    - bin/guix-daemon
+    reproducible: true
+  id: guix
+  license:
+    spdx:
+    - GPL-3.0-or-later
+  name: guix
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: savannah
+    pin:
+      kind: tag_glob
+      min: '1.3'
+      pattern: v1.*
+      version_regex: ^v
+    repo: https://git.savannah.gnu.org/git/guix.git
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: pip install --prefix=/usr . && cp /usr/bin/reuse /out/bin/
+    outputs:
+    - bin/reuse
+    reproducible: true
+  id: reuse
+  license:
+    spdx:
+    - Apache-2.0
+  name: reuse
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '5.0'
+      pattern: v5.*
+      version_regex: ^v
+    repo: https://github.com/fsfe/reuse-tool
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: pip install --prefix=/usr . && cp /usr/bin/diffoscope /out/bin/
+    outputs:
+    - bin/diffoscope
+    reproducible: true
+  id: diffoscope
+  license:
+    spdx:
+    - GPL-3.0-or-later
+  name: diffoscope
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '250'
+      pattern: 2[0-9][0-9]
+    repo: https://salsa.debian.org/reproducible-builds/diffoscope
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: cargo build --release && cp target/release/rebuilderd /out/bin/
+    outputs:
+    - bin/rebuilderd
+    reproducible: true
+  id: rebuilderd
+  license:
+    spdx:
+    - GPL-3.0-or-later
+  name: rebuilderd
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '0.20'
+      pattern: v0.*
+      version_regex: ^v
+    repo: https://github.com/kpcyrd/rebuilderd
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: tools/install-build-deps && tools/gn gen out/release && tools/ninja
+      -C out/release perfetto && cp out/release/perfetto /out/bin/
+    outputs:
+    - bin/perfetto
+    reproducible: true
+  id: perfetto
+  license:
+    spdx:
+    - Apache-2.0
+  name: perfetto
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: googlesource
+    pin:
+      kind: tag_glob
+      min: '40'
+      pattern: v4*
+      version_regex: ^v
+    repo: https://android.googlesource.com/platform/external/perfetto
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./bootstrap && ./configure && make -j$(nproc) && cp src/strace /out/bin/
+    outputs:
+    - bin/strace
+    reproducible: true
+  id: strace
+  license:
+    spdx:
+    - LGPL-2.1-or-later
+  name: strace
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '6.6'
+      pattern: v6.*
+      version_regex: ^v
+    repo: https://github.com/strace/strace
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/bus/at-spi-bus-launcher
+      /out/bin/
+    outputs:
+    - bin/at-spi-bus-launcher
+    reproducible: true
+  id: at-spi2-core
+  license:
+    spdx:
+    - LGPL-2.1-or-later
+  name: at-spi2-core
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: gitlab
+    pin:
+      kind: tag_glob
+      min: '2.48'
+      pattern: 2.*
+    repo: https://gitlab.gnome.org/GNOME/at-spi2-core
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./autogen.sh && ./configure && make -j$(nproc) && cp src/espeak-ng
+      /out/bin/
+    outputs:
+    - bin/espeak-ng
+    reproducible: true
+  id: espeak-ng
+  license:
+    spdx:
+    - GPL-3.0-or-later
+  name: espeak-ng
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '1.50'
+      pattern: 1.*
+    repo: https://github.com/espeak-ng/espeak-ng
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./mach build && cp obj-*/dist/bin/librewolf /out/bin/
+    outputs:
+    - bin/librewolf
+    repro_exception: mach build ordering
+    reproducible: false
+  id: librewolf
+  license:
+    spdx:
+    - MPL-2.0
+  name: librewolf
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R8
+    - R11
+    - R12
+    waivers:
+    - expires: '2099-12-31'
+      reason: mach build ordering
+      rule: R7
+  tier: core
+  upstream:
+    forge: codeberg
+    pin:
+      kind: tag_glob
+      min: '120'
+      pattern: 1*
+    repo: https://codeberg.org/librewolf/source
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: go run build.go -no-upgrade build && cp bin/syncthing /out/bin/
+    outputs:
+    - bin/syncthing
+    reproducible: true
+  id: syncthing
+  license:
+    spdx:
+    - MPL-2.0
+  name: syncthing
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '1.27'
+      pattern: v1.*
+      version_regex: ^v
+    repo: https://github.com/syncthing/syncthing
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: mkdir build && cd build && cmake .. && make -j$(nproc) && cp src/keepassxc
+      /out/bin/
+    outputs:
+    - bin/keepassxc
+    reproducible: true
+  id: keepassxc
+  license:
+    spdx:
+    - GPL-2.0-or-later
+  name: keepassxc
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '2.7'
+      pattern: 2.*
+    repo: https://github.com/keepassxreboot/keepassxc
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: meson setup build && ninja -C build && cp build/src/xdg-desktop-portal
+      /out/bin/
+    outputs:
+    - bin/xdg-desktop-portal
+    reproducible: true
+  id: xdg-desktop-portal
+  license:
+    spdx:
+    - LGPL-2.1-or-later
+  name: xdg-desktop-portal
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '1.18'
+      pattern: 1.*
+    repo: https://github.com/flatpak/xdg-desktop-portal
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: ./bootstrap && ./configure && make -j$(nproc) && cp src/tss2-tcti/.libs/libtss2-tctildr.so
+      /out/lib/
+    outputs:
+    - lib/libtss2-tctildr.so
+    reproducible: true
+  id: tpm2-tss
+  license:
+    spdx:
+    - BSD-2-Clause
+  name: tpm2-tss
+  rules:
+    satisfies:
+    - R1
+    - R2
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+  tier: core
+  upstream:
+    forge: github
+    pin:
+      kind: tag_glob
+      min: '4.0'
+      pattern: 4.*
+    repo: https://github.com/tpm2-software/tpm2-tss
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- blob:
+    redistributable: true
+    source_available: false
+    vendor: Qualcomm Atheros
+  build:
+    entrypoint: mkdir -p /out/lib/firmware/ath10k && cp -r QCA9377 /out/lib/firmware/ath10k/
+    outputs:
+    - lib/firmware/ath10k/QCA9377/firmware-5.bin
+    reproducible: true
+  id: blob-firmware-ath10k
+  license:
+    spdx:
+    - LicenseRef-Qualcomm-Atheros
+  name: blob-firmware-ath10k
+  rules:
+    satisfies:
+    - R1
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+    waivers:
+    - expires: '2099-12-31'
+      reason: isolated wifi firmware required for ath10k
+      rule: R2
+  tier: blob
+  upstream:
+    pin:
+      kind: tag_glob
+      min: '20260101'
+      pattern: 2026*
+    repo: https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+- build:
+    entrypoint: 'true'
+    outputs:
+    - bin/test
+    reproducible: true
+  id: test-orphan-blob
+  license:
+    spdx:
+    - MIT
+  name: test-orphan-blob
+  rules:
+    satisfies:
+    - R1
+    - R3
+    - R4
+    - R5
+    - R6
+    - R7
+    - R8
+    - R11
+    - R12
+    - R2
+  tier: blob
+  upstream:
+    pin:
+      kind: commit
+      value: '123'
+    repo: https://example.com/test.git
+    vcs: git
+  verify:
+    sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+mirrors:
+- id: rsync-primary
+  priority: 1
+  type: rsync
+  url: rsync://archive.freestack.org/freestack/sources/
+- id: ipfs-gateway
+  priority: 2
+  type: ipfs
+  url: https://ipfs.io/ipns/freestack.org/
+- id: tor-onion
+  priority: 3
+  type: onion
+  url: http://freestack7h3q7x2m7u2e2s4y7o3l6a2s8t5e7i9n6o.onion/sources/
+stack_version: 0.1.0
+targets:
+- arch: x86_64
+  id: x200-libreboot
+  name: ThinkPad X200 (Libreboot)
+  profiles:
+  - core
+  - native
+- arch: aarch64
+  id: reform-imx8mq
+  name: MNT Reform (i.MX8MQ)
+  profiles:
+  - core
+  - native
+  - android
+trust:
+  root_keys:
+  - algorithm: minisign
+    fingerprint: foundation-a
+    holder: foundation-a
+  - algorithm: minisign
+    fingerprint: foundation-b
+    holder: foundation-b
+  - algorithm: minisign
+    fingerprint: foundation-auditor
+    holder: foundation-auditor
+  - algorithm: minisign
+    fingerprint: community-a
+    holder: community-a
+  - algorithm: minisign
+    fingerprint: community-b
+    holder: community-b
+  threshold:
+    m: 3
+    n: 5
