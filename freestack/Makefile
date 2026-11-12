@@ -6,17 +6,19 @@ PROFILE ?= native
 COMPONENT ?=
 BL ?= 0
 
-.PHONY: help verify schema schema-docs fsctl-gen fsctl-test test-atten rules resolve resolve-offline fetch build stage sbom gate sign sign-dry report pin-audit test-net test-repro clean trust gen-keys verify-hashes
+.PHONY: help verify schema schema-docs fsctl-gen fsctl-test test-atten policy-validate schema-freeze rules resolve resolve-offline fetch build stage sbom gate sign sign-dry report pin-audit test-net test-repro clean trust gen-keys verify-hashes
 
 help:
 	@grep -E '^[a-z-]+:' Makefile | cut -d: -f1 | sed 's/^/  make /'
 
-verify:      ; @$(FS) manifest verify
-schema:      ; @$(FS) schema validate && capnp compile -o- interface/*.capnp >/dev/null && echo "schema ok"
-schema-docs: ; @capnp compile -odoc interface/*.capnp
-fsctl-gen:   ; @mkdir -p out/capnp && capnp compile -oc++ interface/*.capnp -o out/capnp
-fsctl-test:  ; @bats tests/fsctl/
-test-atten:  ; @bats tests/attenuation.bats
+verify:          ; @$(FS) manifest verify
+schema:          ; @$(FS) schema validate && capnp compile -o- interface/*.capnp >/dev/null
+schema-docs:     ; @capnp compile -odoc interface/*.capnp
+schema-freeze:   ; @python3 tools/schema-freeze.py check interface/ordinals.snapshot
+fsctl-gen:       ; @mkdir -p out/capnp && capnp compile -oc++ interface/*.capnp -o out/capnp
+fsctl-test:      ; @bats tests/fsctl/
+test-atten:      ; @bats tests/attenuation.bats
+policy-validate: ; @python3 tools/fs-policy.py validate policy/capabilities.toml
 rules:       ; @$(FS) rules check
 pin-audit:; @bash tools/pin-audit.sh
 resolve:  ; @$(FS) resolve --repair

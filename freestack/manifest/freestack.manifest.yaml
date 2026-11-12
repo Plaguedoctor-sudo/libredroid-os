@@ -938,6 +938,22 @@ components:
       outputs: ["bin/wasmtime"]
       reproducible: true
 
+  - id: crosvm
+    name: "crosvm"
+    tier: core
+    license: { spdx: ["BSD-3-Clause"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://chromium.googlesource.com/crosvm/crosvm"
+      pin: { kind: tag_glob, pattern: "v[0-9].*", min: "0.1" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "cargo build --release --bin crosvm && install -D -m 755 target/release/crosvm /out/bin/crosvm"
+      outputs: ["bin/crosvm"]
+      reproducible: true
+
   # ---- blob
   - id: blob-firmware-ath10k
     name: "blob-firmware-ath10k"

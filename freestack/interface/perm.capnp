@@ -1,6 +1,7 @@
 @0xa1b2c3d4e5f60013;
 # SPDX-License-Identifier: GPL-3.0-or-later
 using Common = import "common.capnp";
+using Lease = import "lease.capnp";
 
 enum State { granted @0; denied @1; ask @2; revoked @3; }
 
@@ -15,7 +16,7 @@ struct Grant {
 
 interface Perm {
   list    @0 (ctx :Common.Ctx, app :Text) -> (list :List(Grant));
-  grant   @1 (ctx :Common.Ctx, app :Text, cap :Common.Cap, scope :Text) -> (g :Grant);
+  grant   @1 (ctx :Common.Ctx, app :Text, cap :Common.Cap, scope :Text, lease :Lease.Lease) -> (h :Data);
   revoke  @2 (ctx :Common.Ctx, app :Text, cap :Common.Cap, scope :Text) -> ();
   explain @3 (ctx :Common.Ctx, app :Text, cap :Common.Cap) -> (why :Text);
   audit   @4 (ctx :Common.Ctx, since :Int64) -> (list :List(Grant));

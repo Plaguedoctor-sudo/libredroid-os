@@ -18,6 +18,7 @@ using I18n = import "i18n.capnp";
 using Agent = import "agent.capnp";
 using Infer = import "infer.capnp";
 using Ambient = import "ambient.capnp";
+using Lease = import "lease.capnp";
 
 # Capability distribution. Each accessor returns an interface handle the caller may keep
 # only if it holds the corresponding Cap in its token.
@@ -40,4 +41,5 @@ interface Control {
   agent    @15 (ctx :Common.Ctx) -> (cap :Agent.Agent);
   infer    @16 (ctx :Common.Ctx) -> (cap :Infer.Infer);
   ambient  @17 (ctx :Common.Ctx) -> (cap :Ambient.Ambient);
+  atten    @18 (ctx :Common.Ctx) -> (cap :Lease.Atten);
 }

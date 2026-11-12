@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Frozen signature verification test manifest fixture. Never modify or re-order.
+stack_version: "0.1.0-frozen-fixture"
+
+trust:
+  threshold:
+    m: 3
+    n: 5
+  root_keys:
+    - holder: foundation-a
+      fingerprint: foundation-a
+      algorithm: minisign
+    - holder: foundation-b
+      fingerprint: foundation-b
+      algorithm: minisign
+    - holder: foundation-auditor
+      fingerprint: foundation-auditor
+      algorithm: minisign
+    - holder: community-a
+      fingerprint: community-a
+      algorithm: minisign
+    - holder: community-b
+      fingerprint: community-b
+      algorithm: minisign
+
+targets:
+  - id: fixture-target
+    name: "Fixture Target"
+    arch: "x86_64"
+    profiles: ["core"]
+
+components: []

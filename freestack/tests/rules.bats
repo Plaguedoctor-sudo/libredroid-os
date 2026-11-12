@@ -90,14 +90,14 @@ setup() {
     [ -s tests/fixtures/manifest_3sigs.sig ]
     
     # 1. Sub-threshold rejection fixture (2 signatures -> rejected with exit code 41)
-    run env FSBUILD_SIGFILE=tests/fixtures/manifest_2sigs.sig python3 tools/fsbuild/fsbuild.py manifest verify
+    run env FSBUILD_MANIFEST=tests/fixtures/manifest.yaml FSBUILD_SIGFILE=tests/fixtures/manifest_2sigs.sig python3 tools/fsbuild/fsbuild.py manifest verify
     [ "$status" -eq 41 ]
     [ -n "$output" ]
     assert_output
     [[ "$output" =~ "only 2/3 valid" ]]
     
     # 2. Threshold acceptance fixture (3 signatures -> accepted with exit code 0)
-    run env FSBUILD_SIGFILE=tests/fixtures/manifest_3sigs.sig python3 tools/fsbuild/fsbuild.py manifest verify
+    run env FSBUILD_MANIFEST=tests/fixtures/manifest.yaml FSBUILD_SIGFILE=tests/fixtures/manifest_3sigs.sig python3 tools/fsbuild/fsbuild.py manifest verify
     [ "$status" -eq 0 ]
     [ -n "$output" ]
     assert_output

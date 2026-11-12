@@ -161,7 +161,7 @@ def cmd_manifest_verify(a):
         print(f"fsbuild: rejected {rejected}", file=sys.stderr)
     if len(valid) < need:
         die(EXIT["threshold"], f"only {len(valid)}/{need} valid: {valid}")
-    print(f"verified {len(valid)}/{need} by {valid}")
+    print(f"verified {len(valid)}/{need} (threshold >=3 of {len(pubs)}) by {valid}")
 
 
 # ---------------------------------------------------------------- validation
@@ -457,7 +457,7 @@ def cmd_verify_hashes(a):
             bad.append(f"{cid}: MISMATCH {got[:12]} != {want[:12]}")
     if bad:
         die(EXIT["hash"], "\n".join(bad))
-    print(f"hashes ok ({len(ids)} checked, {checked_trees} tree hashes verified)")
+    print(f"hashes ok ({len(ids)} checked)")
 
 
 # ---------------------------------------------------------------- build & stage

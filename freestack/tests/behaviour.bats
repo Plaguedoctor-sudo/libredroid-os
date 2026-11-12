@@ -16,13 +16,13 @@ setup() {
 }
 
 @test "A1: 2-of-5 sigs rejected with exit 41" {
-    run env FSBUILD_SIGFILE=tests/fixtures/manifest_2sigs.sig python3 tools/fsbuild/fsbuild.py manifest verify
+    run env FSBUILD_MANIFEST=tests/fixtures/manifest.yaml FSBUILD_SIGFILE=tests/fixtures/manifest_2sigs.sig python3 tools/fsbuild/fsbuild.py manifest verify
     [ "$status" -eq 41 ]
     refute [ "$status" -eq 0 ]
 }
 
 @test "A2: 3-of-5 sigs accepted with exit 0" {
-    run env FSBUILD_SIGFILE=tests/fixtures/manifest_3sigs.sig python3 tools/fsbuild/fsbuild.py manifest verify
+    run env FSBUILD_MANIFEST=tests/fixtures/manifest.yaml FSBUILD_SIGFILE=tests/fixtures/manifest_3sigs.sig python3 tools/fsbuild/fsbuild.py manifest verify
     [ "$status" -eq 0 ]
 }
 

@@ -9,18 +9,18 @@ FS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 echo "=== FreeStack CI Verification Gate ==="
 cd "$FS_ROOT" || exit 1
 
-echo "[1/6] Manifest & Rule Conformance..."
+echo "[1/7] Manifest & Rule Conformance..."
 python3 tools/fsbuild/fsbuild.py manifest verify
 python3 tools/fsbuild/fsbuild.py schema validate
 python3 tools/fsbuild/fsbuild.py rules check
 
-echo "[2/6] Hash & Lock Verification..."
+echo "[2/7] Hash & Lock Verification..."
 python3 tools/fsbuild/fsbuild.py verify-hashes
 
-echo "[3/6] Target Rootfs Staging..."
+echo "[3/7] Target Rootfs Staging..."
 python3 tools/fsbuild/fsbuild.py stage --target x200-libreboot --profile native
 
-echo "[4/6] Python Integration & Security Tests..."
+echo "[4/7] Python Integration & Security Tests..."
 pytest tests/test_freestack.py
 
 echo "[5/7] Bats Constitutional Rules (R1-R14), Behavioural (A1-A15), & Attenuation Suites..."

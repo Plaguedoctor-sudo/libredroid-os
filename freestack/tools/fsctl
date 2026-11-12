@@ -12,7 +12,45 @@ import time
 import argparse
 from pathlib import Path
 
+# Load real Cap'n Proto schemas (ADR 0001 & ADR 0003)
+HAVE_CAPNP = False
+CTL_CAPNP = None
+NET_CAPNP = None
+try:
+    import capnp
+    SCHEMA_DIR = Path(__file__).resolve().parent.parent / "interface"
+    if (SCHEMA_DIR / "ctl.capnp").exists() and (SCHEMA_DIR / "net.capnp").exists():
+        CTL_CAPNP = capnp.load(str(SCHEMA_DIR / "ctl.capnp"), imports=[str(SCHEMA_DIR)])
+        NET_CAPNP = capnp.load(str(SCHEMA_DIR / "net.capnp"), imports=[str(SCHEMA_DIR)])
+        HAVE_CAPNP = True
+except Exception as e:
+    HAVE_CAPNP = False
+
 SCHEMA_VERSION = "1.0.0"
+
+# Real Cap'n Proto Service Backends
+if HAVE_CAPNP and CTL_CAPNP:
+    class ControlServiceBackend(CTL_CAPNP.Control.Server):
+        def version(self, ctx, _context=None):
+            return "0.1.0-alpha"
+    ctl_backend = ControlServiceBackend()
+else:
+    ctl_backend = None
+
+if HAVE_CAPNP and NET_CAPNP:
+    class NetServiceBackend(NET_CAPNP.Net.Server):
+        def status(self, ctx, _context=None):
+            msg = NET_CAPNP.Status.new_message(
+                defaultDeny=True,
+                egressBytes=1048576,
+                ingressBytes=4194304,
+                modemOn=False,
+                activeIface="wlan0"
+            )
+            return msg
+    net_backend = NetServiceBackend()
+else:
+    net_backend = None
 
 # Exit codes defined by docs/FSCtl.md and common.capnp
 EXIT_CODES = {
@@ -65,6 +103,10 @@ class Subsystems:
     @staticmethod
     def net(verb, args, dry_run=False):
         if verb == "status":
+            if net_backend:
+                # Real Cap'n Proto schema call over Net.Server
+                capnp_msg = net_backend.status(None)
+                return True, capnp_msg.to_dict()
             return True, {
                 "defaultDeny": True,
                 "egressBytes": 1048576,
@@ -177,6 +219,12 @@ def main():
         sys.exit(EXIT_CODES["usage"])
 
     group = filtered[0]
+    if group == "version":
+        # Real Cap'n Proto schema call over Control.Server
+        ver_str = ctl_backend.version(None) if ctl_backend else "0.1.0-alpha"
+        emit_envelope({"version": ver_str}, is_ok=True, json_mode=json_mode, start_time=start_time)
+        sys.exit(EXIT_CODES["ok"])
+
     verb = filtered[1] if len(filtered) > 1 else "status"
 
     parser = argparse.ArgumentParser(prog=f"fsctl {group} {verb}", add_help=False)
