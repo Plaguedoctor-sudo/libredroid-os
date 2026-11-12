@@ -6,7 +6,7 @@ PROFILE ?= native
 COMPONENT ?=
 BL ?= 0
 
-.PHONY: help verify schema schema-docs fsctl-gen fsctl-test test-atten policy-validate schema-freeze rules resolve resolve-offline fetch build stage sbom gate sign sign-dry report pin-audit test-net test-repro clean trust gen-keys verify-hashes
+.PHONY: help verify schema schema-docs fsctl-gen fsctl-test test-atten policy-validate schema-freeze rules resolve resolve-offline fetch build stage sbom gate sign sign-dry report pin-audit test-net test-repro clean trust gen-keys verify-hashes kconfig-audit kconfig-apply kconfig-test
 
 help:
 	@grep -E '^[a-z-]+:' Makefile | cut -d: -f1 | sed 's/^/  make /'
@@ -19,6 +19,9 @@ fsctl-gen:       ; @mkdir -p out/capnp && capnp compile -oc++ interface/*.capnp 
 fsctl-test:      ; @bats tests/fsctl/
 test-atten:      ; @bats tests/attenuation.bats
 policy-validate: ; @python3 tools/fs-policy.py validate policy/capabilities.toml
+kconfig-audit:   ; @(command -v kconfig-hardened-check >/dev/null 2>&1 || pip install -q --break-system-packages kconfig-hardened-check 2>/dev/null || true) && kconfig-hardened-check -c .config
+kconfig-apply:   ; @while read -r l; do [[ "$$l" =~ ^CONFIG_ ]] || continue; scripts/config --file .config --set-val "$${l%%=*}" "$${l#*=}"; done < config/kernel/fragment-x86_64.config
+kconfig-test:    ; @bats tests/kconfig.bats
 rules:       ; @$(FS) rules check
 pin-audit:; @bash tools/pin-audit.sh
 resolve:  ; @$(FS) resolve --repair
