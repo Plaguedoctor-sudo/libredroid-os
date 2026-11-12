@@ -1,0 +1,22 @@
+# Default capability policy. Anything absent is denied.
+# scope is optional; empty means "the whole class".
+
+[app.com.example.browser]
+net        = ["*"]
+netDns     = ["*"]
+storage    = ["~/Downloads"]
+
+[app.com.example.camera]
+camera     = ["*"]
+storage    = ["~/Pictures"]
+
+[app.com.example.clock]
+clock      = ["*"]
+
+[service.fs-resolver]
+netDns     = ["*"]
+net        = ["*"]
+
+[service.fs-updated]
+net        = ["updates.freestack.org"]
+update     = ["*"]

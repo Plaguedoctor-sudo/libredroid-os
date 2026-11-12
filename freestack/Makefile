@@ -6,14 +6,17 @@ PROFILE ?= native
 COMPONENT ?=
 BL ?= 0
 
-.PHONY: help verify schema rules resolve resolve-offline fetch build stage sbom gate sign sign-dry report pin-audit test-net test-repro clean trust gen-keys verify-hashes
+.PHONY: help verify schema schema-docs fsctl-gen fsctl-test rules resolve resolve-offline fetch build stage sbom gate sign sign-dry report pin-audit test-net test-repro clean trust gen-keys verify-hashes
 
 help:
 	@grep -E '^[a-z-]+:' Makefile | cut -d: -f1 | sed 's/^/  make /'
 
-verify:   ; @$(FS) manifest verify
-schema:   ; @$(FS) schema validate
-rules:    ; @$(FS) rules check
+verify:      ; @$(FS) manifest verify
+schema:      ; @$(FS) schema validate && capnp compile -o- interface/*.capnp >/dev/null && echo "schema ok"
+schema-docs: ; @capnp compile -odoc interface/*.capnp
+fsctl-gen:   ; @mkdir -p out/capnp && capnp compile -oc++ interface/*.capnp -o out/capnp
+fsctl-test:  ; @bats tests/fsctl/
+rules:       ; @$(FS) rules check
 pin-audit:; @bash tools/pin-audit.sh
 resolve:  ; @$(FS) resolve --repair
 resolve-offline: ; @$(FS) resolve --offline
