@@ -33,7 +33,7 @@ except ImportError:
         sys.exit("need jsonschema: pip install jsonschema")
 
 MANIFEST = ROOT / "manifest" / "freestack.manifest.yaml"
-SIGFILE = ROOT / "manifest" / "freestack.manifest.yaml.sig"
+SIGFILE = Path(os.environ.get("FSBUILD_SIGFILE", ROOT / "manifest" / "freestack.manifest.yaml.sig"))
 SCHEMA = ROOT / "manifest" / "freestack.manifest.schema.json"
 LOCK = ROOT / "manifest" / "freestack.lock.json"
 HASHES = ROOT / "manifest" / "hashes.json"

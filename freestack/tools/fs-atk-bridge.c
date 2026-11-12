@@ -4,7 +4,7 @@
  * Implements AtkAction, AtkComponent, and accessible descriptions for custom shell widgets.
  */
 
-#if __has_include(<glib-object.h>) && __has_include(<atk/atk.h>)
+#ifdef HAVE_ATK
 #include <glib-object.h>
 #include <atk/atk.h>
 #include <stdio.h>
@@ -25,6 +25,7 @@ G_DEFINE_TYPE_WITH_CODE(FsAccessibleButton, fs_accessible_button, ATK_TYPE_OBJEC
                         G_IMPLEMENT_INTERFACE(ATK_TYPE_ACTION, atk_action_interface_init)
                         G_IMPLEMENT_INTERFACE(ATK_TYPE_COMPONENT, atk_component_interface_init))
 #else
+/* Standalone fallback definitions when real libatk headers are absent from host compiler */
 #include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -62,21 +63,25 @@ static void atk_component_interface_init(AtkComponentIface *iface);
 #endif
 
 static gboolean fs_button_do_action(AtkAction *action, gint i) {
+    (void)action;
     if (i != 0) return FALSE;
     printf("[A11Y-ACTION] Activated FreeStack custom accessible widget action.\n");
     return TRUE;
 }
 
 static gint fs_button_get_n_actions(AtkAction *action) {
+    (void)action;
     return 1;
 }
 
 static const gchar *fs_button_get_action_name(AtkAction *action, gint i) {
+    (void)action;
     if (i != 0) return NULL;
     return "click";
 }
 
 static const gchar *fs_button_get_description(AtkAction *action, gint i) {
+    (void)action;
     if (i != 0) return NULL;
     return "Activates the sovereign permission grant or denial action";
 }
@@ -89,6 +94,7 @@ static void atk_action_interface_init(AtkActionIface *iface) {
 }
 
 static void atk_component_interface_init(AtkComponentIface *iface) {
+    (void)iface;
     // Component geometry and coordinate mapping for Orca magnifiers
 }
 
@@ -99,10 +105,15 @@ static void fs_accessible_button_init(FsAccessibleButton *self) {
 }
 
 static void fs_accessible_button_class_init(FsAccessibleButtonClass *klass) {
+    (void)klass;
     // Class initialization
 }
 
 AtkObject *fs_accessible_button_new(const gchar *name, const gchar *description) {
+    (void)atk_action_interface_init;
+    (void)atk_component_interface_init;
+    (void)fs_accessible_button_init;
+    (void)fs_accessible_button_class_init;
     FsAccessibleButton *btn = g_object_new(FS_TYPE_ACCESSIBLE_BUTTON, NULL);
     if (name) atk_object_set_name(ATK_OBJECT(btn), name);
     if (description) atk_object_set_description(ATK_OBJECT(btn), description);
