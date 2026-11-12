@@ -26,7 +26,8 @@ make stage TARGET=x200-libreboot PROFILE=native
 4. `docs/BUILD.md` — full reproducible build
 5. `docs/TRUST.md` — trust model, multisig, and content hashing
 6. `docs/TIERS.md` — core / blob / optional tiers
+7. `docs/SUBSYSTEM_STATUS.md` — living status matrix across all 21 subsystems
 
 ## Status
 
-Phase 0 validated. See `docs/BUILD.md#blockers`.
+Phase 0–Phase B validated. Full independent multi-party reproducibility proven. See [docs/SUBSYSTEM_STATUS.md](docs/SUBSYSTEM_STATUS.md) and [docs/BUILD.md](docs/BUILD.md).

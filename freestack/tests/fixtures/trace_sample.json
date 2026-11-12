@@ -1,0 +1,20 @@
+{
+  "trace_id": "test-agent-infer-trace-001",
+  "trace_digest": "eb5f1f9010b43c15c43d4b53d82ab23c0f1f02a1ecd2be82605f7e2596f93bba",
+  "events": [
+    {
+      "step": 1,
+      "kind": "ipc",
+      "action": "ctl.version",
+      "params": {},
+      "output": "FreeStack 0.1.0-alpha"
+    },
+    {
+      "step": 2,
+      "kind": "infer_query",
+      "action": "infer.summarize",
+      "params": {"max_tokens": 50},
+      "output": "Sovereign execution trace complete."
+    }
+  ]
+}

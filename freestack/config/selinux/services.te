@@ -11,6 +11,7 @@ attribute fs_network_service;
 type fs_init_t;
 type fs_lrdd_t;
 type fs_shell_t;
+type fs_display_t;
 type fs_network_t;
 type fs_modem_t;
 type fs_keystore_t;
@@ -22,6 +23,7 @@ type fs_update_t;
 typeattribute fs_init_t domain;
 typeattribute fs_lrdd_t domain, fs_daemon;
 typeattribute fs_shell_t domain;
+typeattribute fs_display_t domain, fs_daemon;
 typeattribute fs_network_t domain, fs_network_service;
 typeattribute fs_modem_t domain, fs_network_service;
 typeattribute fs_keystore_t domain, fs_daemon;
@@ -42,6 +44,7 @@ type fs_dev_t;
 role system_r types {
     fs_init_t
     fs_lrdd_t
+    fs_display_t
     fs_network_t
     fs_modem_t
     fs_keystore_t
