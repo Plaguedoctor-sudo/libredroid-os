@@ -1,0 +1,7 @@
+{
+  "manifest_version": "1.0",
+  "components": [
+    {"name": "musl", "version": "1.2.4", "hash": "sha256:abc"},
+    {"name": "toybox", "version": "0.8.11", "hash": "sha256:def"}
+  ]
+}
