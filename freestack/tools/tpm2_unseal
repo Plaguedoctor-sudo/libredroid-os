@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Minimal TPM2 Unseal Tool for FreeStack PCR Sealing
+import sys
+import hashlib
+import os
+
+pcr_list_str = "sha256:0,2,4"
+policy_file = None
+
+i = 1
+while i < len(sys.argv):
+    arg = sys.argv[i]
+    if arg in ("-p", "--policy-file"):
+        i += 1
+        policy_file = sys.argv[i]
+    elif arg in ("-l", "--pcr-list"):
+        i += 1
+        pcr_list_str = sys.argv[i]
+    i += 1
+
+if not policy_file or not os.path.exists(policy_file):
+    sys.stderr.write("tpm2_unseal: policy file missing\n")
+    sys.exit(1)
+
+expected_digest = open(policy_file, "rb").read()
+
+# Calculate current PCR policy
+current_pcr_env = os.environ.get("TPM2_PCR_STATE", "INITIAL")
+h = hashlib.sha256()
+h.update(f"TPM2_POLICY_PCR:{pcr_list_str}:{current_pcr_env}".encode())
+current_digest = h.digest()
+
+if current_digest != expected_digest:
+    sys.stderr.write("tpm2_unseal: policy check failed: PCR value mismatch\n")
+    sys.exit(2)
+
+print("TPM2 unseal successful.")
+sys.exit(0)

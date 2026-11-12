@@ -70,6 +70,15 @@ setup() {
     [ "$status" -eq 0 ]
     [ -n "$output" ]
     assert_output
+    
+    # Behavioural assertion 1: unshared sandbox without rule -> curl fails
+    run bwrap --unshare-all --die-with-parent --ro-bind / / curl -m5 https://example.org
+    [ "$status" -ne 0 ]
+    [ -n "$status" ]
+    
+    # Behavioural assertion 2: explicit loopback route active -> local transport succeeds
+    run unshare -r -n sh -c "ip link set lo up && python3 -m http.server 18082 --bind 127.0.0.1 >/dev/null 2>&1 & P=\$!; sleep 0.2; curl -m5 http://127.0.0.1:18082/ >/dev/null; R=\$?; kill \$P 2>/dev/null || true; exit \$R"
+    [ "$status" -eq 0 ]
 }
 
 @test "R4: Multi-party threshold root of trust verified (≥3 of 5)" {

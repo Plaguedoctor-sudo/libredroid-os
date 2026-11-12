@@ -27,6 +27,16 @@ echo "[5/6] Bats Constitutional Rules (R1-R14) & Behavioural (A1-A14) Suites..."
 bash tests/run-bats.sh tests/rules.bats
 bash tests/run-bats.sh tests/behaviour.bats
 
+# Guard Metrics Verification Stage
+ASSERT_COUNT=$(grep -cE '^\s*(assert|run )' tests/rules.bats tests/behaviour.bats | awk -F: '{s+=$2} END {print s}')
+REFUTE_COUNT=$(grep -cE 'refute|!\s' tests/behaviour.bats)
+echo "    -> Total Assert/Run statements: $ASSERT_COUNT"
+echo "    -> Behavioural Negative assertions (refute / !): $REFUTE_COUNT"
+if [ "$REFUTE_COUNT" -lt 5 ]; then
+    echo "FAIL: Negative assertions count ($REFUTE_COUNT) is below minimum bar 5!" >&2
+    exit 1
+fi
+
 echo "[6/6] Fuzzing Smoke Triage..."
 bash fuzz/soak-triage.sh quick
 

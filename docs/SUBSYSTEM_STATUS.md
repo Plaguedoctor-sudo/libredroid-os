@@ -17,7 +17,7 @@ This document explicitly defines the operational status, implementation boundari
 ## 2. MicroVM Hypervisor Orchestrator (`lrd-microvm`)
 * **Location:** `os/infra/domain/lrd-microvm`, `os/infra/domain/microvm.conf`
 * **Status:** `spec / reference supervisor`
-* **Pinned Hypervisor:** `cloud-hypervisor` (Rust-based, virtio-wayland / virtio-fs / virtio-vsock, minimal attack surface)
+* **Pinned Hypervisor:** `crosvm` (BSD-3-Clause, Rust-based, virtio-wayland / virtio-fs / virtio-vsock, minimal attack surface)
 * **Fallback VMM:** `qemu-system -M microvm`
 * **Unprivileged Fallback:** Bubblewrap namespace & Landlock LSM micro-jail supervisor
 * **Coherence Classification:**
