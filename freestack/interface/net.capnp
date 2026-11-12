@@ -1,6 +1,7 @@
 @0xa1b2c3d4e5f60011;
 # SPDX-License-Identifier: GPL-3.0-or-later
 using Common = import "common.capnp";
+using Lease = import "lease.capnp";
 
 enum Proto  { tcp @0; udp @1; icmp @2; }
 enum Action { accept @0; drop @1; }
@@ -22,11 +23,11 @@ struct Iface {
 }
 
 struct Status {
-  defaultDeny @0 :Bool;
-  egressBytes @1 :UInt64;
+  defaultDeny  @0 :Bool;
+  egressBytes  @1 :UInt64;
   ingressBytes @2 :UInt64;
-  modemOn @3 :Bool;
-  activeIface @4 :Text;
+  modemOn      @3 :Bool;
+  activeIface  @4 :Text;
 }
 
 interface Net {
@@ -34,7 +35,7 @@ interface Net {
   interfaces @1 (ctx :Common.Ctx) -> (list :List(Iface));
   up         @2 (ctx :Common.Ctx, name :Text) -> ();
   down       @3 (ctx :Common.Ctx, name :Text) -> ();
-  allow      @4 (ctx :Common.Ctx, rule :Rule) -> ();
+  allow      @4 (ctx :Common.Ctx, rule :Rule, lease :Lease.Lease, budget :Lease.Budget) -> ();
   deny       @5 (ctx :Common.Ctx, rule :Rule) -> ();
   rules      @6 (ctx :Common.Ctx) -> (list :List(Rule));
   meter      @7 (ctx :Common.Ctx) -> (rx :UInt64, tx :UInt64);

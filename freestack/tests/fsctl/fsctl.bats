@@ -7,6 +7,13 @@ setup() {
     export PATH="$FS_ROOT/tools:$PATH"
 }
 
+@test "fsctl version executes ctl.capnp Control.Server stub" {
+    run fsctl version --json
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "0.1.0-alpha" ]]
+    [[ "$output" =~ "schemaVersion" ]]
+}
+
 @test "fsctl net status returns valid JSON envelope" {
     run fsctl net status --json
     [ "$status" -eq 0 ]
