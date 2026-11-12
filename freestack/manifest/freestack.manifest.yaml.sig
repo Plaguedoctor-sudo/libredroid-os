@@ -1,15 +1,15 @@
 # holder=foundation-a
 untrusted comment: signature from minisign secret key
-RURTWq7JiXJSipp/iHkSNPE6/8JZVZBSL4Bq6Pq90GDNFxQ5Cgp15IvDOMhoqQLydGKp0tdnmTXs7XXGU2Yi6q+fE3kNiVkR6Qw=
+RURTWq7JiXJSirn7QmJ3o72bp5d2/MmB+oGXMvbemt+KNr2HyNMHRvULqdrPGoz7x2sRK5hQV42vU8naXU1saew07hZ7xyG62wo=
 trusted comment: timestamp
 WVT45bp7RcVGhBa/nL2JMHLGLlojyQFTn+13wg9c1LH2Wrj47JFr/428bUJfHxCi6VMCuZs7iMfcRBwLBiJdDA==
 # holder=foundation-b
 untrusted comment: signature from minisign secret key
-RUTWZht6KmqvHfgrwV+jQeboVX5zp8d9BHg5Fqp2SB9nCdr4aPfEhZ8D1syDVmyLgOH49v5XrYnmf9FazdIE/2O2nIVutWnrVAk=
+RUTWZht6KmqvHT4hdRtkCuqxQhY7aTSFej65D2AgjLqk5fFOwFkt4wpfIIjk+L78KYPc0QPo//MORWUtnF9eJnL+7jrAkcFjLwE=
 trusted comment: timestamp
 G3EjrzBsNqLsynIflTC39AaDygQg9oGNtazObYxKtbuYMu+7trB7GI0QXjCFzLrguKJxWO8xkcifnSPom7pGCA==
 # holder=foundation-auditor
 untrusted comment: signature from minisign secret key
-RUS42rhu2MhbvlkDFgR5MslUMwY+eep3bQ0vZmgLyc18o0JPPh/qqH51Q6LRLxsLPo82FSNL6IwsDdU88xEJVUVuX8ibZ5KAEQM=
+RUS42rhu2MhbvrphMGZAOj47oHc9LaTmcKpMzA7TFjiQXn4UJlnknWCZeQLj2qZdPV+V4T5PRarN92ouUxLv1m2JVi/vRL5yMwQ=
 trusted comment: timestamp
 BA3cQsdC/FuZdfV9rkBsrof0pk6JTLCax2DIAD58ElTs00uYo8HbQ+9RPmMvmYjR11YCren4JeRJmXQLa+9UCQ==

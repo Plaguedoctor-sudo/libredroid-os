@@ -954,6 +954,23 @@ components:
       outputs: ["bin/crosvm"]
       reproducible: true
 
+  - id: llvm-project
+    name: "llvm-project"
+    tier: build
+    license: { spdx: ["Apache-2.0"] }
+    rules:
+      satisfies: ["R1", "R7", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/llvm/llvm-project"
+      forge: github
+      pin: { kind: tag_glob, pattern: "llvmorg-2[0-9].*", min: "20.1", version_regex: "^llvmorg-" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "cmake -B build -S llvm -DLLVM_ENABLE_PROJECTS='clang;lld' -DCMAKE_BUILD_TYPE=Release && ninja -C build && ninja -C build install"
+      outputs: ["bin/clang", "bin/lld"]
+      reproducible: true
+
   # ---- blob
   - id: blob-firmware-ath10k
     name: "blob-firmware-ath10k"

@@ -39,7 +39,7 @@
         "properties": {
           "id": { "type": "string" },
           "name": { "type": "string" },
-          "tier": { "type": "string", "enum": ["core", "blob", "optional"] },
+          "tier": { "type": "string", "enum": ["core", "blob", "optional", "build"] },
           "license": {
             "type": "object",
             "required": ["spdx"],

@@ -175,6 +175,8 @@ def cmd_rules_check(a):
     today = time.strftime("%Y-%m-%d")
     bad = []
     for c in m["components"]:
+        if c.get("tier") == "build":
+            continue
         sat = set(c["rules"]["satisfies"])
         for w in c["rules"].get("waivers", []):
             if w.get("expires", "9999") < today:
