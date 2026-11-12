@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # SPDX-License-Identifier: GPL-3.0-or-later
-# FreeStack Conformance Acceptance Suite: A1 through A14 (Task 9.4)
+# FreeStack Constitutional Rules Suite: R1 through R14 (Task 9.4)
 # Fully de-hollowed: every test enforces non-zero file counts, separate fixtures, and verifiable guards.
 
 setup() {
@@ -11,7 +11,7 @@ setup() {
     }
 }
 
-@test "A1: Zero non-free binary blobs in core tier" {
+@test "R1: Zero non-free binary blobs in core tier" {
     manifest_lines=$(wc -l < manifest/freestack.manifest.yaml)
     [ -n "$manifest_lines" ]
     [ "$manifest_lines" -ge 50 ]
@@ -38,7 +38,7 @@ setup() {
     [[ "$output" =~ "waivers" ]]
 }
 
-@test "A2: First-boot setup requires zero online accounts" {
+@test "R2: First-boot setup requires zero online accounts" {
     setup_lines=$(wc -l < tools/fs-setup.py)
     [ -n "$setup_lines" ]
     [ "$setup_lines" -ge 20 ]
@@ -60,7 +60,7 @@ setup() {
     assert_output
 }
 
-@test "A3: Default-deny network egress policy enforced" {
+@test "R3: Default-deny network egress policy enforced" {
     [ -f config/nftables/default.nft ]
     nft_size=$(wc -c < config/nftables/default.nft)
     [ -n "$nft_size" ]
@@ -72,7 +72,7 @@ setup() {
     assert_output
 }
 
-@test "A4: Multi-party threshold root of trust verified (≥3 of 5)" {
+@test "R4: Multi-party threshold root of trust verified (≥3 of 5)" {
     key_count=$(find keys/ -name "*.pub" | wc -l)
     [ -n "$key_count" ]
     [ "$key_count" -ge 5 ]
@@ -95,7 +95,7 @@ setup() {
     [[ "$output" =~ "verified 3/3" ]]
 }
 
-@test "A5: Bit-for-bit build reproducibility verified" {
+@test "R5: Bit-for-bit build reproducibility verified" {
     [ -s docs/REPRO-DIFF-TAXONOMY.md ]
     tax_size=$(wc -c < docs/REPRO-DIFF-TAXONOMY.md)
     [ -n "$tax_size" ]
@@ -107,7 +107,7 @@ setup() {
     assert_output
 }
 
-@test "A6: Platform core conforms to GPL-3.0-or-later copyleft" {
+@test "R6: Platform core conforms to GPL-3.0-or-later copyleft" {
     lic_size=$(wc -c < LICENSE)
     [ -n "$lic_size" ]
     [ "$lic_size" -ge 100 ]
@@ -123,7 +123,7 @@ setup() {
     assert_output
 }
 
-@test "A7: Per-service SELinux confinement and neverallow guards" {
+@test "R7: Per-service SELinux confinement and neverallow guards" {
     [ -f config/selinux/services.te ]
     [ -f config/selinux/file_contexts ]
     [ -f config/selinux/neverallow.te ]
@@ -143,7 +143,7 @@ setup() {
     assert_output
 }
 
-@test "A8: Seccomp and namespace confinement active for services" {
+@test "R8: Seccomp and namespace confinement active for services" {
     seccomp_files=$(find config/seccomp -name "*.json" | wc -l)
     [ -n "$seccomp_files" ]
     [ "$seccomp_files" -ge 3 ]
@@ -169,7 +169,7 @@ setup() {
     assert_output
 }
 
-@test "A9: DM-Verity rootfs integrity and flipped-byte detection testable" {
+@test "R9: DM-Verity rootfs integrity and flipped-byte detection testable" {
     [ -s tests/verity-flip.bats ]
     vf_lines=$(wc -l < tests/verity-flip.bats)
     [ -n "$vf_lines" ]
@@ -181,7 +181,7 @@ setup() {
     assert_output
 }
 
-@test "A10: Hardware keystore isolation with TPM2 PCR sealing" {
+@test "R10: Hardware keystore isolation with TPM2 PCR sealing" {
     [ -s keystore/include/fskeystore.h ]
     [ -s tools/firstboot-keygen.sh ]
     
@@ -195,7 +195,7 @@ setup() {
     assert_output
 }
 
-@test "A11: Keyboard-only navigation across all surfaces & zero systemd-resolved/GMS" {
+@test "R11: Keyboard-only navigation across all surfaces & zero systemd-resolved/GMS" {
     [ -s docs/KEYBOARD-NAV.md ]
     nav_lines=$(wc -l < docs/KEYBOARD-NAV.md)
     [ -n "$nav_lines" ]
@@ -215,7 +215,7 @@ setup() {
     ! grep -rn "com.google.android.gms" config/ manifest/ 2>/dev/null
 }
 
-@test "A12: AT-SPI2 and Orca accessibility bridge integration" {
+@test "R12: AT-SPI2 and Orca accessibility bridge integration" {
     [ -s tools/fs-atk-bridge.c ]
     [ -s tests/a11y-smoke.md ]
     
@@ -234,7 +234,7 @@ setup() {
     [ -n "$output" ] || true
 }
 
-@test "A13: Zero default-on telemetry or background analytics pings" {
+@test "R13: Zero default-on telemetry or background analytics pings" {
     config_count=$(find config/ -type f | wc -l)
     [ -n "$config_count" ]
     [ "$config_count" -ge 5 ]
@@ -249,7 +249,7 @@ setup() {
     [ -z "$output" ]
 }
 
-@test "A14: Transparent A/B update attestation with Rekor / cosign" {
+@test "R14: Transparent A/B update attestation with Rekor / cosign" {
     [ -s docs/MIRRORS.md ]
     mirrors_lines=$(wc -l < docs/MIRRORS.md)
     [ -n "$mirrors_lines" ]
