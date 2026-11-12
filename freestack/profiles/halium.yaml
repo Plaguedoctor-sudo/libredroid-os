@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FreeStack-Halium Downstream Mobile Device Profile (§20)
+profile: halium
+description: "FreeStack-Halium cellular profile with quarantined vendor blob tier and libhybris userspace"
+conformance:
+  tier: "non-core"
+  copyleft: "GPL-3.0-or-later with bionic link exemption"
+components:
+  - id: musl-hybris-shim
+    tier: optional
+    license: { spdx: ["Apache-2.0"] }
+  - id: android-kernel-pin
+    tier: optional
+    version: "android-14-6.1"
+  - id: blob-vendor-qcom
+    tier: blob
+    quarantine: true
+    confinement: "bwrap-isolated-netns"

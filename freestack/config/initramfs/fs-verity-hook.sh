@@ -23,10 +23,17 @@ fi
 
 ROOT_HASH=$(cat "$ROOT_HASH_FILE")
 
+echo "Executing veritysetup verify before mount..."
+veritysetup verify "$SYS_DEV" "$VERITY_DEV" "$ROOT_HASH"
+
 echo "Executing veritysetup create $MAPPER_NAME $SYS_DEV $VERITY_DEV $ROOT_HASH --restart-on-corruption..."
 veritysetup create "$MAPPER_NAME" "$SYS_DEV" "$VERITY_DEV" "$ROOT_HASH" --restart-on-corruption
 
 echo "Mounting verified rootfs..."
 mount -o ro "/dev/mapper/$MAPPER_NAME" /newroot
+
+# Pivot root into verified system
+cd /newroot
+pivot_root . initrd || pivot_root /newroot /newroot/initrd
 
 echo "DM-Verity verified mount successful."

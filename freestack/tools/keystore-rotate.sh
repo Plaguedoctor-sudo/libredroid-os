@@ -3,8 +3,8 @@
 # FreeStack Keystore Rotation & Hardware Attestation Audit (Task 5.10)
 set -euo pipefail
 
-KEYSTORE_DIR="/var/lib/keystore"
-AUDIT_LOG="/var/log/freestack-keystore-audit.log"
+KEYSTORE_DIR="${KEYSTORE_DIR:-/var/lib/keystore}"
+AUDIT_LOG="${AUDIT_LOG:-/var/log/freestack-keystore-audit.log}"
 
 echo "=== FreeStack Hardware Keystore Rotation ==="
 

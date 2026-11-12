@@ -4,8 +4,11 @@
 
 set -euo pipefail
 
-DIST_DIR="${1:-freestack/dist}"
-KEY_DIR="${2:-freestack/keys}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+DIST_DIR="${1:-$FS_ROOT/dist}"
+KEY_DIR="${2:-$FS_ROOT/keys}"
 
 echo "=== FreeStack Sovereign Release Publisher ==="
 
@@ -15,7 +18,7 @@ if [ ! -d "$DIST_DIR" ]; then
 fi
 
 echo "[1/4] Signing release artifacts with threshold Minisign keys..."
-bash freestack/tools/sign-manifest.sh
+bash "$FS_ROOT/tools/sign-manifest.sh"
 
 echo "[2/4] Signing rootfs artifacts with cosign..."
 if command -v cosign >/dev/null 2>&1; then

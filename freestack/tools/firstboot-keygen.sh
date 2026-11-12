@@ -51,6 +51,19 @@ fi
 chmod 0400 "$KEY_OUT"
 echo "  ✔ Master key generated at $KEY_OUT"
 
+# Configure LUKS2 userdata volume if target partition is present
+USERDATA_PART="${USERDATA_PART:-/dev/disk/by-partlabel/userdata}"
+RECOVERY_KEY_FILE="$KEY_DEST/recovery-token.key"
+if [ -b "$USERDATA_PART" ] && command -v cryptsetup >/dev/null 2>&1; then
+    echo "Formatting userdata with LUKS2 Argon2id..."
+    cryptsetup luksFormat --type luks2 --pbkdf argon2id --batch-mode "$USERDATA_PART" "$KEY_OUT"
+    # Provision emergency recovery token in keyslot 1
+    dd if=/dev/urandom of="$RECOVERY_KEY_FILE" bs=32 count=1 status=none
+    chmod 0400 "$RECOVERY_KEY_FILE"
+    cryptsetup luksAddKey --key-slot 1 "$USERDATA_PART" "$RECOVERY_KEY_FILE" --key-file "$KEY_OUT"
+    echo "  ✔ LUKS2 keyslot 1 provisioned with emergency recovery token."
+fi
+
 # 4. TPM2 PCR sealing (if TPM2 device is present)
 TPM_SEALED="false"
 if [ -e /dev/tpmrm0 ] && (command -v fs-tpm-seal >/dev/null 2>&1 || command -v tpm2_createpolicy >/dev/null 2>&1); then

@@ -1,0 +1,50 @@
+# Arabic translation for FreeStack Core
+# SPDX-License-Identifier: GPL-3.0-or-later
+msgid ""
+msgstr ""
+"Project-Id-Version: FreeStack 0.1.0\n"
+"Report-Msgid-Bugs-To: sovereign@freestack.org\n"
+"POT-Creation-Date: 2026-11-10 14:00+0000\n"
+"PO-Revision-Date: 2026-11-13 00:00+0000\n"
+"Last-Translator: FreeStack Community <ar@freestack.org>\n"
+"Language-Team: Arabic\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: tools/fs-setup.py:25
+msgid "Welcome to FreeStack OS — Sovereign & Verified"
+msgstr "مرحبًا بكم في نظام FreeStack — سيادي وموثق"
+
+#: tools/fs-setup.py:32
+msgid "Offline-First Installation: No online account or telemetry required."
+msgstr "تثبيت محلي بالكامل: لا يتطلب حسابًا عبر الإنترنت أو بيانات قياس عن بُعد."
+
+#: tools/fs-setup.py:45
+msgid "Choose Root Encryption Passphrase"
+msgstr "اختر عبارة مرور التشفير الجذرية"
+
+#: tools/fs-setup.py:58
+msgid "Hardware Keystore Initialized (TPM2 PCR Sealed)"
+msgstr "تمت تهيئة مخزن المفاتيح العتادي (مختوم بـ TPM2 PCR)"
+
+#: tools/fs-permissions.py:40
+msgid "Network Access Request: Allow egress connection?"
+msgstr "طلب الوصول إلى الشبكة: هل تريد السماح بالاتصال الخارجي؟"
+
+#: tools/fs-permissions.py:48
+msgid "Deny (Default)"
+msgstr "رفض (افتراضي)"
+
+#: tools/fs-permissions.py:49
+msgid "Grant Once"
+msgstr "منح لمرة واحدة"
+
+#: tools/fs-permissions.py:50
+msgid "Grant Always"
+msgstr "منح دائمًا"
+
+#: tools/fs-permissions.py:65
+msgid "Keystore Access Request: Application requests signing capability"
+msgstr "طلب وصول لمخزن المفاتيح: يطلب التطبيق قدرة التوقيع"
