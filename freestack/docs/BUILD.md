@@ -138,3 +138,30 @@ Produces:
 1. The staged filesystem in `out/root-x200-libreboot/` can be written to an encrypted partition (`ext4` over LUKS2) or packaged as an initramfs payload for coreboot/GRUB.
 2. The init binary `/bin/dinit` launches default services defined in `/etc/dinit.d/boot.service`.
 3. Strict nftables packet filtering is applied immediately via `/etc/default.nft`.
+
+---
+
+## Multi-party rebuild identity
+
+Phase B requires that the two builders differ in every dimension that could
+mask non-determinism. Recorded at rebuild time, published per release.
+
+| Dimension | builder-alpha | builder-beta | Differs |
+|---|---|---|---|
+| `machine-id` | `alpha` | `beta-independent` | yes |
+| `uname -r` | `7.0.0-42-generic` | `6.14.0-37-generic` | yes |
+| `nproc` | 4 | 2 | yes |
+| root filesystem | `ext4` (`stat -f -c %T /`: `ext2/ext3`) | `tmpfs` (`stat -f -c %T /`: `tmpfs`) | yes |
+| `TZ` | `UTC` | `Asia/Tokyo` | yes |
+| `LANG` | `C.UTF-8` | `de_DE.UTF-8` | yes |
+| `umask` | `022` | `077` | yes |
+| `SOURCE_DATE_EPOCH` | identical | identical | intended |
+
+`repro-verify.sh` refuses to run when both identities match unless
+`--allow-same-host` is passed. A14 asserts divergence before comparing hashes.
+
+Root filesystem verification:
+- `builder-alpha`: `stat -f -c %T /` $\to$ `ext2/ext3` (`findmnt` $\to$ `ext4`)
+- `builder-beta`: `stat -f -c %T /` $\to$ `tmpfs` (isolated QEMU microVM rootfs)
+Divergence confirmed: root filesystems differ.
+
