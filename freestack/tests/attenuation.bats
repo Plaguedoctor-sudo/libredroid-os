@@ -114,3 +114,42 @@ except AttenuationError as e:
     [ "$status" -eq 69 ]
     refute [ "$status" -eq 0 ]
 }
+
+@test "CapAtten: Hardware revoke-all switch terminates capability class and rejects unknown class with exit 65" {
+    run bash tools/fs-revoke.sh net
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "All network leases severed" ]]
+
+    run bash tools/fs-revoke.sh unknown_invalid_class
+    [ "$status" -eq 65 ]
+    refute [ "$status" -eq 0 ]
+}
+
+@test "CapAtten: Kernel-driven hardware indicator LED cannot be spoofed by unprivileged caller" {
+    run bash tools/fs-indicator-led.sh camera on
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "ACTIVE" ]]
+
+    run bash tools/fs-indicator-led.sh camera status
+    [ "$status" -eq 0 ]
+    [ "$output" = "ACTIVE" ]
+
+    run bash tools/fs-indicator-led.sh camera off
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "OFF" ]]
+}
+
+@test "CapAtten: Deterministic replay harness asserts trace reproduction and detects divergent digest" {
+    run python3 tools/fs-replay-harness.py tests/fixtures/trace_sample.json
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Deterministic trace replay verified" ]]
+
+    # Corrupt trace temporarily to verify negative assertion
+    TMP_CORRUPT=$(mktemp /tmp/fs-trace-corrupt-XXXXXX.json)
+    sed 's/0.1.0-alpha/0.1.0-corrupt/g' tests/fixtures/trace_sample.json > "$TMP_CORRUPT"
+    run python3 tools/fs-replay-harness.py "$TMP_CORRUPT"
+    rm -f "$TMP_CORRUPT"
+    [ "$status" -ne 0 ]
+    refute [ "$status" -eq 0 ]
+    [[ "$output" =~ "Deterministic replay diverged" ]]
+}
