@@ -1,0 +1,3 @@
+id: fixture-blob
+profile: core
+components: [blob-firmware-ath10k]

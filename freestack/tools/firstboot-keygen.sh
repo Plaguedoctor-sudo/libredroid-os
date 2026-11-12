@@ -53,9 +53,13 @@ echo "  ✔ Master key generated at $KEY_OUT"
 
 # 4. TPM2 PCR sealing (if TPM2 device is present)
 TPM_SEALED="false"
-if [ -e /dev/tpmrm0 ] && command -v tpm2_createpolicy >/dev/null 2>&1; then
+if [ -e /dev/tpmrm0 ] && (command -v fs-tpm-seal >/dev/null 2>&1 || command -v tpm2_createpolicy >/dev/null 2>&1); then
     echo "[4/5] Sealing root volume key against TPM2 PCRs (0,2,4,7)..."
-    tpm2_createpolicy --policy-pcr -l sha256:0,2,4,7 -f "$TPM_POLICY_DIGEST" || true
+    if command -v fs-tpm-seal >/dev/null 2>&1; then
+        fs-tpm-seal --policy-pcr -l sha256:0,2,4,7 -f "$TPM_POLICY_DIGEST" || true
+    else
+        tpm2_createpolicy --policy-pcr -l sha256:0,2,4,7 -f "$TPM_POLICY_DIGEST" || true
+    fi
     if [ -f "$TPM_POLICY_DIGEST" ]; then
         TPM_SEALED="true"
         echo "  ✔ TPM2 PCR policy sealed to $TPM_POLICY_DIGEST"

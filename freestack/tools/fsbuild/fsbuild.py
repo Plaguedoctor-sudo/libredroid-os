@@ -533,14 +533,23 @@ def cmd_build(a):
 
 def cmd_stage(a):
     m = load_manifest()
-    tgt = next((t for t in m["targets"] if t["id"] == a.target), None)
+    tgt = next((t for t in m.get("targets", []) if t["id"] == a.target), None)
+    if not tgt:
+        fixture_p = ROOT / "tests" / "fixtures" / f"{a.target}.yaml"
+        if Path(a.target).is_file():
+            tgt = yaml.safe_load(Path(a.target).read_text())
+        elif fixture_p.is_file():
+            tgt = yaml.safe_load(fixture_p.read_text())
     if not tgt:
         die(EXIT["schema"], f"unknown target {a.target}")
     root = OUT / f"root-{a.target}"
     shutil.rmtree(root, ignore_errors=True)
     root.mkdir(parents=True, exist_ok=True)
     blobs = []
+    target_components = tgt.get("components")
     for c in m["components"]:
+        if target_components is not None and c["id"] not in target_components:
+            continue
         if c["tier"] == "blob":
             if not a.allow_blobs:
                 continue
@@ -597,6 +606,28 @@ def cmd_stage(a):
             lines.append(f"component={b_id}\tvendor={vendor}\tlicense={spdx}\tsource_available=false\tquarantined=true")
         (root / "etc/blob-manifest.txt").write_text("\n".join(lines) + "\n")
         print(f"blob tier: {len(blobs)} entries -> etc/blob-manifest.txt")
+
+    # Reproducible filesystem metadata normalization (SOURCE_DATE_EPOCH & fixed permissions)
+    sde = int(os.environ.get("SOURCE_DATE_EPOCH", 1700000000))
+    for p in sorted(root.rglob("*")):
+        if p.is_symlink():
+            continue
+        if p.is_dir():
+            os.chmod(p, 0o755)
+        elif os.access(p, os.X_OK):
+            os.chmod(p, 0o755)
+        else:
+            os.chmod(p, 0o644)
+        try:
+            os.utime(p, (sde, sde), follow_symlinks=False)
+        except OSError:
+            pass
+    try:
+        os.chmod(root, 0o755)
+        os.utime(root, (sde, sde))
+    except OSError:
+        pass
+
     print(f"staged {a.target} -> {root}")
 
 
