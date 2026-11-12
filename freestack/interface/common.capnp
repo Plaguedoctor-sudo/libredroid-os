@@ -51,6 +51,14 @@ enum Cap {
   app         @15;
   update      @16;
   perm        @17;
+  infer       @18;
+  agent       @19;
+  ambient     @20;
+  sync        @21;
+  continuity  @22;
+  caption     @23;
+  translate   @24;
+  emu         @25;
 }
 
 enum Level { debug @0; info @1; warn @2; error @3; }

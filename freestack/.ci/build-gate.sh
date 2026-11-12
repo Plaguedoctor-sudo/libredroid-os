@@ -23,15 +23,16 @@ python3 tools/fsbuild/fsbuild.py stage --target x200-libreboot --profile native
 echo "[4/6] Python Integration & Security Tests..."
 pytest tests/test_freestack.py
 
-echo "[5/7] Bats Constitutional Rules (R1-R14) & Behavioural (A1-A15) Suites..."
+echo "[5/7] Bats Constitutional Rules (R1-R14), Behavioural (A1-A15), & Attenuation Suites..."
 bash tests/run-bats.sh tests/rules.bats
 bash tests/run-bats.sh tests/behaviour.bats
+bash tests/run-bats.sh tests/attenuation.bats
 
 # Guard Metrics Verification Stage
-ASSERT_COUNT=$(grep -cE '^\s*(assert|run )' tests/rules.bats tests/behaviour.bats | awk -F: '{s+=$2} END {print s}')
-REFUTE_COUNT=$(grep -cE 'refute|!\s' tests/behaviour.bats)
+ASSERT_COUNT=$(grep -cE '^\s*(assert|run )' tests/rules.bats tests/behaviour.bats tests/attenuation.bats | awk -F: '{s+=$2} END {print s}')
+REFUTE_COUNT=$(grep -cE 'refute|!\s' tests/behaviour.bats tests/attenuation.bats | awk -F: '{s+=$2} END {print s}')
 echo "    -> Total Assert/Run statements: $ASSERT_COUNT"
-echo "    -> Behavioural Negative assertions (refute / !): $REFUTE_COUNT"
+echo "    -> Behavioural & Attenuation Negative assertions (refute / !): $REFUTE_COUNT"
 if [ "$REFUTE_COUNT" -lt 16 ]; then
     echo "FAIL: Negative assertions count ($REFUTE_COUNT) is below mandatory bar 16!" >&2
     exit 1

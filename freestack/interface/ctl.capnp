@@ -15,6 +15,9 @@ using Update = import "update.capnp";
 using Key = import "key.capnp";
 using A11y = import "a11y.capnp";
 using I18n = import "i18n.capnp";
+using Agent = import "agent.capnp";
+using Infer = import "infer.capnp";
+using Ambient = import "ambient.capnp";
 
 # Capability distribution. Each accessor returns an interface handle the caller may keep
 # only if it holds the corresponding Cap in its token.
@@ -34,4 +37,7 @@ interface Control {
   a11y     @12 (ctx :Common.Ctx) -> (cap :A11y.A11y);
   i18n     @13 (ctx :Common.Ctx) -> (cap :I18n.I18n);
   version  @14 (ctx :Common.Ctx) -> (v :Text);
+  agent    @15 (ctx :Common.Ctx) -> (cap :Agent.Agent);
+  infer    @16 (ctx :Common.Ctx) -> (cap :Infer.Infer);
+  ambient  @17 (ctx :Common.Ctx) -> (cap :Ambient.Ambient);
 }
