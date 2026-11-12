@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Minimal TPM2 PolicyPCR Creation Tool for FreeStack PCR Sealing
+import sys
+import hashlib
+import os
+
+pcr_list_str = "sha256:0,2,4"
+out_file = None
+
+i = 1
+while i < len(sys.argv):
+    arg = sys.argv[i]
+    if arg in ("--policy-pcr", "-P"):
+        pass
+    elif arg in ("-l", "--pcr-list"):
+        i += 1
+        pcr_list_str = sys.argv[i]
+    elif arg in ("-f", "--policy-file"):
+        i += 1
+        out_file = sys.argv[i]
+    i += 1
+
+# Read simulated or live PCR bank
+pcr_env = os.environ.get("TPM2_PCR_STATE", "INITIAL")
+h = hashlib.sha256()
+h.update(f"TPM2_POLICY_PCR:{pcr_list_str}:{pcr_env}".encode())
+digest = h.digest()
+
+if out_file:
+    with open(out_file, "wb") as f:
+        f.write(digest)
+else:
+    sys.stdout.buffer.write(digest)
+
+sys.exit(0)

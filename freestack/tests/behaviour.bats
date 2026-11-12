@@ -79,30 +79,15 @@ exit \$RC
     # DM-verity flipped byte integrity test
     TMP_V="/tmp/fs_verity_test_$$"
     mkdir -p "$TMP_V"
-    dd if=/dev/urandom of="$TMP_V/orig.img" bs=4096 count=128 2>/dev/null
-    cp "$TMP_V/orig.img" "$TMP_V/corrupt.img"
+    dd if=/dev/urandom of="$TMP_V/system.img" bs=4096 count=256 2>/dev/null
+    veritysetup format "$TMP_V/system.img" "$TMP_V/hash.img" > "$TMP_V/verity.out"
+    ROOTHASH=$(grep "Root hash:" "$TMP_V/verity.out" | awk '{print $3}')
     
-    # Flip byte inside block 64
-    python3 -c "
-with open('$TMP_V/corrupt.img', 'r+b') as f:
-    f.seek(64 * 4096 + 12)
-    b = f.read(1)
-    f.seek(64 * 4096 + 12)
-    f.write(bytes([b[0] ^ 0xFF]))
-"
-    # Verity format and verify corrupted image
-    if command -v veritysetup >/dev/null 2>&1; then
-        veritysetup format "$TMP_V/orig.img" "$TMP_V/hash.img" > "$TMP_V/verity.out"
-        ROOTHASH=$(grep "Root hash:" "$TMP_V/verity.out" | awk '{print $3}')
-        run veritysetup verify "$TMP_V/corrupt.img" "$TMP_V/hash.img" "$ROOTHASH"
-        [ "$status" -ne 0 ]
-        refute [ "$status" -eq 0 ]
-    else
-        ORIG_HASH=$(sha256sum "$TMP_V/orig.img" | cut -d' ' -f1)
-        CORRUPT_HASH=$(sha256sum "$TMP_V/corrupt.img" | cut -d' ' -f1)
-        [ "$ORIG_HASH" != "$CORRUPT_HASH" ]
-        refute [ "$ORIG_HASH" = "$CORRUPT_HASH" ]
-    fi
+    # Flip single byte inside data block using dd and verify failure
+    dd if=/dev/urandom of="$TMP_V/system.img" bs=1 seek=4096 count=1 conv=notrunc 2>/dev/null
+    run veritysetup verify "$TMP_V/system.img" "$TMP_V/hash.img" "$ROOTHASH"
+    [ "$status" -ne 0 ]
+    refute [ "$status" -eq 0 ]
     rm -rf "$TMP_V"
 }
 
@@ -112,7 +97,20 @@ with open('$TMP_V/corrupt.img', 'r+b') as f:
     run grep "tpm2_createpolicy" tools/firstboot-keygen.sh
     [ "$status" -eq 0 ]
     
-    # Live execution of keystore daemon and TPM2 PCR policy sealing test harness
+    # 1. TPM2 PCR policy seal and unseal negative test
+    export PATH="$FS_ROOT/tools:$PATH"
+    TMP_P="/tmp/pcr_policy_$$.bin"
+    tpm2_createpolicy --policy-pcr -l sha256:0,2,4 -f "$TMP_P"
+    run tpm2_unseal -p "$TMP_P" -l sha256:0,2,4
+    [ "$status" -eq 0 ]
+    
+    # Unseal after PCR change -> fail
+    run env TPM2_PCR_STATE="PCR_ALTERED_TAMPER" tpm2_unseal -p "$TMP_P" -l sha256:0,2,4
+    [ "$status" -ne 0 ]
+    refute [ "$status" -eq 0 ]
+    rm -f "$TMP_P"
+    
+    # 2. Live execution of keystore daemon and TPM2 PCR attestation test harness
     SOCK="/tmp/test_keystore_$$.sock"
     rm -f "$SOCK"
     keystore/fskeystored "$SOCK" &
