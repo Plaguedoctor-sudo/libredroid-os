@@ -29,12 +29,15 @@ echo "[1/4] Executing Builder Alpha (Env: TZ=UTC, umask=0022, ID=alpha)..."
     cp -r out/root-x200-libreboot "$BUILD_A/"
 )
 
-echo "[2/4] Executing Builder Beta (Env: TZ=Asia/Tokyo, umask=0022, ID=beta)..."
+echo "[2/4] Executing Builder Beta (Env: TZ=Asia/Tokyo, umask=0077, LANG=en_GB.utf8, ID=beta-independent)..."
 (
     export TZ="Asia/Tokyo"
-    export BUILDER_ID="beta"
-    export LANG="en_US.UTF-8"
-    umask 0002
+    export BUILDER_ID="beta-independent"
+    export LANG="en_GB.utf8"
+    export LC_ALL="en_GB.utf8"
+    export MFLAGS="-j1"
+    export NPROC=1
+    umask 0077
     cd "$FS_ROOT" || exit 1
     python3 tools/fsbuild/fsbuild.py stage --target x200-libreboot --profile native
     cp -r out/root-x200-libreboot "$BUILD_B/"
@@ -90,7 +93,9 @@ cat <<EOF > "$FS_ROOT/dist/rebuild-attestation.json"
     {
       "id": "builder-beta",
       "tz": "Asia/Tokyo",
-      "umask": "0002"
+      "umask": "0077",
+      "lang": "en_GB.utf8",
+      "concurrency": 1
     }
   ],
   "target": "x200-libreboot",

@@ -42,6 +42,7 @@ done
 echo "[*] Executing soak iteration..."
 TOTAL_EXECS=0
 TOTAL_CRASHES=0
+START_TIME=$(date +%s)
 
 for f in "${FUZZERS[@]:-}"; do
     BIN="$SCRIPT_DIR/${f}_bin"
@@ -58,13 +59,28 @@ for f in "${FUZZERS[@]:-}"; do
     fi
 done
 
-# Generate Triage Report
+END_TIME=$(date +%s)
+ELAPSED=$((END_TIME - START_TIME))
+[ "$ELAPSED" -eq 0 ] && ELAPSED=1
+RATE=$((TOTAL_EXECS / ELAPSED))
+
+CORPUS_FILES=$(find "$CORPUS_DIR" -type f | wc -l)
+CORPUS_BYTES=$(du -sb "$CORPUS_DIR" 2>/dev/null | cut -f1 || echo 0)
+
+# Generate Triage Report with rate, corpus metrics, and tier qualification
 REPORT_FILE="$REPORT_DIR/soak-triage-$(date +%Y%m%d-%H%M%S).json"
 cat <<EOF > "$REPORT_FILE"
 {
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "duration_configured": "$DURATION",
+  "tier": "$([ "$DURATION" = "quick" ] && echo "smoke_test" || echo "deep_soak")",
   "total_executions": $TOTAL_EXECS,
+  "execution_rate_per_sec": $RATE,
+  "elapsed_seconds": $ELAPSED,
+  "corpus_inputs_count": $CORPUS_FILES,
+  "corpus_total_bytes": $CORPUS_BYTES,
+  "target_release_threshold": 10000000,
+  "release_ready_fuzz_claim": $([ "$TOTAL_EXECS" -ge 10000000 ] && echo "true" || echo "false"),
   "unique_crashes": $TOTAL_CRASHES,
   "severity_breakdown": {
     "P1_exploitable": 0,
