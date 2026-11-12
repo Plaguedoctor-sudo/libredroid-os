@@ -1,0 +1,9 @@
+name: freestack-core
+version: 1.0.0
+tier: core
+license: GPL-3.0-or-later
+components:
+  - name: musl
+    version: 1.2.4
+  - name: toybox
+    version: 0.8.11

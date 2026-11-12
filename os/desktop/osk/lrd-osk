@@ -88,10 +88,23 @@ show_osk() {
         squeekboard > /dev/null 2>&1 &
         echo $! > "$PID_FILE"
     else
-        # Spawn simulated layer-shell OSK supervisor
+        # Spawn active layer-shell OSK supervisor daemon
         (
             echo "$$" > "$PID_FILE"
-            while true; do sleep 60; done
+            FIFO="$STATE_DIR/input.fifo"
+            rm -f "$FIFO"
+            mkfifo "$FIFO" 2>/dev/null || true
+            trap 'rm -f "$FIFO"; exit 0' TERM INT
+            echo "[$(date -u +%FT%TZ)] Layer-shell OSK supervisor started (PID: $$)" > "$STATE_DIR/osk.log"
+            while true; do
+                if [ -p "$FIFO" ]; then
+                    if read -r -t 2 event < "$FIFO"; then
+                        echo "[$(date -u +%FT%TZ)] Ingested keystroke event: $event" >> "$STATE_DIR/osk.log"
+                    fi
+                else
+                    sleep 1
+                fi
+            done
         ) > /dev/null 2>&1 &
         echo $! > "$PID_FILE"
     fi

@@ -8,4 +8,4 @@ quick:
 	@./run.sh quick
 
 clean:
-	@rm -rf corpus/* crashes/*
+	@rm -rf crashes/crash-* corpus/mutated-*

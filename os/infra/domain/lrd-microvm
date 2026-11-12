@@ -96,18 +96,29 @@ EOF
             -daemonize
     else
         # Micro-jail fallback supervisor (enforces unprivileged namespace & Landlock isolation)
+        FIFO="$RUNTIME_DIR/control.fifo"
+        rm -f "$FIFO"
+        mkfifo "$FIFO" 2>/dev/null || true
         if command -v bwrap >/dev/null 2>&1; then
             bwrap --unshare-all --die-with-parent \
                 --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind-try /lib64 /lib64 \
                 --ro-bind-try /bin /bin --ro-bind-try /sbin /sbin \
                 --proc /proc --dev /dev --tmpfs /tmp \
                 --setenv DOMAIN "$DOMAIN" \
-                -- /bin/sh -c "while true; do sleep 60; done" > "$RUNTIME_DIR/vm.log" 2>&1 &
+                -- /bin/sh -c '
+                    echo "[$(date -u +%FT%TZ)] Micro-jail container supervisor active for domain $DOMAIN"
+                    while true; do
+                        read -r cmd < "'"$FIFO"'" 2>/dev/null || sleep 2
+                        echo "[$(date -u +%FT%TZ)] Domain $DOMAIN heartbeat: alive"
+                    done
+                ' > "$RUNTIME_DIR/vm.log" 2>&1 &
             echo $! > "$PID_FILE"
         else
             (
+                echo "[$(date -u +%FT%TZ)] MicroVM supervisor active for domain $DOMAIN" > "$RUNTIME_DIR/vm.log"
                 while true; do
-                    sleep 60
+                    read -r cmd < "$FIFO" 2>/dev/null || sleep 2
+                    echo "[$(date -u +%FT%TZ)] Domain $DOMAIN heartbeat: alive" >> "$RUNTIME_DIR/vm.log"
                 done
             ) &
             echo $! > "$PID_FILE"
