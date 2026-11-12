@@ -79,3 +79,16 @@ Version 0.1. Reviewed each release. Superseded versions stay in git.
 - The user verifies the published hashes at least once.
 
 If an assumption breaks, the model breaks. Say so in the release notes.
+
+## 7. Capability & Agentic Threat Model Additions
+
+| Adversary | New Surface | Mitigation |
+|---|---|---|
+| Malicious app with infer | Corpus exfiltration via output | `localOnly`, output token budget, transparent transcript |
+| Malicious agent | Deputy confusion & runaway loop | Delegation depth $\le 2$, digest-bound `Confirm`, per-step budget |
+| Malicious plugin | Supply chain compromise | Signed manifest, declared-only caps, wasm component sandbox |
+| Network observer | Relay attack on vehicle/access | UWB distance bounding, challenge freshness, single-use lease |
+| Model provider | Swapped weights or untrusted training | Verity on weights, signed provenance, signer pin |
+| Curious health app | Long-term inference & profiling | Per-metric resampling, on-device derivation, no upload by default |
+| Hostile mesh peer | Traffic analysis | Fixed cell sizes, bytes/day budget cap |
+| Enclave operator | Opaque confidential compute | Remote attestation verification before job submit |

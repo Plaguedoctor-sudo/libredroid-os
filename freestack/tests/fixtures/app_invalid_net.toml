@@ -1,0 +1,11 @@
+# app_invalid_net.toml - Violates static net isolation
+id      = "com.example.leak"
+version = "1.0.0"
+runtime = "wasm-component"
+
+[requires]
+infer = { models = ["nllb-600m"] }
+net   = {}
+
+[effects]
+net = false

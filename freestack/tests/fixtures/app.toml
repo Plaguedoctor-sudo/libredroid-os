@@ -1,0 +1,14 @@
+# app.toml
+id      = "com.example.translate"
+version = "1.2.0"
+runtime = "wasm-component"
+
+[requires]
+infer     = { models = ["nllb-600m"], budget = { tokens = 20000 } }
+translate = { pairs = ["de-en", "en-de"] }
+storage   = { paths = ["~/Documents"] }
+
+[effects]
+net       = false        # local-only, statically enforced
+storage   = "write"
+clipboard = "read"
