@@ -23,7 +23,7 @@ python3 tools/fsbuild/fsbuild.py stage --target x200-libreboot --profile native
 echo "[4/6] Python Integration & Security Tests..."
 pytest tests/test_freestack.py
 
-echo "[5/6] Bats Constitutional Rules (R1-R14) & Behavioural (A1-A14) Suites..."
+echo "[5/7] Bats Constitutional Rules (R1-R14) & Behavioural (A1-A15) Suites..."
 bash tests/run-bats.sh tests/rules.bats
 bash tests/run-bats.sh tests/behaviour.bats
 
@@ -32,12 +32,15 @@ ASSERT_COUNT=$(grep -cE '^\s*(assert|run )' tests/rules.bats tests/behaviour.bat
 REFUTE_COUNT=$(grep -cE 'refute|!\s' tests/behaviour.bats)
 echo "    -> Total Assert/Run statements: $ASSERT_COUNT"
 echo "    -> Behavioural Negative assertions (refute / !): $REFUTE_COUNT"
-if [ "$REFUTE_COUNT" -lt 5 ]; then
-    echo "FAIL: Negative assertions count ($REFUTE_COUNT) is below minimum bar 5!" >&2
+if [ "$REFUTE_COUNT" -lt 16 ]; then
+    echo "FAIL: Negative assertions count ($REFUTE_COUNT) is below mandatory bar 16!" >&2
     exit 1
 fi
 
-echo "[6/6] Fuzzing Smoke Triage..."
+echo "[6/7] Fuzzing Smoke Triage..."
 bash fuzz/soak-triage.sh quick
+
+echo "[7/7] Multi-Party Independent Reproducibility & Diffoscope Verification..."
+bash .ci/repro-verify.sh
 
 echo "✔ All FreeStack CI quality gates passed successfully."

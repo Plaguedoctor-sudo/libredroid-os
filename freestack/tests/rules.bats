@@ -198,7 +198,7 @@ setup() {
     [ -n "$kg_lines" ]
     [ "$kg_lines" -ge 20 ]
     
-    run grep "tpm2_createpolicy" tools/firstboot-keygen.sh
+    run grep -E "fs-tpm-seal|tpm2_createpolicy" tools/firstboot-keygen.sh
     [ "$status" -eq 0 ]
     [ -n "$output" ]
     assert_output

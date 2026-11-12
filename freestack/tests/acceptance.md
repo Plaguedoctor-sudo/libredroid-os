@@ -3,7 +3,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 This document defines the formal acceptance criteria required for every FreeStack release.
 Verification is partitioned into two dedicated suites executed in CI:
-1. `tests/behaviour.bats` — Live behavioural verification, negative constraint assertions, and fault injection (A1–A14).
+1. `tests/behaviour.bats` — Live behavioural verification, negative constraint assertions, and fault injection (A1–A15).
 2. `tests/rules.bats` — Constitutional ruleset and static topology conformance (R1–R14).
 
 ---
@@ -18,14 +18,15 @@ Verification is partitioned into two dedicated suites executed in CI:
 | **A4** | Expired Waiver Rejection | Any waiver whose expiry date precedes the current date must fail rule check with exit 43. | `FSBUILD_MANIFEST=tests/fixtures/manifest_expired_waiver.yaml fsbuild rules check` -> exit 43 |
 | **A5** | Isolated Build Network Egress | Build sandbox must deny external network access without an explicit mirror declaration. | `bwrap --unshare-all curl ...` -> connection failure (exit non-zero) |
 | **A6** | Default-Deny Egress | Process running without an explicit routing rule is blocked from accessing external endpoints. | `unshare -r -n curl ... http://1.1.1.1` -> connection refused (exit non-zero) |
-| **A7** | Explicit Route Clearance | Process in network namespace with configured local/loopback route communicates successfully. | `unshare -r -n ... lo up && curl localhost` -> exit 0 |
-| **A8** | Core Stage Blob Omission | Rootfs staging without `--allow-blobs` must omit all blob artifacts and delete `etc/blob-manifest.txt`. | `fsbuild stage --target x200-libreboot` -> assert absence of `blob-manifest.txt` |
-| **A9** | Blob Manifest & DM-Verity Fault Injection | Staging with `--allow-blobs` records quarantined blobs in `etc/blob-manifest.txt`; flipped block fails DM-Verity verification. | `dd` block byte flip -> `veritysetup verify` fails (exit non-zero) |
-| **A10**| Keystore PCR Sealing & Attestation | Cryptographic keys managed by `fskeystored` daemon with TPM2 PCR sealing and attestation. | Live execution of `keystore/test_keystore` exercising Ed25519, crypto, and PCR attestation statement |
+| **A7** | Explicit Egress Clearance | Process with explicit nftables allow rule communicates successfully after default drop blocks unallowed traffic. | `nft add rule ... accept` -> verified connection drops before rule and succeeds after |
+| **A8** | Blob Omission Without Flag | Rootfs staging without `--allow-blobs` omits all blob components and deletes `etc/blob-manifest.txt`. | `fsbuild stage --target fixture-blob --profile core` -> assert absence of `blob-manifest.txt` |
+| **A9** | Blob Manifest Generation | Staging target with `--allow-blobs` records quarantined blobs in `etc/blob-manifest.txt` with vendor and license. | `fsbuild stage --target fixture-blob --profile core --allow-blobs` -> `blob-manifest.txt` contains entry |
+| **A10**| Keystore PCR Sealing | Cryptographic keys managed by `fskeystored` daemon with TPM2 PCR sealing and unseal failure upon state tampering. | `fs-tpm-seal` + `fs-tpm-unseal` with altered PCR state -> exit non-zero (refute exit 0) |
 | **A11**| Staged Root Anti-Tamper | Staged target rootfs contains 0 instances of `systemd-resolved` or Google Mobile Services (GMS). | Negative grep across populated staged rootfs |
 | **A12**| Zero Default Telemetry | System and overlay configuration contains 0 default-on analytics or tracking flags. | Negative recursive audit across `config/` |
 | **A13**| Universal Daemon Sandboxing | Every long-running process unit in `config/dinit/` executes inside a hardened bubblewrap sandbox. | Audit all `type = process` service definitions for `bwrap` |
-| **A14**| Bit-for-Bit Independent Rebuild | Multi-party independent rebuild under varying umask, timezone, and locale yields bit-for-bit identical hashes. | `tests/repro-rebuild.sh` -> zero diffs confirmed |
+| **A14**| Bit-for-Bit Independent Rebuild | Multi-party independent rebuild under varying machine identities, umask, timezone, and locale yields bit-for-bit identical hashes. | `tests/repro-rebuild.sh` -> zero diffs confirmed across independent builders |
+| **A15**| DM-Verity Fault Injection | Bit flipping inside data block is detected and rejected by kernel hash-tree verification. | `dd` block byte flip -> `veritysetup verify` fails (exit non-zero) |
 
 ---
 

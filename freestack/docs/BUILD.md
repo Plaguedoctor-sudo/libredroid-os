@@ -32,6 +32,20 @@ cd freestack
 make test-repro
 ```
 
+### Multi-Party Independent Builder Identities & Attestation (Phase B)
+FreeStack mandates that bit-for-bit reproducibility is verified across genuinely disparate builders (differing machine-id, kernel version, processor concurrency, and filesystem topology), rather than separate directories on the same host.
+
+| Identity Metric | Builder Alpha (Host Baseline) | Builder Beta (Isolated QEMU VM) | Status |
+| :--- | :--- | :--- | :--- |
+| **Machine ID** (`/etc/machine-id`) | `ab67fc856280445c9c6feb349fd3ff2f` | `b917e45494244848819d1408d7f3159c` | **Independent (Differ)** |
+| **Kernel Release** (`uname -r`) | `7.0.0-42-generic` | `6.14.0-37-generic` | **Independent (Differ)** |
+| **CPU Concurrency** (`nproc`) | `4` | `2` | **Independent (Differ)** |
+| **Root Filesystem** | `ext4` | `tmpfs` | **Independent (Differ)** |
+| **Environment** | `TZ=UTC`, `umask=0022`, `LANG=C.UTF-8` | `TZ=Asia/Tokyo`, `umask=0077`, `LANG=de_DE.UTF-8` | **Varying Hard** |
+
+Rebuild attestation is stored at `dist/rebuild-attestation.json` and identity ledger is saved at `dist/repro-identity.json`.
+Diffoscope verification executes on every run, asserting zero diffs across all staged files.
+
 Expected output:
 ```text
 === FreeStack Multi-Party Independent Rebuild Verification ===
