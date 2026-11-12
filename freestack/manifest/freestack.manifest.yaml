@@ -903,6 +903,41 @@ components:
       outputs: ["lib/libtss2-tctildr.so"]
       reproducible: true
 
+  # ---- capability ipc & wasm runtime
+  - id: capnproto
+    name: "capnproto"
+    tier: core
+    license: { spdx: ["MIT"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/capnproto/capnproto"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v1.*", min: "1.0", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) && install -D -m 755 build/c++/src/capnp/capnp /out/bin/capnp"
+      outputs: ["bin/capnp"]
+      reproducible: true
+
+  - id: wasmtime
+    name: "wasmtime"
+    tier: core
+    license: { spdx: ["Apache-2.0"] }
+    rules:
+      satisfies: ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R11", "R12"]
+    upstream:
+      vcs: git
+      repo: "https://github.com/bytecodealliance/wasmtime"
+      forge: github
+      pin: { kind: tag_glob, pattern: "v3[0-9].*", min: "30.0", version_regex: "^v" }
+    verify: { sha256: "0000000000000000000000000000000000000000000000000000000000000000" }
+    build:
+      entrypoint: "cargo build --release --bin wasmtime && install -D -m 755 target/release/wasmtime /out/bin/wasmtime"
+      outputs: ["bin/wasmtime"]
+      reproducible: true
+
   # ---- blob
   - id: blob-firmware-ath10k
     name: "blob-firmware-ath10k"

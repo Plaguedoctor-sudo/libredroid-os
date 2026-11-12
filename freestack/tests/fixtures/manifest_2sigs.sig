@@ -1,10 +1,10 @@
 # holder=foundation-a
 untrusted comment: signature from minisign secret key
-RURTWq7JiXJSiqtW9hds4uv5xqRfv2ZbXUz+RpNFW8dmLCQdLXzZAZulYYIQvOndQPU0w0o9nHjK0v/QD1nRNt+Kezo0381Cmwk=
+RURTWq7JiXJSin+s8CKJwk4JCeKEZzjDdGAwmFOFlGwL6bAnnAJrF9Po5uCWu4gv67vEvc44U6uzv/VkhuTFkowdgZ+3EqrGvAY=
 trusted comment: timestamp
 WVT45bp7RcVGhBa/nL2JMHLGLlojyQFTn+13wg9c1LH2Wrj47JFr/428bUJfHxCi6VMCuZs7iMfcRBwLBiJdDA==
 # holder=foundation-b
 untrusted comment: signature from minisign secret key
-RUTWZht6KmqvHYHg+OFagpQGL2mwdG0ib+MSwROeauIwglZVGf1qt495/cyTw58HPqDwOY5811o3We+xoSVH5bZ5RPCOoPl5JQY=
+RUTWZht6KmqvHZifVCGnBCb1epKa9KySVBmYlaBGVQ0Kb0RIT8MY0Quq9bTal2c1bWRlZi3M8rdE5YZrKwyD1ngRRCiuYDT9WQ0=
 trusted comment: timestamp
 G3EjrzBsNqLsynIflTC39AaDygQg9oGNtazObYxKtbuYMu+7trB7GI0QXjCFzLrguKJxWO8xkcifnSPom7pGCA==
