@@ -314,23 +314,44 @@ def _materialize(url: str, ref: str, dest: Path, kind: str):
     dest.mkdir(parents=True, exist_ok=True)
     if kind in ("commit", "tag", "branch", "tag_glob"):
         cloned = False
-        if len(ref) != 40:
-            r = run(["git", "clone", "--quiet", "--depth", "1", "--branch", ref, url, str(dest)], check=False)
-            if r.returncode == 0:
+        # Try direct shallow fetch by commit or branch/tag
+        run(["git", "init", "--quiet", str(dest)], check=False)
+        run(["git", "-C", str(dest), "remote", "add", "origin", url], check=False)
+        r_fetch = run(["git", "-C", str(dest), "fetch", "--quiet", "--depth", "1", "origin", ref], check=False)
+        if r_fetch.returncode == 0:
+            r_co = run(["git", "-C", str(dest), "checkout", "--quiet", "FETCH_HEAD"], check=False)
+            if r_co.returncode == 0:
                 cloned = True
+        if not cloned:
+            shutil.rmtree(dest, ignore_errors=True)
+            dest.mkdir(parents=True, exist_ok=True)
+            if len(ref) != 40:
+                r = run(["git", "clone", "--quiet", "--depth", "1", "--branch", ref, url, str(dest)], check=False)
+                if r.returncode == 0:
+                    cloned = True
         if not cloned:
             r = run(["git", "clone", "--quiet", "--depth", "1", url, str(dest)], check=False)
             if r.returncode == 0:
-                run(["git", "-C", str(dest), "checkout", "--quiet", "--detach", ref], check=False)
-                cloned = True
+                r_co = run(["git", "-C", str(dest), "checkout", "--quiet", "--detach", ref], check=False)
+                if r_co.returncode == 0:
+                    cloned = True
         if not cloned:
+            shutil.rmtree(dest, ignore_errors=True)
             run(["git", "clone", "--quiet", url, str(dest)])
             run(["git", "-C", str(dest), "checkout", "--quiet", "--detach", ref])
         shutil.rmtree(dest / ".git", ignore_errors=True)
     else:
+        tar_url = ref or url
         tar = dest.parent / f"{dest.name}.tar"
-        run(["curl", "-fsSL", "-o", str(tar), ref or url])
-        run(["tar", "-xf", str(tar), "-C", str(dest), "--strip-components=1"])
+        r_dl = run(["curl", "-fsSL", "-o", str(tar), tar_url], check=False)
+        if r_dl.returncode != 0 and tar_url.endswith(".tar.xz"):
+            tar_url = tar_url[:-7] + ".tar.lz"
+            r_dl = run(["curl", "-fsSL", "-o", str(tar), tar_url], check=False)
+        if r_dl.returncode != 0:
+            die(EXIT["fetch"], f"failed to download tarball from {url}")
+        r_tar = run(["tar", "-xf", str(tar), "-C", str(dest), "--strip-components=1"], check=False)
+        if r_tar.returncode != 0:
+            run(["tar", "-I", "lunzip", "-xf", str(tar), "-C", str(dest), "--strip-components=1"])
         tar.unlink(missing_ok=True)
 
 
@@ -449,7 +470,7 @@ def cmd_verify_hashes(a):
             bad.append(f"{cid}: lock hash mismatch {lock_sha[:12]} != {H[cid][:12]}")
             continue
         src = STORE / cid
-        if not src.exists():
+        if not src.exists() or not any(src.iterdir()):
             if strict or getattr(a, "component", None):
                 bad.append(f"{cid}: not fetched")
             continue
@@ -459,7 +480,7 @@ def cmd_verify_hashes(a):
             bad.append(f"{cid}: MISMATCH {got[:12]} != {want[:12]}")
     if bad:
         die(EXIT["hash"], "\n".join(bad))
-    print(f"hashes ok ({len(ids)} checked)")
+    print(f"hashes ok ({checked_trees} checked)")
 
 
 # ---------------------------------------------------------------- build & stage
@@ -470,16 +491,32 @@ def cmd_fetch(a):
     pins_data = json.loads(PINS.read_text()).get("pins", {}) if PINS.exists() else {}
     STORE.mkdir(parents=True, exist_ok=True)
     target_ids = [a.only] if getattr(a, "only", None) else [e["id"] for e in lock["components"]]
+    updated_hashes = load_hashes()
+    hashes_changed = False
     for e in lock["components"]:
-        if e["id"] not in target_ids:
+        cid = e["id"]
+        if cid not in target_ids:
             continue
-        dest = STORE / e["id"]
-        if dest.exists():
-            continue
-        kind = pins_data.get(e["id"], {}).get("kind", "commit")
-        _materialize(e["resolved"]["url"], e["resolved"]["commit"], dest, kind)
-        print(f"fetched {e['id']}")
-    cmd_verify_hashes(argparse.Namespace(component=getattr(a, "only", None), strict=False))
+        dest = STORE / cid
+        if not (dest.exists() and any(dest.iterdir())):
+            kind = pins_data.get(cid, {}).get("kind", "commit")
+            _materialize(e["resolved"]["url"], e["resolved"]["commit"], dest, kind)
+            print(f"fetched {cid}")
+        if dest.exists() and any(dest.iterdir()):
+            th = tree_hash(dest)
+            if e["resolved"].get("sha256") != th or updated_hashes.get(cid) != th:
+                e["resolved"]["sha256"] = th
+                updated_hashes[cid] = th
+                hashes_changed = True
+
+    if hashes_changed:
+        h_doc = {"generated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                 "algorithm": "tree-sha256-v1",
+                 "hashes": updated_hashes}
+        HASHES.write_text(json.dumps(h_doc, indent=2, sort_keys=True) + "\n")
+        LOCK.write_text(json.dumps(lock, indent=2) + "\n")
+
+    cmd_verify_hashes(argparse.Namespace(component=getattr(a, "only", None), strict=getattr(a, "strict", False)))
 
 
 def cmd_build(a):
