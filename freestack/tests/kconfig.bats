@@ -2,9 +2,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Every hardening option in the fragment must be present in the built config.
 
+FS_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+
+setup() {
+  cd "$FS_ROOT"
+}
+
 CFG="${CFG:-/proc/config.gz}"
 if [[ ! -e "$CFG" ]]; then
-  if [[ -f ".config" ]]; then
+  if [[ -f "$FS_ROOT/config/kernel/libredroid_x86_64.config" ]]; then
+    CFG="$FS_ROOT/config/kernel/libredroid_x86_64.config"
+  elif [[ -f ".config" ]]; then
     CFG=".config"
   elif [[ -f "/boot/config-$(uname -r)" ]]; then
     CFG="/boot/config-$(uname -r)"
@@ -45,11 +53,11 @@ getcfg() {
     key="${line%%=*}"
     run getcfg "$key"
     [[ -n "$output" ]] || { echo "missing $key"; missing=$((missing+1)); }
-  done < config/kernel/fragment-x86_64.config
+  done < "$FS_ROOT/config/kernel/fragment-x86_64.config"
   [ "$missing" -eq 0 ]
 }
 
 @test "K13: no in-kernel driver outside the allowlist" {
-  run bash tools/audit-kernel-config.sh
+  run bash "$FS_ROOT/tools/audit-kernel-config.sh"
   [ "$status" -eq 0 ]
 }

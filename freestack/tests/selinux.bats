@@ -36,3 +36,9 @@ setup() {
     grep -q "/usr/bin/fs-keystore" "$SEC_DIR/file_contexts"
     grep -q "/var/lib/keystore" "$SEC_DIR/file_contexts"
 }
+
+@test "SELinux: Execute compilation and assertion validation script" {
+    run bash "$SEC_DIR/compile_and_verify.sh"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "FreeStack SELinux Verification Passed" ]]
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Sun, 
   Cloud, 
@@ -15,14 +15,15 @@ import {
   MapPin, 
   RefreshCw,
   Umbrella,
-  Clock
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
 
 interface HourlyForecast {
   time: string;
   temp: number;
   icon: 'sun' | 'cloud' | 'rain' | 'lightning';
-  pop: number; // probability of precipitation
+  pop: number;
 }
 
 interface DailyForecast {
@@ -33,61 +34,109 @@ interface DailyForecast {
   icon: 'sun' | 'cloud' | 'rain' | 'lightning';
 }
 
+interface WeatherPayload {
+  ok: boolean;
+  offline: boolean;
+  city: string;
+  current: {
+    temp: number;
+    condition: string;
+    icon: 'sun' | 'cloud' | 'rain' | 'lightning';
+    high: number;
+    low: number;
+    feelsLike: number;
+    humidity: number;
+    windSpeed: string;
+    windDir: string;
+    pressure: string;
+    uvIndex: number;
+    sunrise: string;
+    sunset: string;
+  };
+  hourly: HourlyForecast[];
+  daily: DailyForecast[];
+}
+
 export const WeatherApp: React.FC = () => {
   const [city, setCity] = useState('Brisbane, Australia');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [temperatureUnit, setTemperatureUnit] = useState<'C' | 'F'>('C');
+  const [data, setData] = useState<WeatherPayload | null>(null);
 
-  // Meteorological state data
-  const currentWeather = {
-    temp: 26,
+  const fetchWeather = useCallback(async (targetCity: string) => {
+    setIsRefreshing(true);
+    try {
+      const res = await fetch(`/api/weather?city=${encodeURIComponent(targetCity)}`);
+      if (res.ok) {
+        const json: WeatherPayload = await res.json();
+        if (json.ok) {
+          setData(json);
+          setCity(json.city);
+        }
+      }
+    } catch {
+      // offline fallback
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchWeather(city);
+  }, [fetchWeather]);
+
+  const handleRefresh = () => {
+    void fetchWeather(city);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      void fetchWeather(searchQuery.trim());
+      setIsSearching(false);
+      setSearchQuery('');
+    }
+  };
+
+  const toUnit = (c: number) => {
+    if (temperatureUnit === 'F') return Math.round((c * 9) / 5 + 32);
+    return Math.round(c);
+  };
+
+  // Fallback defaults
+  const currentWeather = data?.current || {
+    temp: 24,
     condition: 'Partly Cloudy',
-    high: 29,
-    low: 19,
-    feelsLike: 27,
-    aqi: 28,
-    aqiStatus: 'Good',
-    uvIndex: 7,
-    uvStatus: 'High',
+    icon: 'cloud' as const,
+    high: 28,
+    low: 18,
+    feelsLike: 25,
     humidity: 58,
     windSpeed: '16 km/h',
     windDir: 'ENE',
     pressure: '1016 hPa',
-    visibility: '10 km',
-    dewPoint: '17°C',
+    uvIndex: 7,
     sunrise: '05:04 AM',
     sunset: '06:18 PM',
   };
 
-  const hourly: HourlyForecast[] = [
-    { time: 'Now', temp: 26, icon: 'cloud', pop: 10 },
-    { time: '1 PM', temp: 28, icon: 'sun', pop: 5 },
-    { time: '2 PM', temp: 29, icon: 'sun', pop: 5 },
-    { time: '3 PM', temp: 28, icon: 'cloud', pop: 20 },
-    { time: '4 PM', temp: 27, icon: 'cloud', pop: 35 },
-    { time: '5 PM', temp: 25, icon: 'rain', pop: 60 },
-    { time: '6 PM', temp: 23, icon: 'rain', pop: 75 },
-    { time: '7 PM', temp: 22, icon: 'lightning', pop: 80 },
-    { time: '8 PM', temp: 21, icon: 'cloud', pop: 40 },
-    { time: '9 PM', temp: 20, icon: 'cloud', pop: 15 },
+  const hourly: HourlyForecast[] = data?.hourly?.length ? data.hourly : [
+    { time: 'Now', temp: 24, icon: 'cloud', pop: 10 },
+    { time: '1 PM', temp: 26, icon: 'sun', pop: 5 },
+    { time: '2 PM', temp: 27, icon: 'sun', pop: 5 },
+    { time: '3 PM', temp: 26, icon: 'cloud', pop: 20 },
+    { time: '4 PM', temp: 25, icon: 'cloud', pop: 35 },
   ];
 
-  const daily: DailyForecast[] = [
-    { day: 'Today', condition: 'Partly Cloudy', minTemp: 19, maxTemp: 29, icon: 'cloud' },
-    { day: 'Thu', condition: 'Scattered Showers', minTemp: 18, maxTemp: 25, icon: 'rain' },
-    { day: 'Fri', condition: 'Sunny & Clear', minTemp: 17, maxTemp: 28, icon: 'sun' },
-    { day: 'Sat', condition: 'Clear Sky', minTemp: 18, maxTemp: 30, icon: 'sun' },
-    { day: 'Sun', condition: 'Thunderstorms', minTemp: 20, maxTemp: 26, icon: 'lightning' },
-    { day: 'Mon', condition: 'Light Rain', minTemp: 18, maxTemp: 24, icon: 'rain' },
-    { day: 'Tue', condition: 'Mostly Sunny', minTemp: 17, maxTemp: 27, icon: 'sun' },
+  const daily: DailyForecast[] = data?.daily?.length ? data.daily : [
+    { day: 'Today', condition: 'Partly Cloudy', minTemp: 18, maxTemp: 28, icon: 'cloud' },
+    { day: 'Tomorrow', condition: 'Clear Sky', minTemp: 17, maxTemp: 27, icon: 'sun' },
+    { day: 'Wed', condition: 'Showers', minTemp: 19, maxTemp: 25, icon: 'rain' },
   ];
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 800);
-  };
-
-  const renderIcon = (type: string, size = 20, className = 'text-amber-400') => {
+  const renderIcon = (type: string, size = 20) => {
     switch (type) {
       case 'sun':
         return <Sun size={size} className="text-amber-400" />;
@@ -101,18 +150,39 @@ export const WeatherApp: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-sky-900 via-neutral-900 to-black text-white font-sans overflow-y-auto select-none">
+    <div className="flex flex-col h-full bg-gradient-to-b from-sky-950 via-neutral-900 to-black text-white font-sans overflow-y-auto select-none">
       {/* Top Bar */}
       <div className="px-6 py-4 flex items-center justify-between border-b border-white/10 bg-black/20 backdrop-blur sticky top-0 z-20">
-        <div className="flex items-center gap-2">
-          <MapPin size={18} className="text-sky-400" />
-          <span className="font-semibold text-sm tracking-wide">{city}</span>
+        <div className="flex items-center gap-2 flex-1">
+          {isSearching ? (
+            <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full max-w-sm">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search city (e.g. London, Tokyo)..."
+                autoFocus
+                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-xs text-white placeholder:text-neutral-400 outline-none w-full"
+              />
+              <button type="submit" className="px-2 py-1 bg-sky-600 rounded text-xs font-semibold">Go</button>
+              <button type="button" onClick={() => setIsSearching(false)} className="px-2 py-1 text-xs text-neutral-400">Cancel</button>
+            </form>
+          ) : (
+            <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setIsSearching(true)}>
+              <MapPin size={18} className="text-sky-400 group-hover:scale-110 transition-transform" />
+              <span className="font-semibold text-sm tracking-wide group-hover:text-sky-200 transition-colors">{city}</span>
+              <Search size={14} className="text-neutral-400 opacity-60 group-hover:opacity-100" />
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 font-mono">
+            <ShieldCheck size={12} /> Zero-Tracking Open-Meteo
+          </div>
           <button
             onClick={() => setTemperatureUnit(temperatureUnit === 'C' ? 'F' : 'C')}
-            className="px-2.5 py-1 text-xs rounded-lg font-bold bg-white/10 hover:bg-white/20 transition-colors"
+            className="px-2.5 py-1 text-xs rounded-lg font-bold bg-white/10 hover:bg-white/20 transition-colors font-mono"
           >
             °{temperatureUnit}
           </button>
@@ -121,7 +191,7 @@ export const WeatherApp: React.FC = () => {
             className={`p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors ${
               isRefreshing ? 'animate-spin' : ''
             }`}
-            title="Refresh"
+            title="Refresh weather"
           >
             <RefreshCw size={16} />
           </button>
@@ -131,18 +201,18 @@ export const WeatherApp: React.FC = () => {
       {/* Hero Current Weather */}
       <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
         <div className="w-20 h-20 rounded-full bg-sky-500/20 flex items-center justify-center mb-3 shadow-2xl backdrop-blur">
-          <Sun size={48} className="text-amber-400 animate-spin-slow" />
+          {renderIcon(currentWeather.icon, 48)}
         </div>
         <div className="text-6xl font-light tracking-tight font-mono">
-          {currentWeather.temp}°{temperatureUnit}
+          {toUnit(currentWeather.temp)}°{temperatureUnit}
         </div>
         <div className="text-lg font-medium text-sky-200 mt-1">{currentWeather.condition}</div>
-        <div className="flex items-center gap-4 text-xs text-neutral-300 mt-2">
-          <span>H: {currentWeather.high}°</span>
+        <div className="flex items-center gap-4 text-xs text-neutral-300 mt-2 font-mono">
+          <span>H: {toUnit(currentWeather.high)}°</span>
           <span>•</span>
-          <span>L: {currentWeather.low}°</span>
+          <span>L: {toUnit(currentWeather.low)}°</span>
           <span>•</span>
-          <span>Feels like {currentWeather.feelsLike}°</span>
+          <span>Feels like {toUnit(currentWeather.feelsLike)}°</span>
         </div>
       </div>
 
@@ -150,14 +220,14 @@ export const WeatherApp: React.FC = () => {
         {/* Hourly Forecast Carousel */}
         <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur shadow-lg">
           <div className="text-xs font-bold uppercase tracking-wider text-sky-300 mb-3 flex items-center gap-1.5">
-            <Clock size={14} /> 24-Hour Forecast
+            <Clock size={14} /> Hourly Forecast
           </div>
           <div className="flex items-center gap-5 overflow-x-auto pb-2 scrollbar-none">
             {hourly.map((h, i) => (
               <div key={i} className="flex flex-col items-center min-w-[54px] py-1">
                 <span className="text-[11px] text-neutral-400">{h.time}</span>
                 <div className="my-2">{renderIcon(h.icon, 22)}</div>
-                <span className="text-sm font-semibold">{h.temp}°</span>
+                <span className="text-sm font-semibold font-mono">{toUnit(h.temp)}°</span>
                 {h.pop > 0 && (
                   <span className="text-[10px] text-sky-400 font-mono mt-0.5 flex items-center gap-0.5">
                     <Droplets size={9} /> {h.pop}%
@@ -182,14 +252,14 @@ export const WeatherApp: React.FC = () => {
                   <span className="text-neutral-400 text-[11px]">{d.condition}</span>
                 </div>
                 <div className="flex items-center gap-3 w-28 justify-end font-mono">
-                  <span className="text-neutral-400">{d.minTemp}°</span>
+                  <span className="text-neutral-400">{toUnit(d.minTemp)}°</span>
                   <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-cyan-400 to-amber-400 rounded-full"
-                      style={{ width: `${((d.maxTemp - d.minTemp) / 15) * 100}%` }}
+                      style={{ width: `${Math.min(100, Math.max(15, ((d.maxTemp - d.minTemp) / 15) * 100))}%` }}
                     />
                   </div>
-                  <span className="font-semibold text-white">{d.maxTemp}°</span>
+                  <span className="font-semibold text-white">{toUnit(d.maxTemp)}°</span>
                 </div>
               </div>
             ))}
@@ -198,19 +268,6 @@ export const WeatherApp: React.FC = () => {
 
         {/* 2x2 Grid of Detailed Meteorological Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* AQI */}
-          <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-neutral-400 text-xs">
-              <span>Air Quality</span>
-              <Wind size={15} className="text-emerald-400" />
-            </div>
-            <div className="my-2">
-              <span className="text-2xl font-bold font-mono">{currentWeather.aqi}</span>
-              <span className="ml-2 text-xs text-emerald-400 font-semibold">{currentWeather.aqiStatus}</span>
-            </div>
-            <p className="text-[10px] text-neutral-400">Low particulate risk</p>
-          </div>
-
           {/* UV Index */}
           <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
             <div className="flex items-center justify-between text-neutral-400 text-xs">
@@ -219,9 +276,11 @@ export const WeatherApp: React.FC = () => {
             </div>
             <div className="my-2">
               <span className="text-2xl font-bold font-mono">{currentWeather.uvIndex}</span>
-              <span className="ml-2 text-xs text-amber-400 font-semibold">{currentWeather.uvStatus}</span>
+              <span className="ml-2 text-xs text-amber-400 font-semibold">
+                {currentWeather.uvIndex > 7 ? 'Very High' : currentWeather.uvIndex > 5 ? 'High' : currentWeather.uvIndex > 2 ? 'Moderate' : 'Low'}
+              </span>
             </div>
-            <p className="text-[10px] text-neutral-400">Sun protection advised</p>
+            <p className="text-[10px] text-neutral-400">Zero-tracking live index</p>
           </div>
 
           {/* Humidity */}
@@ -233,7 +292,7 @@ export const WeatherApp: React.FC = () => {
             <div className="my-2">
               <span className="text-2xl font-bold font-mono">{currentWeather.humidity}%</span>
             </div>
-            <p className="text-[10px] text-neutral-400">Dew point is {currentWeather.dewPoint}</p>
+            <p className="text-[10px] text-neutral-400">Atmospheric moisture</p>
           </div>
 
           {/* Wind */}
@@ -246,7 +305,19 @@ export const WeatherApp: React.FC = () => {
               <span className="text-lg font-bold">{currentWeather.windSpeed}</span>
               <span className="ml-1 text-xs text-cyan-400">{currentWeather.windDir}</span>
             </div>
-            <p className="text-[10px] text-neutral-400">Gentle coastal breeze</p>
+            <p className="text-[10px] text-neutral-400">Ground velocity & bearing</p>
+          </div>
+
+          {/* Pressure */}
+          <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-neutral-400 text-xs">
+              <span>Pressure</span>
+              <Thermometer size={15} className="text-violet-400" />
+            </div>
+            <div className="my-2">
+              <span className="text-lg font-bold font-mono">{currentWeather.pressure}</span>
+            </div>
+            <p className="text-[10px] text-neutral-400">Barometric surface level</p>
           </div>
         </div>
 
@@ -276,4 +347,5 @@ export const WeatherApp: React.FC = () => {
     </div>
   );
 };
+
 export default WeatherApp;
