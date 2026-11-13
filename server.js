@@ -8,6 +8,8 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import os from 'os';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
@@ -343,50 +345,147 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 1.4 Hardware & System Bridge APIs
+  // 1.4 Hardware & System Bridge APIs (real sysfs / kernel introspection)
+  let deviceBackend = null;
+  try {
+    deviceBackend = require(path.join(__dirname, 'os/termux/backends/device.js'));
+  } catch (e) {
+    console.warn('[LRD] Warning: device backend failed to load:', e.message);
+  }
+
+  function getRealSystemStatus() {
+    const pwr = deviceBackend ? deviceBackend.power() : null;
+    const totalMb = Math.round(os.totalmem() / (1024 * 1024));
+    const availMb = Math.round(os.freemem() / (1024 * 1024));
+
+    let netns = [];
+    try {
+      if (fs.existsSync('/run/netns')) {
+        netns = fs.readdirSync('/run/netns').filter(Boolean);
+      }
+    } catch {}
+    if (netns.length === 0) {
+      try {
+        const out = execFileSync('ip', ['netns', 'list'], { encoding: 'utf8', timeout: 1000, stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+        if (out) netns = out.split('\n').map((l) => l.trim().split(' ')[0]).filter(Boolean);
+      } catch {}
+    }
+
+    const knownDomains = ['vault', 'anon-ws', 'work', 'dispos'];
+    const domains = knownDomains.map((name) => {
+      const active = netns.includes(name) ||
+        fs.existsSync(`/run/libredroid/domains/${name}`) ||
+        fs.existsSync(`/run/libredroid/microvm/${name}/vm.pid`);
+      return { name, active };
+    });
+
+    let torRunning = false;
+    let torRaw = [];
+    try {
+      const torStat = execFileSync('pgrep', ['-x', 'tor'], { encoding: 'utf8', timeout: 1000, stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+      if (torStat) {
+        torRunning = true;
+        torRaw = [`tor daemon active (PID: ${torStat.split('\n')[0]})`];
+      }
+    } catch {}
+
+    let waydroidInstalled = false;
+    let waydroidRaw = ['Session: STOPPED'];
+    try {
+      const wPath = execFileSync('which', ['waydroid'], { encoding: 'utf8', timeout: 1000, stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+      if (wPath) {
+        waydroidInstalled = true;
+        try {
+          const wStat = execFileSync('waydroid', ['status'], { encoding: 'utf8', timeout: 2000, stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+          waydroidRaw = [wStat.split('\n')[0] || 'Session: READY'];
+        } catch {
+          waydroidRaw = ['Session: STOPPED'];
+        }
+      }
+    } catch {}
+
+    return {
+      host: os.hostname(),
+      kernel: `${os.type()} ${os.release()} ${os.arch()}`,
+      uptimeSec: Math.floor(os.uptime()),
+      battery: pwr ? { level: pwr.percent ?? 100, charging: !!pwr.charging } : null,
+      mem: { totalMb, availMb },
+      netns,
+      domains,
+      tor: { running: torRunning, raw: torRaw.length ? torRaw : ['tor not running'] },
+      waydroid: { installed: waydroidInstalled, raw: waydroidRaw },
+      freeform: true,
+    };
+  }
+
+  function getRealHardwareStatus() {
+    const dev = deviceBackend ? deviceBackend.device() : null;
+    const pwr = deviceBackend ? deviceBackend.power() : null;
+    const netInfo = deviceBackend ? deviceBackend.net() : null;
+    const cams = deviceBackend ? deviceBackend.cameras() : [];
+
+    let btEnabled = false;
+    try {
+      btEnabled = fs.existsSync('/sys/class/bluetooth') && fs.readdirSync('/sys/class/bluetooth').length > 0;
+    } catch {}
+
+    const model = dev ? (dev.model || (dev.manufacturer ? `${dev.manufacturer} ${dev.device || dev.product}` : '')) : '';
+    const deviceModel = model ? model : `Host Workstation (${os.hostname()})`;
+    const osVersion = dev && dev.kernel ? `${os.type()} ${dev.kernel} (${os.arch()})` : `${os.type()} ${os.release()} (${os.arch()})`;
+
+    let storage = undefined;
+    try {
+      const s = fs.statfsSync('/');
+      const totalBytes = Number(s.bsize) * Number(s.blocks);
+      const availBytes = Number(s.bsize) * Number(s.bavail);
+      const usedBytes = totalBytes - availBytes;
+      const pct = totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0;
+      storage = {
+        total: `${(totalBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`,
+        used: `${(usedBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`,
+        available: `${(availBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`,
+        usePercent: `${pct}%`,
+      };
+    } catch {}
+
+    return {
+      connected: true,
+      deviceModel,
+      osVersion,
+      battery: {
+        level: pwr && pwr.percent !== null ? pwr.percent : 100,
+        isCharging: !!(pwr && pwr.charging),
+        temperature: pwr && pwr.tempC !== null ? pwr.tempC : (pwr && pwr.hottestZone ? pwr.hottestZone.c : 30.0),
+      },
+      wifi: {
+        enabled: !!(netInfo && netInfo.online),
+        ssid: (netInfo && netInfo.ssid) || (netInfo && netInfo.online ? 'Connected Network' : 'Disconnected'),
+        ip: (netInfo && netInfo.ip) || '127.0.0.1',
+        linkSpeed: 'N/A',
+      },
+      bluetooth: { enabled: btEnabled },
+      hotspot: { enabled: false, ready: true },
+      camera: {
+        status: cams.length > 0 ? `${cams.length} physical camera(s) detected` : 'No hardware camera detected',
+        resolutions: [],
+      },
+      storage,
+    };
+  }
+
   if (pathname === '/api/status' && method === 'GET') {
     res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({
-      host: 'libredroid-box',
-      kernel: 'Linux 7.0.0-sovereign x86_64',
-      uptimeSec: 3600,
-      battery: { level: 90, charging: false },
-      mem: { totalMb: 16384, availMb: 12000 },
-      netns: ['vault', 'anon-ws', 'work', 'dispos'],
-      domains: [
-        { name: 'vault', active: true },
-        { name: 'anon-ws', active: true },
-        { name: 'work', active: true },
-        { name: 'dispos', active: true },
-      ],
-      tor: { running: true, raw: ['10.152.152.10:9040 (TransPort)'] },
-      waydroid: { installed: true, raw: ['Session: RUNNING'] },
-      freeform: true,
-    }));
+    return res.end(JSON.stringify(getRealSystemStatus()));
   }
 
   if (pathname === '/api/domains' && method === 'GET') {
     res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify([
-      { name: 'vault', active: true },
-      { name: 'anon-ws', active: true },
-      { name: 'work', active: true },
-      { name: 'dispos', active: true },
-    ]));
+    return res.end(JSON.stringify(getRealSystemStatus().domains));
   }
 
   if (pathname === '/api/hardware/status' && method === 'GET') {
     res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({
-      connected: true,
-      deviceModel: 'LibreDroid Sovereign Reference Workstation',
-      osVersion: 'Linux 7.0 (Zero-ADB Sovereign Core)',
-      battery: { level: 90, isCharging: false, temperature: 31.0 },
-      wifi: { enabled: true, ssid: 'LibreMesh-Isolated', ip: '127.0.0.1', linkSpeed: '866 Mbps' },
-      bluetooth: { enabled: true },
-      hotspot: { enabled: false, ready: true },
-      camera: { status: 'Hardware Sandboxed (Virtual Loopback)' },
-    }));
+    return res.end(JSON.stringify(getRealHardwareStatus()));
   }
 
   if (pathname === '/api/rpc' && method === 'POST') {
