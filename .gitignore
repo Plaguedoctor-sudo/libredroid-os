@@ -62,3 +62,4 @@ __pycache__/
 .adb/
 stock_firmware/
 out/
+os/infra/domain/images/

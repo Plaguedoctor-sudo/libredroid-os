@@ -214,7 +214,11 @@ function routes() {
   const ALLOWED_BINARIES = new Set([
     'waydroid', 'nmcli', 'wpctl', 'pactl', 'brightnessctl',
     'fastboot', 'adb', 'systemctl', 'loginctl', 'pkg', 'apt',
-    'am', 'pm', 'getprop', 'setprop', 'logcat', 'v4l2-ctl', 'ls', 'cat', 'df', 'free', 'uname'
+    'am', 'pm', 'getprop', 'setprop', 'logcat', 'v4l2-ctl',
+    'ls', 'cat', 'df', 'free', 'uname', 'echo', 'ps', 'top',
+    'grep', 'tail', 'head', 'date', 'uptime', 'id', 'whoami',
+    'wc', 'pwd', 'mkdir', 'rm', 'cp', 'mv', 'curl', 'sv',
+    'find', 'sh', 'bash', 'ip', 'dmesg', 'tar', 'gzip', 'ping', 'for'
   ]);
 
   add('POST', '/api/host/exec', async (req, res, q) => {

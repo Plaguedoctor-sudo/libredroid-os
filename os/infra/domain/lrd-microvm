@@ -65,6 +65,26 @@ start_vm() {
     # Create Wayland bridge socket
     mkdir -p "/run/user/1000" 2>/dev/null || mkdir -p "/tmp/libredroid/run-user"
     
+    # Locate microvm rootfs and initrd
+    local HERE
+    HERE="$(cd "$(dirname "$0")" && pwd)"
+    local VM_ROOTFS=""
+    for cand in \
+        "${LRD_DOMAINS_DIR:-}/$DOMAIN-rootfs.img" \
+        "/var/lib/libredroid/domains/$DOMAIN/rootfs.img" \
+        "/var/lib/libredroid/domains/$DOMAIN.img" \
+        "$HERE/images/$DOMAIN-rootfs.img"; do
+        if [ -n "$cand" ] && [ -f "$cand" ]; then VM_ROOTFS="$cand"; break; fi
+    done
+
+    local VM_INITRD=""
+    for cand in \
+        "${LRD_DOMAINS_DIR:-}/$DOMAIN-initramfs.cpio.gz" \
+        "/var/lib/libredroid/domains/$DOMAIN/initramfs.cpio.gz" \
+        "$HERE/images/$DOMAIN-initramfs.cpio.gz"; do
+        if [ -n "$cand" ] && [ -f "$cand" ]; then VM_INITRD="$cand"; break; fi
+    done
+
     # Store launch configuration
     cat <<EOF > "$RUNTIME_DIR/config.json"
 {
@@ -73,6 +93,8 @@ start_vm() {
   "isolation": "microvm",
   "kvm_active": $KVM_AVAILABLE,
   "memory": "$MEM",
+  "rootfs_image": "$VM_ROOTFS",
+  "initramfs_image": "$VM_INITRD",
   "wayland_socket": "$WAYLAND_SOCK",
   "virtio_net": true,
   "virtio_gpu": true
@@ -81,27 +103,30 @@ EOF
 
     # Verify microvm kernel staging
     local VM_KERNEL="/var/lib/libredroid/domains/$DOMAIN/vmlinuz"
-    if [ ! -f "$VM_KERNEL" ]; then
+    if [ ! -r "$VM_KERNEL" ]; then
+        VM_KERNEL=""
         for k in /boot/vmlinuz* /usr/lib/modules/*/vmlinuz; do
-            if [ -f "$k" ]; then VM_KERNEL="$k"; break; fi
+            if [ -r "$k" ]; then VM_KERNEL="$k"; break; fi
         done
     fi
 
-    # If hardware KVM and hypervisor binary are available and kernel image exists, launch MicroVM.
+    # If hardware KVM and hypervisor binary are available and readable kernel image exists, launch MicroVM.
     # Otherwise spawn microvm supervisor process that manages Landlock/namespace isolation.
-    if command -v crosvm >/dev/null 2>&1 && [ "$KVM_AVAILABLE" = "true" ] && [ -f "$VM_KERNEL" ]; then
+    if command -v crosvm >/dev/null 2>&1 && [ "$KVM_AVAILABLE" = "true" ] && [ -n "$VM_KERNEL" ] && [ -r "$VM_KERNEL" ]; then
+        local DISK_ARGS=()
+        [ -n "$VM_ROOTFS" ] && DISK_ARGS+=(--disk "$VM_ROOTFS")
         crosvm run --disable-sandbox \
             --mem "$MEM" \
             --socket "$SOCK_FILE" \
             --wayland-sock "$WAYLAND_SOCK" \
+            "${DISK_ARGS[@]}" \
             "$VM_KERNEL" > "$RUNTIME_DIR/vm.log" 2>&1 &
         echo $! > "$PID_FILE"
-    elif command -v qemu-system-x86_64 >/dev/null 2>&1 && [ "$KVM_AVAILABLE" = "true" ]; then
-        qemu-system-x86_64 \
-            -enable-kvm -M microvm -m "$MEM" \
-            -display none \
-            -pidfile "$PID_FILE" \
-            -daemonize
+    elif command -v qemu-system-x86_64 >/dev/null 2>&1 && [ "$KVM_AVAILABLE" = "true" ] && [ -n "$VM_KERNEL" ] && [ -r "$VM_KERNEL" ]; then
+        local QEMU_ARGS=(-enable-kvm -M microvm -m "$MEM" -display none -pidfile "$PID_FILE" -kernel "$VM_KERNEL" -daemonize)
+        [ -n "$VM_INITRD" ] && QEMU_ARGS+=(-initrd "$VM_INITRD")
+        [ -n "$VM_ROOTFS" ] && QEMU_ARGS+=(-drive "id=hd0,file=$VM_ROOTFS,format=raw,if=none" -device virtio-blk-device,drive=hd0)
+        qemu-system-x86_64 "${QEMU_ARGS[@]}"
     else
         # Micro-jail fallback supervisor (enforces unprivileged namespace & Landlock isolation)
         FIFO="$RUNTIME_DIR/control.fifo"

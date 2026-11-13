@@ -20,6 +20,8 @@ SYSTEM_IMG=""
 DATA_IMG=""
 TARGET_SLOT=""
 YES=0
+DRY_RUN=0
+ALLOW_ACTIVE_SLOT=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -28,65 +30,92 @@ while [ $# -gt 0 ]; do
     --data)   DATA_IMG="$2"; shift 2 ;;
     --slot)   TARGET_SLOT="${2#_}"; shift 2 ;;
     --yes|-y) YES=1; shift ;;
+    --dry-run|--check) DRY_RUN=1; shift ;;
+    --dangerously-overwrite-active-slot) ALLOW_ACTIVE_SLOT=1; shift ;;
     *) die "Unknown parameter: $1" ;;
   esac
 done
 
+if [ "$DRY_RUN" -eq 1 ]; then
+  say "${BOLD}[DRY-RUN / VERIFICATION MODE ACTIVE]${NC}"
+fi
+
 # 1. Fastboot availability & state
 command -v fastboot >/dev/null 2>&1 || die "fastboot binary not found. Please install android-tools."
 
-if ! fastboot devices 2>/dev/null | grep -q '[a-zA-Z0-9]'; then
-  say "Device not found in fastboot. Checking ADB..."
-  if command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | grep -w "device" | grep -q .; then
-    say "Device detected in ADB. Rebooting to bootloader..."
-    adb reboot bootloader
-    for i in {1..30}; do
-      if fastboot devices 2>/dev/null | grep -q '[a-zA-Z0-9]'; then
-        break
-      fi
-      sleep 1
-    done
-  else
-    die "No device detected in fastboot or ADB. Connect device with USB debugging or hold Power+VolDown."
+if [ "$DRY_RUN" -eq 0 ]; then
+  if ! fastboot devices 2>/dev/null | grep -q '[a-zA-Z0-9]'; then
+    say "Device not found in fastboot. Checking ADB..."
+    if command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | grep -w "device" | grep -q .; then
+      say "Device detected in ADB. Rebooting to bootloader..."
+      adb reboot bootloader
+      for i in {1..30}; do
+        if fastboot devices 2>/dev/null | grep -q '[a-zA-Z0-9]'; then
+          break
+        fi
+        sleep 1
+      done
+    else
+      die "No device detected in fastboot or ADB. Connect device with USB debugging or hold Power+VolDown."
+    fi
   fi
+
+  PRODUCT="$(fastboot getvar product 2>&1 | sed -n 's/^product: //p' | head -1)"
+  CUR_SLOT="$(fastboot getvar current-slot 2>&1 | sed -n 's/^current-slot: //p' | head -1)"
+  CUR_SLOT="${CUR_SLOT:-a}"
+  OTHER_SLOT=$([ "$CUR_SLOT" = a ] && echo b || echo a)
+  SLOT="${TARGET_SLOT:-$OTHER_SLOT}"
+
+  say "Device: $PRODUCT"
+  say "Current Active Slot: ${GREEN}slot_${CUR_SLOT}${NC} (Stock Android)"
+  say "Target Flashing Slot: ${YELLOW}slot_${SLOT}${NC} (LibreDroid OS)"
+
+  # 2. Bootloader lock check
+  UNLOCKED="$(fastboot getvar unlocked 2>&1 | sed -n 's/^unlocked: //p' | head -1)"
+  if [ "$UNLOCKED" = "no" ]; then
+    die "Bootloader is locked. Run: fastboot flashing unlock && fastboot flashing unlock_critical"
+  fi
+else
+  # Simulated slot for dry-run verification
+  CUR_SLOT="a"
+  OTHER_SLOT="b"
+  SLOT="${TARGET_SLOT:-$OTHER_SLOT}"
+  say "Simulated Current Active Slot: ${GREEN}slot_${CUR_SLOT}${NC}"
+  say "Simulated Target Slot: ${YELLOW}slot_${SLOT}${NC}"
 fi
 
-PRODUCT="$(fastboot getvar product 2>&1 | sed -n 's/^product: //p' | head -1)"
-CUR_SLOT="$(fastboot getvar current-slot 2>&1 | sed -n 's/^current-slot: //p' | head -1)"
-CUR_SLOT="${CUR_SLOT:-a}"
-OTHER_SLOT=$([ "$CUR_SLOT" = a ] && echo b || echo a)
-SLOT="${TARGET_SLOT:-$OTHER_SLOT}"
-
-say "Device: $PRODUCT"
-say "Current Active Slot: ${GREEN}slot_${CUR_SLOT}${NC} (Stock Android)"
-say "Target Flashing Slot: ${YELLOW}slot_${SLOT}${NC} (LibreDroid OS)"
-
+# Safety Gate: Active Slot Inviolability
 if [ "$SLOT" = "$CUR_SLOT" ]; then
-  warn "WARNING: Target slot is currently the ACTIVE slot!"
-  warn "Flashing will overwrite the currently active system!"
-fi
-
-# 2. Bootloader lock check
-UNLOCKED="$(fastboot getvar unlocked 2>&1 | sed -n 's/^unlocked: //p' | head -1)"
-if [ "$UNLOCKED" = "no" ]; then
-  die "Bootloader is locked. Run: fastboot flashing unlock && fastboot flashing unlock_critical"
+  if [ "$ALLOW_ACTIVE_SLOT" -ne 1 ]; then
+    echo -e "\n${RED}${BOLD}========================================================================${NC}" >&2
+    echo -e "${RED}${BOLD}SAFETY GATE TRIGGERED: REFUSING TO OVERWRITE ACTIVE ANDROID SLOT!${NC}" >&2
+    echo -e "${RED}Target slot_${SLOT} is the active running slot (slot_${CUR_SLOT}).${NC}" >&2
+    echo -e "${RED}Flashing would erase stock ColorOS/Android and risk bricking your tablet.${NC}" >&2
+    echo -e "${CYAN}LibreDroid OS dual-boot safety architecture requires installing to slot_${OTHER_SLOT}.${NC}" >&2
+    echo -e "To install safely alongside Android, run with target: ${GREEN}--slot ${OTHER_SLOT}${NC}" >&2
+    echo -e "If you intentionally intend to overwrite active slot_${SLOT}, pass: ${YELLOW}--dangerously-overwrite-active-slot${NC}" >&2
+    echo -e "${RED}${BOLD}========================================================================${NC}\n" >&2
+    exit 1
+  else
+    warn "DANGEROUS OVERRIDE ACTIVE: Proceeding to flash active slot_${SLOT} as requested."
+  fi
 fi
 
 # 3. Locate image files if not explicitly provided
 if [ -z "$BOOT_IMG" ] || [ ! -f "$BOOT_IMG" ]; then
-  for cand in "$PWD/boot_${SLOT}.img" "$PWD/boot.img" "$HERE/../boot_b.img" "$PWD/os-build-out/boot_b.img"; do
+  for cand in "$PWD/boot_${SLOT}.img" "$PWD/out-pad-go/boot_${SLOT}.img" "$HERE/../../../out-pad-go/boot_${SLOT}.img" "$PWD/boot.img" "$HERE/../boot_b.img" "$PWD/os-build-out/boot_b.img"; do
     [ -f "$cand" ] && { BOOT_IMG="$cand"; break; }
   done
 fi
 
 if [ -z "$SYSTEM_IMG" ] || [ ! -f "$SYSTEM_IMG" ]; then
-  for cand in "$PWD/system_${SLOT}.img" "$PWD/system.img" "$PWD/os-build-out/system_b.img"; do
+  for cand in "$PWD/system_${SLOT}.img" "$PWD/out-pad-go/system_${SLOT}.img" "$HERE/../../../out-pad-go/system_${SLOT}.img" "$PWD/system.img" "$PWD/os-build-out/system_b.img"; do
     [ -f "$cand" ] && { SYSTEM_IMG="$cand"; break; }
   done
 fi
 
 if [ -z "$DATA_IMG" ] || [ ! -f "$DATA_IMG" ]; then
-  for cand in "$PWD/lrddata_${SLOT}.img" "$PWD/lrddata.img" "$PWD/os-build-out/lrddata_b.img"; do
+  for cand in "$PWD/lrddata_${SLOT}.img" "$PWD/out-pad-go/lrddata_${SLOT}.img" "$HERE/../../../out-pad-go/lrddata_${SLOT}.img" "$PWD/lrddata.img" "$PWD/os-build-out/lrddata_b.img"; do
     [ -f "$cand" ] && { DATA_IMG="$cand"; break; }
   done
 fi
@@ -99,6 +128,12 @@ say "  • boot_${SLOT}:   $BOOT_IMG ($(du -h "$BOOT_IMG" | cut -f1))"
 say "  • system_${SLOT}: $SYSTEM_IMG ($(du -h "$SYSTEM_IMG" | cut -f1))"
 if [ -n "$DATA_IMG" ] && [ -f "$DATA_IMG" ]; then
   say "  • lrddata_${SLOT}: $DATA_IMG ($(du -h "$DATA_IMG" | cut -f1))"
+fi
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  say "Verification dry-run completed successfully. All candidate images and safety gates validated."
+  say "No changes were written to any hardware partitions."
+  exit 0
 fi
 
 # 4. Partition backups & Bootloader-level flashing

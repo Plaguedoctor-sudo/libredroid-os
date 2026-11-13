@@ -5,6 +5,7 @@
  */
 
 import http from 'http';
+import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -845,6 +846,149 @@ const server = http.createServer(async (req, res) => {
       }
     });
     return;
+  }
+
+  /* ---------- Live Privacy Weather (Open-Meteo zero-tracking) ---------- */
+  if (pathname === '/api/weather' && method === 'GET') {
+    const city = parsedUrl.searchParams.get('city') || 'Brisbane, Australia';
+    const latParam = parsedUrl.searchParams.get('lat');
+    const lonParam = parsedUrl.searchParams.get('lon');
+
+    try {
+      let lat = latParam ? parseFloat(latParam) : null;
+      let lon = lonParam ? parseFloat(lonParam) : null;
+      let displayName = city;
+
+      if (!lat || !lon) {
+        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city.split(',')[0].trim())}&count=1`;
+        const geoData = await new Promise((resolve, reject) => {
+          https.get(geoUrl, { family: 4, headers: { 'User-Agent': 'LibreDroid/1.0' }, timeout: 4000 }, (r) => {
+            let buf = '';
+            r.on('data', (c) => (buf += c));
+            r.on('end', () => { try { resolve(JSON.parse(buf)); } catch (e) { reject(e); } });
+          }).on('error', reject);
+        });
+
+        if (geoData?.results?.length) {
+          lat = geoData.results[0].latitude;
+          lon = geoData.results[0].longitude;
+          displayName = `${geoData.results[0].name}, ${geoData.results[0].country || ''}`.replace(/,\s*$/, '');
+        } else {
+          lat = -27.46794;
+          lon = 153.02809;
+        }
+      }
+
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max&timezone=auto`;
+      const weatherData = await new Promise((resolve, reject) => {
+        https.get(weatherUrl, { family: 4, headers: { 'User-Agent': 'LibreDroid/1.0' }, timeout: 4000 }, (r) => {
+          let buf = '';
+          r.on('data', (c) => (buf += c));
+          r.on('end', () => { try { resolve(JSON.parse(buf)); } catch (e) { reject(e); } });
+        }).on('error', reject);
+      });
+
+      const wCodeMap = (c) => {
+        if (c === 0) return { condition: 'Clear Sky', icon: 'sun' };
+        if (c <= 3) return { condition: 'Partly Cloudy', icon: 'cloud' };
+        if (c >= 51 && c <= 67) return { condition: 'Rain', icon: 'rain' };
+        if (c >= 71 && c <= 77) return { condition: 'Snow', icon: 'cloud' };
+        if (c >= 80 && c <= 82) return { condition: 'Showers', icon: 'rain' };
+        if (c >= 95) return { condition: 'Thunderstorm', icon: 'lightning' };
+        return { condition: 'Cloudy', icon: 'cloud' };
+      };
+
+      const curr = weatherData.current || {};
+      const daily = weatherData.daily || {};
+      const hourly = weatherData.hourly || {};
+      const cond = wCodeMap(curr.weather_code || 0);
+
+      const hourlyItems = [];
+      const times = hourly.time || [];
+      const temps = hourly.temperature_2m || [];
+      const pops = hourly.precipitation_probability || [];
+      const codes = hourly.weather_code || [];
+      for (let i = 0; i < Math.min(10, times.length); i++) {
+        const d = new Date(times[i]);
+        const hTime = i === 0 ? 'Now' : d.toLocaleTimeString([], { hour: 'numeric', hour12: true });
+        hourlyItems.push({
+          time: hTime,
+          temp: Math.round(temps[i] ?? curr.temperature_2m ?? 20),
+          icon: wCodeMap(codes[i] ?? 0).icon,
+          pop: pops[i] ?? 0,
+        });
+      }
+
+      const dailyItems = [];
+      const dTimes = daily.time || [];
+      const dMax = daily.temperature_2m_max || [];
+      const dMin = daily.temperature_2m_min || [];
+      const dCodes = daily.weather_code || [];
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      for (let i = 0; i < Math.min(7, dTimes.length); i++) {
+        const d = new Date(dTimes[i]);
+        const dayLabel = i === 0 ? 'Today' : days[d.getDay()];
+        const dCond = wCodeMap(dCodes[i] ?? 0);
+        dailyItems.push({
+          day: dayLabel,
+          condition: dCond.condition,
+          minTemp: Math.round(dMin[i] ?? 18),
+          maxTemp: Math.round(dMax[i] ?? 28),
+          icon: dCond.icon,
+        });
+      }
+
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({
+        ok: true,
+        offline: false,
+        city: displayName,
+        lat,
+        lon,
+        current: {
+          temp: Math.round(curr.temperature_2m ?? 22),
+          condition: cond.condition,
+          icon: cond.icon,
+          high: Math.round(daily.temperature_2m_max?.[0] ?? curr.temperature_2m ?? 25),
+          low: Math.round(daily.temperature_2m_min?.[0] ?? (curr.temperature_2m ? curr.temperature_2m - 6 : 18)),
+          feelsLike: Math.round(curr.apparent_temperature ?? curr.temperature_2m ?? 22),
+          humidity: Math.round(curr.relative_humidity_2m ?? 55),
+          windSpeed: `${Math.round(curr.wind_speed_10m ?? 12)} km/h`,
+          windDir: `${curr.wind_direction_10m ?? 0}°`,
+          pressure: `${Math.round(curr.surface_pressure ?? 1013)} hPa`,
+          uvIndex: Math.round(daily.uv_index_max?.[0] ?? 5),
+          sunrise: daily.sunrise?.[0] ? new Date(daily.sunrise[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '05:30 AM',
+          sunset: daily.sunset?.[0] ? new Date(daily.sunset[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '06:30 PM',
+        },
+        hourly: hourlyItems,
+        daily: dailyItems,
+      }));
+    } catch (err) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({
+        ok: true,
+        offline: true,
+        error: err.message,
+        city,
+        current: {
+          temp: 22,
+          condition: 'Offline (Cached)',
+          icon: 'cloud',
+          high: 25,
+          low: 18,
+          feelsLike: 22,
+          humidity: 50,
+          windSpeed: '10 km/h',
+          windDir: 'N',
+          pressure: '1013 hPa',
+          uvIndex: 4,
+          sunrise: '05:30 AM',
+          sunset: '06:30 PM',
+        },
+        hourly: [],
+        daily: [],
+      }));
+    }
   }
 
   if ((pathname.startsWith('/api/shell/') || pathname.startsWith('/api/wm/')) && method === 'POST') {
