@@ -139,6 +139,17 @@ export const AppleDarwinBridgeApp: React.FC = () => {
         </div>
       )}
 
+      {/* Architectural Prototype Notice */}
+      <div className="mx-4 mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-start gap-2.5 text-xs text-amber-200 shrink-0">
+        <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <span className="font-bold text-amber-300">Architecture Specification & UI Prototype (ADR-0004)</span>
+          <p className="text-[11px] text-amber-200/80 leading-relaxed">
+            Demonstrates the sovereign iOS sideloading workflow and application metadata verification. Real in-tree Mach-O binary execution is an out-of-core roadmap item; apps run in interactive sandbox mode.
+          </p>
+        </div>
+      </div>
+
       {/* Main Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Apps List */}
