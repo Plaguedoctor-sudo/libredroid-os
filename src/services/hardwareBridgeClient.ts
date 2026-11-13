@@ -605,3 +605,107 @@ export async function fetchAudioStatusViaBridge(): Promise<any> {
   return null;
 }
 
+/**
+ * Fetch unified settings state (Wi-Fi, Bluetooth, Display, Security)
+ */
+export async function fetchUnifiedSettings(): Promise<any> {
+  try {
+    const res = await authFetch('/api/settings/status');
+    if (res.ok) return await res.json();
+  } catch {}
+  return null;
+}
+
+/**
+ * Fetch real system security audit (78-check system verifier)
+ */
+export async function fetchSecurityAudit(): Promise<any> {
+  try {
+    const res = await authFetch('/api/security/audit');
+    if (res.ok) return await res.json();
+  } catch {}
+  return null;
+}
+
+/**
+ * Fetch real Linux kernel hardening parameters (SELinux, Landlock, KSPP sysctl)
+ */
+export async function fetchKernelHardening(): Promise<any> {
+  try {
+    const res = await authFetch('/api/security/kernel');
+    if (res.ok) return await res.json();
+  } catch {}
+  return null;
+}
+
+/**
+ * Verify security lockscreen PIN via backend lrd-security
+ */
+export async function verifySecurityPin(pin: string): Promise<{ ok: boolean; authenticated: boolean; message?: string }> {
+  try {
+    const res = await authFetch('/api/security/pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, action: 'verify' }),
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  return { ok: false, authenticated: false, message: 'Bridge communication error' };
+}
+
+/**
+ * Set security lockscreen PIN via backend lrd-security
+ */
+export async function setSecurityPin(pin: string): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const res = await authFetch('/api/security/pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, action: 'set' }),
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  return { ok: false, message: 'Bridge communication error' };
+}
+
+/**
+ * Fetch Play Integrity Fix profile status
+ */
+export async function fetchPlayIntegrityStatus(): Promise<any> {
+  try {
+    const res = await authFetch('/api/security/pif');
+    if (res.ok) return await res.json();
+  } catch {}
+  return null;
+}
+
+/**
+ * Apply Play Integrity Fix profile to system/Waydroid
+ */
+export async function applyPlayIntegrityFix(): Promise<any> {
+  try {
+    const res = await authFetch('/api/security/pif', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'apply' }),
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  return null;
+}
+
+/**
+ * Dispatch JSON-RPC command to lrdd native system daemon
+ */
+export async function callLrddRpc(method: string, params: any = {}): Promise<any> {
+  try {
+    const res = await authFetch('/api/rpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method, params, id: Date.now() }),
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  return null;
+}
+

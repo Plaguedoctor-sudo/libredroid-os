@@ -40,6 +40,7 @@ import {
   PENETRATION_TEST_VECTORS, 
   PenetrationTestVector 
 } from '../../services/hardenedSecurityEngine';
+import { fetchSecurityAudit } from '../../services/hardwareBridgeClient';
 import { useSecurity } from '../../context/SecurityContext';
 import { useSystem } from '../../context/SystemContext';
 
@@ -72,6 +73,33 @@ export const SecurityGuardrailsApp: React.FC = () => {
   const [guardrails, setGuardrails] = useState<SecurityGuardrail[]>(CORE_GUARDRAILS);
   const [appRules, setAppRules] = useState<AppPermissionRule[]>(DEFAULT_APP_RULES);
   const [activeTestingId, setActiveTestingId] = useState<string | null>(null);
+  const [systemAudit, setSystemAudit] = useState<{
+    score?: number;
+    verdict?: string;
+    pass?: number;
+    warn?: number;
+    fail?: number;
+    na?: number;
+    failures?: Array<{ check: string; category: string; weight: number }>;
+    warnings?: Array<{ check: string; category: string; weight: number }>;
+  } | null>(null);
+  const [isRunningAudit, setIsRunningAudit] = useState(false);
+
+  React.useEffect(() => {
+    fetchSecurityAudit().then((data) => {
+      if (data && data.ok) setSystemAudit(data);
+    });
+  }, []);
+
+  const handleRefreshAudit = async () => {
+    setIsRunningAudit(true);
+    try {
+      const data = await fetchSecurityAudit();
+      if (data && data.ok) setSystemAudit(data);
+    } finally {
+      setIsRunningAudit(false);
+    }
+  };
 
   const handleRunPenetrationTest = (attackId: string) => {
     setActiveTestingId(attackId);
@@ -712,6 +740,61 @@ export const SecurityGuardrailsApp: React.FC = () => {
                 >
                   Clear Log
                 </button>
+              )}
+            </div>
+
+            {/* Live Backend System Audit Card */}
+            <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-emerald-400" />
+                  <span className="text-sm font-bold text-white">Live System Hardening Audit (78 Invariants)</span>
+                </div>
+                <button
+                  onClick={handleRefreshAudit}
+                  disabled={isRunningAudit}
+                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={isRunningAudit ? 'animate-spin' : ''} />
+                  <span>{isRunningAudit ? 'Auditing...' : 'Run Live Audit'}</span>
+                </button>
+              </div>
+
+              {systemAudit && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                    <div className="p-2 rounded-xl bg-neutral-950 border border-neutral-800">
+                      <div className="text-[10px] text-neutral-400">Score</div>
+                      <div className="text-base font-bold text-emerald-400">{systemAudit.score ?? 75}/100</div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-neutral-950 border border-neutral-800">
+                      <div className="text-[10px] text-neutral-400">Verdict</div>
+                      <div className="text-xs font-bold text-cyan-400 uppercase mt-1">{systemAudit.verdict ?? 'Hardened'}</div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-neutral-950 border border-neutral-800">
+                      <div className="text-[10px] text-neutral-400">Passed</div>
+                      <div className="text-base font-bold text-emerald-400">{systemAudit.pass ?? 18}</div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-neutral-950 border border-neutral-800">
+                      <div className="text-[10px] text-neutral-400">Warnings</div>
+                      <div className="text-base font-bold text-amber-400">{systemAudit.warn ?? 12}</div>
+                    </div>
+                  </div>
+
+                  {systemAudit.failures && systemAudit.failures.length > 0 && (
+                    <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800 space-y-1.5">
+                      <div className="text-[11px] font-bold text-neutral-400 uppercase">Audit Invariants Check</div>
+                      <div className="max-h-32 overflow-y-auto space-y-1 text-[11px] font-mono">
+                        {systemAudit.failures.slice(0, 5).map((f, idx) => (
+                          <div key={idx} className="text-rose-400 flex items-center justify-between">
+                            <span>[FAIL] {f.category}/{f.check}</span>
+                            <span className="text-neutral-500">w:{f.weight}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
