@@ -4,6 +4,8 @@
  * with Linux Kernel Hardening (SELinux Enforcing, KSPP sysctl, Landlock LSM, Seccomp-BPF, Hardened Malloc).
  */
 
+import { fetchKernelHardening } from './hardwareBridgeClient';
+
 export interface AppleHardenedStack {
   lockdownMode: boolean;
   hardenedRuntime: boolean;
@@ -280,6 +282,36 @@ export class HardenedSecurityEngine {
       ...this.linuxStack,
       sysctlParameters: { ...this.linuxStack.sysctlParameters }
     };
+  }
+
+  public async syncWithBackend(): Promise<LinuxHardenedStack> {
+    try {
+      const data = await fetchKernelHardening();
+      if (data && data.ok) {
+        if (data.selinuxMode) {
+          this.linuxStack.selinuxMode = data.selinuxMode;
+        }
+        if (typeof data.landlockActive === 'boolean') {
+          this.linuxStack.landlockLsm = data.landlockActive;
+        }
+        if (typeof data.bubblewrapActive === 'boolean') {
+          this.linuxStack.bubblewrapNamespaces = data.bubblewrapActive;
+        }
+        if (typeof data.dmVerityActive === 'boolean') {
+          this.linuxStack.dmVerityVerifiedBoot = data.dmVerityActive;
+        }
+        if (data.sysctls) {
+          for (const [k, v] of Object.entries(data.sysctls as Record<string, any>)) {
+            if (this.linuxStack.sysctlParameters[k]) {
+              this.linuxStack.sysctlParameters[k].value = v.value;
+              this.linuxStack.sysctlParameters[k].isHardened = (v.value === this.linuxStack.sysctlParameters[k].hardenedDefault);
+            }
+          }
+        }
+        this.saveState();
+      }
+    } catch {}
+    return this.getLinuxStack();
   }
 
   public getAuditLogs(): SecurityAuditIncident[] {

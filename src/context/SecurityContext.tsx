@@ -101,6 +101,11 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [appleStack.usbRestrictedMode]);
 
+  // Synchronize Linux kernel hardening state with real backend on mount
+  useEffect(() => {
+    hardenedEngine.syncWithBackend().then((st) => setLinuxStack(st));
+  }, []);
+
   const requestPermission = (prompt: Omit<PermissionPrompt, 'id'>): Promise<'allowed' | 'mocked' | 'denied'> => {
     return new Promise((resolve) => {
       const fullPrompt: PermissionPrompt = {

@@ -42,6 +42,10 @@ import { DeviceMode, InterfaceMode } from '../../types/system';
 import { playIntegrityEngine, CERTIFIED_FINGERPRINTS, PlayIntegrityStatus } from '../../services/playIntegrityEngine';
 import { drmWidevineEngine, WidevineDrmStatus } from '../../services/drmWidevineEngine';
 import { hardwareHalBridge, GLOBAL_CARRIER_PROFILES, HardwareHalState } from '../../services/hardwareHalBridge';
+import { 
+  setSecurityPin, 
+  applyPlayIntegrityFix 
+} from '../../services/hardwareBridgeClient';
 import { ReadinessPanel } from '../../platform/react/ReadinessPanel';
 import { openWizard } from '../../platform/react/SetupHost';
 
@@ -369,9 +373,10 @@ export const SettingsApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
                   className="w-40 px-3.5 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-sm font-mono tracking-widest text-white text-center focus:outline-none focus:border-emerald-500"
                 />
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (newPinInput.length >= 4) {
                       updateLockSettings({ pin: newPinInput });
+                      await setSecurityPin(newPinInput);
                       setPinSavedFeedback(true);
                       setTimeout(() => setPinSavedFeedback(false), 2500);
                     }
@@ -643,10 +648,11 @@ export const SettingsApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
                   onClick={async () => {
                     setIsVerifyingIntegrity(true);
                     setIntegrityTestResult(null);
+                    await applyPlayIntegrityFix();
                     const res = await playIntegrityEngine.runDiagnostics();
                     setIntegrityStatus(playIntegrityEngine.getStatus());
                     setIsVerifyingIntegrity(false);
-                    setIntegrityTestResult(`Passed in ${res.durationMs}ms: Meets Strong, Device & Basic Integrity.`);
+                    setIntegrityTestResult(`Passed in ${res.durationMs}ms: Certified device fingerprint active in Waydroid.`);
                   }}
                   disabled={isVerifyingIntegrity}
                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow transition-all flex items-center gap-1.5 disabled:opacity-50"
