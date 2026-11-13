@@ -133,6 +133,17 @@ export const Network5gApp: React.FC = () => {
         </button>
       </div>
 
+      {/* 3GPP Simulation Test Harness Badge */}
+      <div className="mx-4 mt-3 p-3 bg-cyan-950/40 border border-cyan-800/40 rounded-2xl flex items-start gap-2.5 text-xs text-cyan-200 shrink-0">
+        <Activity size={16} className="text-cyan-400 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <span className="font-bold text-cyan-300">3GPP Rel-17 Radio & Throughput Simulator (Virtual Adaptor)</span>
+          <p className="text-[11px] text-cyan-200/80 leading-relaxed">
+            This module operates as an interactive RF & throughput test harness simulating Sub-6 and mmWave dual-connectivity. Physical cellular hardware (LTE/5G) is controlled by ModemManager and <code className="text-cyan-300 font-mono">lrd-telephonyd</code> via AT/QMI channels.
+          </p>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex items-center gap-1 p-2 bg-neutral-900/60 border-b border-neutral-800/80 px-4 text-xs shrink-0">
         {[

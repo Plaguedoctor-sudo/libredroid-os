@@ -35,26 +35,30 @@ interface AppleAppRunnerProps {
 }
 
 export const AppleAppRunner: React.FC<AppleAppRunnerProps> = ({ appId, title }) => {
-  if (appId === 'com.christianselig.apollo') {
-    return <ApolloRedditView />;
-  }
-  if (appId === 'com.rileytestut.delta') {
-    return <DeltaEmulatorView />;
-  }
-  if (appId === 'com.firecore.infuse') {
-    return <InfusePlayerView />;
-  }
-  if (appId === 'org.cryptomator.ios') {
-    return <CryptomatorIosView />;
-  }
-  if (appId === 'io.ente.photos.ios') {
-    return <EntePhotosView />;
-  }
-  if (appId === 'com.utmapp.UTM') {
-    return <UtmVirtualMachineView />;
-  }
+  const renderApp = () => {
+    if (appId === 'com.christianselig.apollo') return <ApolloRedditView />;
+    if (appId === 'com.rileytestut.delta') return <DeltaEmulatorView />;
+    if (appId === 'com.firecore.infuse') return <InfusePlayerView />;
+    if (appId === 'org.cryptomator.ios') return <CryptomatorIosView />;
+    if (appId === 'io.ente.photos.ios') return <EntePhotosView />;
+    if (appId === 'com.utmapp.UTM') return <UtmVirtualMachineView />;
+    return <GenericIpaRunnerView appId={appId} title={title} />;
+  };
 
-  return <GenericIpaRunnerView appId={appId} title={title} />;
+  return (
+    <div className="w-full h-full flex flex-col overflow-hidden">
+      <div className="py-1 px-3 bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-[10px] font-mono flex items-center justify-between shrink-0">
+        <span className="flex items-center gap-1.5 font-bold">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          Interactive Prototype Sandbox Mode (ADR-0004)
+        </span>
+        <span className="text-amber-400/80">Mach-O ARM64 Emulated View</span>
+      </div>
+      <div className="flex-1 w-full h-full overflow-hidden">
+        {renderApp()}
+      </div>
+    </div>
+  );
 };
 
 /* ---------------- 1. APOLLO FOR REDDIT (iOS) ---------------- */

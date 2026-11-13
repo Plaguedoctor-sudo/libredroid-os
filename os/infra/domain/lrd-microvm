@@ -79,14 +79,22 @@ start_vm() {
 }
 EOF
 
-    # If crosvm or cloud-hypervisor or qemu-microvm is installed, launch it.
-    # Otherwise spawn microvm supervisor process that manages isolation.
-    if command -v crosvm >/dev/null 2>&1; then
+    # Verify microvm kernel staging
+    local VM_KERNEL="/var/lib/libredroid/domains/$DOMAIN/vmlinuz"
+    if [ ! -f "$VM_KERNEL" ]; then
+        for k in /boot/vmlinuz* /usr/lib/modules/*/vmlinuz; do
+            if [ -f "$k" ]; then VM_KERNEL="$k"; break; fi
+        done
+    fi
+
+    # If hardware KVM and hypervisor binary are available and kernel image exists, launch MicroVM.
+    # Otherwise spawn microvm supervisor process that manages Landlock/namespace isolation.
+    if command -v crosvm >/dev/null 2>&1 && [ "$KVM_AVAILABLE" = "true" ] && [ -f "$VM_KERNEL" ]; then
         crosvm run --disable-sandbox \
             --mem "$MEM" \
             --socket "$SOCK_FILE" \
             --wayland-sock "$WAYLAND_SOCK" \
-            /var/lib/libredroid/domains/"$DOMAIN"/vmlinuz > "$RUNTIME_DIR/vm.log" 2>&1 &
+            "$VM_KERNEL" > "$RUNTIME_DIR/vm.log" 2>&1 &
         echo $! > "$PID_FILE"
     elif command -v qemu-system-x86_64 >/dev/null 2>&1 && [ "$KVM_AVAILABLE" = "true" ]; then
         qemu-system-x86_64 \

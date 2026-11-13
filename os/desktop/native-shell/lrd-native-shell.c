@@ -146,6 +146,28 @@ int main(int argc, char **argv) {
     printf("[lrd-native-shell] Ready. Active domain: [VAULT]. Touch & input pipeline active.\n");
     fflush(stdout);
 
+    // If a Wayland or display session is active, delegate directly to the GTK3 Wayland graphical shell
+    char exe_dir[512] = {0};
+    ssize_t elen = readlink("/proc/self/exe", exe_dir, sizeof(exe_dir) - 1);
+    if (elen > 0) {
+        exe_dir[elen] = '\0';
+        char *slash = strrchr(exe_dir, '/');
+        if (slash) *slash = '\0';
+    }
+
+    char py_path[1024];
+    snprintf(py_path, sizeof(py_path), "%s/lrd-wayland-shell.py", exe_dir);
+    if (access(py_path, R_OK) != 0 && access("/usr/lib/lrd/lrd-wayland-shell.py", R_OK) == 0) {
+        snprintf(py_path, sizeof(py_path), "/usr/lib/lrd/lrd-wayland-shell.py");
+    }
+
+    if (access(py_path, R_OK) == 0 && (getenv("WAYLAND_DISPLAY") || getenv("DISPLAY"))) {
+        printf("[lrd-native-shell] Delegating to GTK3 Wayland layer-shell runtime: %s\n", py_path);
+        fflush(stdout);
+        char *args[] = { "python3", py_path, NULL };
+        execvp("python3", args);
+    }
+
     // Event poll loop for Wayland events & system telemetry
     struct pollfd pfd;
     pfd.fd = (wl_fd >= 0) ? wl_fd : -1;
