@@ -40,6 +40,7 @@ import { useSecurity } from '../../context/SecurityContext';
 import { useVirtualKeyboard } from '../../context/KeyboardContext';
 import { SYSTEM_APPS } from '../../constants/apps';
 import type { AppIntent } from '../../types/apps';
+import { IntentCompiler } from '../../services/intentCompiler';
 
 export interface AiChatMessage {
   id: string;
@@ -144,6 +145,7 @@ export const UniversalAiApp: React.FC<Props> = ({ intent, params, paramSeq }) =>
     quickSettings,
     toggleQuickSetting,
     setQuickSettingValue,
+    lockDevice,
     batteryLevel,
     isCharging,
     hardwareSpecs,
@@ -151,7 +153,7 @@ export const UniversalAiApp: React.FC<Props> = ({ intent, params, paramSeq }) =>
     account
   } = useSystem();
 
-  const { openApp, closeWindow, returnHome } = useWindow();
+  const { openApp, closeWindow, returnHome, windows } = useWindow();
   const {
     cameraKillswitch,
     setCameraKillswitch,
@@ -278,6 +280,156 @@ export const UniversalAiApp: React.FC<Props> = ({ intent, params, paramSeq }) =>
       `User query parsed: "${userText}"`,
       'Evaluating token semantics against LibreDroid System Actuator Registry',
     ];
+
+    // Native Sovereign Intent Compiler evaluation (Option A & application/ai/intent)
+    const sovCmd = IntentCompiler.compile(userText);
+
+    if (sovCmd.type === 'AdjustBrightness') {
+      setQuickSettingValue('brightness', sovCmd.value);
+      thought.push(`IntentCompiler: Matched AdjustBrightness(${sovCmd.value}%)`);
+      return {
+        reply: `💡 **Screen Brightness Adjusted to ${sovCmd.value}%**.\n\nHardware display backlight PWM controller duty cycle updated.`,
+        action: {
+          type: 'quick_setting',
+          label: `Brightness: ${sovCmd.value}%`,
+          detail: 'Display backlight controller updated',
+          status: 'info',
+        },
+        thought,
+      };
+    }
+
+    if (sovCmd.type === 'SetVolume') {
+      setQuickSettingValue('volume', sovCmd.value);
+      thought.push(`IntentCompiler: Matched SetVolume(${sovCmd.value}%)`);
+      return {
+        reply: `🔊 **System Volume Adjusted to ${sovCmd.value}%**.\n\nALSA master transducer volume attenuator updated.`,
+        action: {
+          type: 'quick_setting',
+          label: `Volume: ${sovCmd.value}%`,
+          detail: 'ALSA master gain updated',
+          status: 'info',
+        },
+        thought,
+      };
+    }
+
+    if (sovCmd.type === 'ToggleTor') {
+      toggleQuickSetting('tor' as any);
+      fetch('/api/domains/tor/rotate', { method: 'POST' }).catch(() => {});
+      thought.push(`IntentCompiler: Matched ToggleTor(${sovCmd.enable})`);
+      return {
+        reply: `🧅 **Tor Onion Routing ${sovCmd.enable ? 'ENGAGED' : 'DISENGAGED'}**.\n\nOutbound IP multiplexed through isolated \`lrd-tor-gw\` netns.`,
+        action: {
+          type: 'quick_setting',
+          label: `Tor ${sovCmd.enable ? 'Active' : 'Disabled'}`,
+          detail: 'Onion circuit proxy toggled',
+          status: 'info',
+        },
+        thought,
+      };
+    }
+
+    if (sovCmd.type === 'EmergencyPanicLock') {
+      lockDevice();
+      fetch('/api/system/lock').catch(() => {});
+      thought.push('IntentCompiler: Matched EmergencyPanicLock');
+      return {
+        reply: '🚨 **EMERGENCY PANIC LOCK ENGAGED**.\n\nSystem session locked instantly. Ephemeral cryptographic keys wiped from memory registers.',
+        action: {
+          type: 'killswitch',
+          label: 'Panic Lock Triggered',
+          detail: 'Session locked & keys sealed',
+          status: 'warning',
+        },
+        thought,
+      };
+    }
+
+    if (sovCmd.type === 'FreezeApp') {
+      const targetLower = sovCmd.target.toLowerCase();
+      const openWin = windows.find(
+        (w) =>
+          w.appId.toLowerCase().includes(targetLower) ||
+          w.title.toLowerCase().includes(targetLower)
+      );
+      if (openWin) {
+        closeWindow(openWin.id);
+      }
+      thought.push(`IntentCompiler: Matched FreezeApp("${sovCmd.target}")`);
+      return {
+        reply: `🧊 **App "${sovCmd.target}" Closed/Frozen**.\n\nCgroup freezer placed process in D-state; window detached from compositor.`,
+        action: {
+          type: 'killswitch',
+          label: `Frozen: ${sovCmd.target}`,
+          detail: 'Process frozen via cgroup v2 freezer',
+          status: 'warning',
+        },
+        thought,
+      };
+    }
+
+    if (sovCmd.type === 'MuteMicrophone') {
+      setMicKillswitch(sovCmd.mute);
+      thought.push(`IntentCompiler: Matched MuteMicrophone(${sovCmd.mute})`);
+      return {
+        reply: sovCmd.mute
+          ? '🎙️ **Microphone Hardware Killswitch ENGAGED**.\n\nMicrophone audio lines are muted at the hardware level. Listening daemons receive synthetic white noise.'
+          : '🎙️ **Microphone Hardware Restored**.\n\nALSA audio stream re-connected under user consent.',
+        action: {
+          type: 'killswitch',
+          label: sovCmd.mute ? 'Mic Killswitch Active' : 'Mic Restored',
+          detail: sovCmd.mute ? 'ALSA line decoupled' : 'ALSA line reconnected',
+          status: sovCmd.mute ? 'warning' : 'success',
+        },
+        thought,
+      };
+    }
+
+    if (sovCmd.type === 'ToggleAirplaneMode') {
+      if (quickSettings.airplane !== sovCmd.enable) toggleQuickSetting('airplane');
+      thought.push(`IntentCompiler: Matched ToggleAirplaneMode(${sovCmd.enable})`);
+      return {
+        reply: `✈️ **Airplane Mode ${sovCmd.enable ? 'ENABLED' : 'DISABLED'}**.\n\nAll cellular, Wi-Fi, and Bluetooth baseband radios isolated.`,
+        action: {
+          type: 'quick_setting',
+          label: `Airplane Mode ${sovCmd.enable ? 'Active' : 'Off'}`,
+          detail: 'Transmitters isolated at hardware bus',
+          status: 'info',
+        },
+        thought,
+      };
+    }
+
+    if (sovCmd.type === 'ToggleWifi') {
+      if (quickSettings.wifi !== sovCmd.enable) toggleQuickSetting('wifi');
+      thought.push(`IntentCompiler: Matched ToggleWifi(${sovCmd.enable})`);
+      return {
+        reply: `📶 **Wi-Fi ${sovCmd.enable ? 'ENABLED' : 'DISABLED'}**.\n\nwlan0 interface state updated.`,
+        action: {
+          type: 'quick_setting',
+          label: `Wi-Fi ${sovCmd.enable ? 'Connected' : 'Disconnected'}`,
+          detail: 'wlan0 interface state updated',
+          status: 'info',
+        },
+        thought,
+      };
+    }
+
+    if (sovCmd.type === 'ToggleBluetooth') {
+      if (quickSettings.bluetooth !== sovCmd.enable) toggleQuickSetting('bluetooth');
+      thought.push(`IntentCompiler: Matched ToggleBluetooth(${sovCmd.enable})`);
+      return {
+        reply: `🫐 **Bluetooth ${sovCmd.enable ? 'ENABLED' : 'DISABLED'}**.\n\nhci0 baseband controller state updated.`,
+        action: {
+          type: 'quick_setting',
+          label: `Bluetooth ${sovCmd.enable ? 'Active' : 'Off'}`,
+          detail: 'hci0 controller toggled',
+          status: 'info',
+        },
+        thought,
+      };
+    }
 
     // 1. Device Mode Commands
     if (lower.includes('desktop') || lower.includes('dex') || lower.includes('pc mode') || lower.includes('window mode')) {

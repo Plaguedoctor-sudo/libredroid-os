@@ -14,6 +14,8 @@ void print_help(void) {
     printf("  sapp build <dir> [out.sap] [priv_key]  Build bit-for-bit deterministic .sap package\n");
     printf("  sapp sign <manifest> <priv_key> [sig]  Sign manifest with Ed25519 key\n");
     printf("  sapp verify <package.sap> [pub_key]    Verify signatures, manifest, and SBOM\n");
+    printf("  sapp inspect <package.sap>             Inspect package manifest and metadata\n");
+    printf("  sapp install <package.sap> [dir] [key] Install package to target directory\n");
     printf("  sapp run <app_id> [exec] [args...]     Launch inside Landlock + Seccomp sandbox\n");
 }
 
@@ -110,6 +112,45 @@ int main(int argc, char* argv[]) {
             printf("    [PASS] All cryptographic, manifest, and SBOM invariants VERIFIED!\n");
         } else {
             fprintf(stderr, "    [FAIL] Verification failed (code: %d)!\n", ret);
+        }
+        return ret;
+    }
+
+    if (strcmp(cmd, "inspect") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "Usage: sapp inspect <package.sap>\n");
+            return 1;
+        }
+        const char* pkg = argv[2];
+        SapManifestInfo info;
+        printf("==> Inspecting package '%s'...\n", pkg);
+        int ret = sap_pkg_inspect_package(pkg, &info);
+        if (ret == 0) {
+            printf("    App ID:      %s\n", info.app_id);
+            printf("    Name:        %s\n", info.name[0] ? info.name : "(default)");
+            printf("    Version:     %s\n", info.version);
+            printf("    Entrypoint:  %s\n", info.entrypoint[0] ? info.entrypoint : "(default)");
+            printf("    [PASS] Package inspection valid.\n");
+        } else {
+            fprintf(stderr, "    [FAIL] Could not inspect package (code: %d)\n", ret);
+        }
+        return ret;
+    }
+
+    if (strcmp(cmd, "install") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "Usage: sapp install <package.sap> [target_dir] [pub_key]\n");
+            return 1;
+        }
+        const char* pkg = argv[2];
+        const char* dir = (argc >= 4) ? argv[3] : NULL;
+        const char* key = (argc >= 5) ? argv[4] : NULL;
+        printf("==> Installing sovereign package '%s'...\n", pkg);
+        int ret = sap_pkg_install(pkg, dir, key);
+        if (ret == 0) {
+            printf("    [PASS] Package successfully verified and installed!\n");
+        } else {
+            fprintf(stderr, "    [FAIL] Installation failed (code: %d)\n", ret);
         }
         return ret;
     }

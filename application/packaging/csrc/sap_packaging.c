@@ -116,8 +116,53 @@ int sap_pkg_lint_manifest(const char* manifest_path, SapManifestInfo* info) {
 
     while (fgets(line, sizeof(line), f)) {
         if (strstr(line, "\"schemaVersion\"")) has_schema = true;
-        if (strstr(line, "\"appId\"")) has_appid = true;
-        if (strstr(line, "\"version\"")) has_version = true;
+        char* p = NULL;
+        if ((p = strstr(line, "\"appId\""))) {
+            has_appid = true;
+            if (info) {
+                char* q = strchr(p + 7, '"');
+                if (q) {
+                    char* end = strchr(q + 1, '"');
+                    if (end && (size_t)(end - q - 1) < sizeof(info->app_id)) {
+                        strncpy(info->app_id, q + 1, end - q - 1);
+                        info->app_id[end - q - 1] = '\0';
+                    }
+                }
+            }
+        }
+        if ((p = strstr(line, "\"version\""))) {
+            has_version = true;
+            if (info) {
+                char* q = strchr(p + 9, '"');
+                if (q) {
+                    char* end = strchr(q + 1, '"');
+                    if (end && (size_t)(end - q - 1) < sizeof(info->version)) {
+                        strncpy(info->version, q + 1, end - q - 1);
+                        info->version[end - q - 1] = '\0';
+                    }
+                }
+            }
+        }
+        if (info && (p = strstr(line, "\"name\""))) {
+            char* q = strchr(p + 6, '"');
+            if (q) {
+                char* end = strchr(q + 1, '"');
+                if (end && (size_t)(end - q - 1) < sizeof(info->name)) {
+                    strncpy(info->name, q + 1, end - q - 1);
+                    info->name[end - q - 1] = '\0';
+                }
+            }
+        }
+        if (info && (p = strstr(line, "\"entrypoint\""))) {
+            char* q = strchr(p + 12, '"');
+            if (q) {
+                char* end = strchr(q + 1, '"');
+                if (end && (size_t)(end - q - 1) < sizeof(info->entrypoint)) {
+                    strncpy(info->entrypoint, q + 1, end - q - 1);
+                    info->entrypoint[end - q - 1] = '\0';
+                }
+            }
+        }
     }
     fclose(f);
 
@@ -125,6 +170,55 @@ int sap_pkg_lint_manifest(const char* manifest_path, SapManifestInfo* info) {
         return -4; // Incomplete schema
     }
     return 0;
+}
+
+int sap_pkg_inspect_package(const char* sap_path, SapManifestInfo* info_out) {
+    if (!sap_path || access(sap_path, R_OK) != 0) return -1;
+
+    char tmp_dir[] = "/tmp/sap_inspect_XXXXXX";
+    if (!mkdtemp(tmp_dir)) return -2;
+
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd), "tar -xzf \"%s\" -C \"%s\" ./sap.manifest.json 2>/dev/null || tar -xzf \"%s\" -C \"%s\" sap.manifest.json 2>/dev/null", sap_path, tmp_dir, sap_path, tmp_dir);
+    if (execute_cmd(cmd) != 0) {
+        snprintf(cmd, sizeof(cmd), "rm -rf \"%s\"", tmp_dir);
+        execute_cmd(cmd);
+        return -3;
+    }
+
+    char manifest_path[512];
+    snprintf(manifest_path, sizeof(manifest_path), "%s/sap.manifest.json", tmp_dir);
+    int ret = sap_pkg_lint_manifest(manifest_path, info_out);
+
+    snprintf(cmd, sizeof(cmd), "rm -rf \"%s\"", tmp_dir);
+    execute_cmd(cmd);
+    return ret;
+}
+
+int sap_pkg_install(const char* sap_path, const char* install_dir, const char* pub_key_path) {
+    if (!sap_path || access(sap_path, R_OK) != 0) return -1;
+
+    // 1. Verify package cryptographic signature and manifest
+    int vret = sap_pkg_verify_package(sap_path, pub_key_path);
+    if (vret != 0) return vret;
+
+    // 2. Inspect manifest to get target directory if not provided
+    SapManifestInfo info;
+    if (sap_pkg_inspect_package(sap_path, &info) != 0) {
+        return -2;
+    }
+
+    char target[512];
+    if (install_dir && strlen(install_dir) > 0) {
+        snprintf(target, sizeof(target), "%s", install_dir);
+    } else {
+        snprintf(target, sizeof(target), "/tmp/sap_apps/%s", info.app_id[0] ? info.app_id : "app");
+    }
+
+    char cmd[2048];
+    snprintf(cmd, sizeof(cmd), "mkdir -p \"%s\" && tar -xzf \"%s\" -C \"%s\"", target, sap_path, target);
+    int ret = execute_cmd(cmd);
+    return (ret == 0) ? 0 : -3;
 }
 
 int sap_pkg_build(const char* src_dir, const char* out_sap_path, const char* priv_key_path) {

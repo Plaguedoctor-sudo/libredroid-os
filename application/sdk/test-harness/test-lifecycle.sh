@@ -88,12 +88,15 @@ check "Camera benchmark passes (1080p stream, hardware shutter veto, synthetic m
 echo "--> 11. Verifying Cryptographic Packaging & Verifiable Toolchain (Option G)"
 check "Native packaging engine compiles" bash -c 'make -C packaging/csrc >/dev/null 2>&1'
 check "Packaging benchmark passes (Ed25519, 1-byte tamper gate, reproducible builds)" bash -c './packaging/csrc/sap_packaging_bench >/dev/null 2>&1'
-check "sapp keygen, build & verify lifecycle succeeds" bash -c '
+check "sapp keygen, build, inspect, verify & install lifecycle succeeds" bash -c '
     ./sdk/cli/sapp keygen /tmp/harness_key.key /tmp/harness_key.pub >/dev/null 2>&1 && \
     ./sdk/cli/sapp create /tmp/harness_app >/dev/null 2>&1 && \
     ./sdk/cli/sapp build /tmp/harness_app /tmp/harness_app.sap /tmp/harness_key.key >/dev/null 2>&1 && \
+    ./sdk/cli/sapp inspect /tmp/harness_app.sap >/dev/null 2>&1 && \
     ./sdk/cli/sapp verify /tmp/harness_app.sap /tmp/harness_key.pub >/dev/null 2>&1 && \
-    rm -rf /tmp/harness_key.* /tmp/harness_app*
+    ./sdk/cli/sapp install /tmp/harness_app.sap /tmp/harness_install /tmp/harness_key.pub >/dev/null 2>&1 && \
+    test -f /tmp/harness_install/sap.manifest.json && \
+    rm -rf /tmp/harness_key.* /tmp/harness_app* /tmp/harness_install
 '
 
 echo "--> 12. Verifying Android Subsystem Compatibility & Translation Bridge (Option H)"

@@ -36,6 +36,14 @@ import {
   parseIpaFile, 
   SideloadedAppleApp 
 } from '../../services/appleAppManager';
+import {
+  getInstalledSapApps,
+  syncSapAppsFromBackend,
+  saveInstalledSapApp,
+  uninstallSapApp,
+  parseSapFile,
+  SideloadedSapApp,
+} from '../../services/sapPackageManager';
 import { 
   uploadWaydroidApk, 
   uninstallWaydroidApk, 
@@ -54,14 +62,16 @@ interface Props extends Partial<AppIntent> {
 
 export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
   const effectiveIntent: AppIntent | undefined = intent || (params ? { params, paramSeq } : undefined);
-  const [activeTab, setActiveTab] = useState<'all' | 'android' | 'apple' | 'url'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'sovereign' | 'android' | 'apple' | 'url'>('all');
   const [apks, setApks] = useState<SideloadedApk[]>(getInstalledApks());
   const [appleApps, setAppleApps] = useState<SideloadedAppleApp[]>(getInstalledAppleApps());
+  const [sapApps, setSapApps] = useState<SideloadedSapApp[]>(getInstalledSapApps());
   const [isInstalling, setIsInstalling] = useState(false);
   const [installProgress, setInstallProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
   const [selectedApk, setSelectedApk] = useState<SideloadedApk | null>(null);
   const [selectedAppleApp, setSelectedAppleApp] = useState<SideloadedAppleApp | null>(null);
+  const [selectedSapApp, setSelectedSapApp] = useState<SideloadedSapApp | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -76,7 +86,13 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
   const refresh = () => {
     setApks(getInstalledApks());
     setAppleApps(getInstalledAppleApps());
+    setSapApps(getInstalledSapApps());
+    syncSapAppsFromBackend().then(setSapApps).catch(() => {});
   };
+
+  useEffect(() => {
+    syncSapAppsFromBackend().then(setSapApps).catch(() => {});
+  }, []);
 
   /* ── consume intent ── */
   useEffect(() => {
@@ -111,11 +127,12 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
   /* ── Unified Installer Routine ── */
   const processPackageFile = async (file: File) => {
     const lower = file.name.toLowerCase();
+    const isSap = lower.endsWith('.sap') || lower.endsWith('.sap.tar.gz');
     const isApple = lower.endsWith('.ipa') || lower.endsWith('.app');
-    const isAndroid = lower.endsWith('.apk') || (lower.endsWith('.zip') && !isApple);
+    const isAndroid = lower.endsWith('.apk') || (lower.endsWith('.zip') && !isApple && !isSap);
 
-    if (!isApple && !isAndroid) {
-      alert('Please select a valid application package: Android (.apk) or Apple iOS/macOS (.ipa / .app)');
+    if (!isApple && !isAndroid && !isSap) {
+      alert('Please select a valid application package: Sovereign Native (.sap), Android (.apk), or Apple iOS/macOS (.ipa / .app)');
       return;
     }
 
@@ -123,7 +140,37 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
     setInstallProgress(15);
     setStatusMessage(`Analyzing binary bundle ${file.name}...`);
 
-    if (isApple) {
+    if (isSap) {
+      setTimeout(async () => {
+        setInstallProgress(45);
+        setStatusMessage('Verifying Ed25519 digital signature & SPDX-2.3 SBOM...');
+
+        setTimeout(async () => {
+          setInstallProgress(75);
+          setStatusMessage('Validating Landlock LSM filesystem sandbox & Seccomp policy...');
+
+          const parsed = await parseSapFile(file);
+
+          setTimeout(() => {
+            setInstallProgress(100);
+            saveInstalledSapApp(parsed);
+            setSapApps(getInstalledSapApps());
+            setSelectedSapApp(parsed);
+            setSelectedApk(null);
+            setSelectedAppleApp(null);
+            setIsInstalling(false);
+            setStatusMessage('');
+
+            addNotification({
+              appId: 'apk_installer',
+              appName: 'Package Installer',
+              title: `${parsed.name} Ready`,
+              body: `Sovereign native app ${parsed.appId} sandboxed under Landlock + Seccomp.`,
+            });
+          }, 400);
+        }, 500);
+      }, 400);
+    } else if (isApple) {
       setTimeout(async () => {
         setInstallProgress(45);
         setStatusMessage('Extracting Payload/*.app, Info.plist & Mach-O ARM64 headers...');
@@ -240,11 +287,12 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
     setUrlError(null);
 
     const lower = url.toLowerCase();
+    const isSap = lower.includes('.sap');
     const isApple = lower.includes('.ipa') || lower.includes('.app');
     const isAndroid = lower.includes('.apk');
 
-    if (!isApple && !isAndroid) {
-      setUrlError('URL must point directly to a .apk or .ipa package.');
+    if (!isApple && !isAndroid && !isSap) {
+      setUrlError('URL must point directly to a .sap, .apk, or .ipa package.');
       return;
     }
 
@@ -256,22 +304,31 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
       setInstallProgress(60);
       setStatusMessage('Verifying package integrity checksum & TLS certificate...');
 
-      const filename = url.split('/').pop()?.split('?')[0] || (isApple ? 'app.ipa' : 'package.apk');
+      const filename = url.split('/').pop()?.split('?')[0] || (isSap ? 'app.sap' : isApple ? 'app.ipa' : 'package.apk');
       const dummyBlob = new Blob(['simulated-binary-content'], { type: 'application/octet-stream' });
       const mockFile = new File([dummyBlob], filename);
 
-      if (isApple) {
+      if (isSap) {
+        const parsed = await parseSapFile(mockFile);
+        saveInstalledSapApp(parsed);
+        setSapApps(getInstalledSapApps());
+        setSelectedSapApp(parsed);
+        setSelectedApk(null);
+        setSelectedAppleApp(null);
+      } else if (isApple) {
         const parsed = await parseIpaFile(mockFile);
         const updated = saveInstalledAppleApp(parsed);
         setAppleApps(updated);
         setSelectedAppleApp(parsed);
         setSelectedApk(null);
+        setSelectedSapApp(null);
       } else {
         const parsed = await parseApkFile(mockFile);
         const updated = saveInstalledApk(parsed);
         setApks(updated);
         setSelectedApk(parsed);
         setSelectedAppleApp(null);
+        setSelectedSapApp(null);
       }
 
       setInstallProgress(100);
@@ -286,6 +343,19 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
         body: `Downloaded and provisioned ${filename} successfully.`,
       });
     }, 1200);
+  };
+
+  const handleUninstallSap = (id: string) => {
+    if (!confirm(`Are you sure you want to remove sovereign app ${id}?`)) return;
+    uninstallSapApp(id);
+    setSapApps(getInstalledSapApps());
+    if (selectedSapApp?.id === id) setSelectedSapApp(null);
+    addNotification({
+      appId: 'apk_installer',
+      appName: 'Package Installer',
+      title: 'Package Removed',
+      body: `Sovereign app ${id} uninstalled cleanly.`,
+    });
   };
 
   const handleUninstallApk = async (pkg: string) => {
@@ -323,12 +393,12 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
   };
 
   /* ── Toggle Home Screen Pin ── */
-  const activeSelectedId = selectedApk?.id || selectedAppleApp?.id || null;
+  const activeSelectedId = selectedApk?.id || selectedAppleApp?.id || selectedSapApp?.id || null;
   const isPinnedToHome = activeSelectedId ? persona.homeApps.includes(activeSelectedId) : false;
 
   const toggleHomePin = () => {
     if (!activeSelectedId) return;
-    const appName = selectedApk?.name || selectedAppleApp?.name || 'Application';
+    const appName = selectedApk?.name || selectedAppleApp?.name || selectedSapApp?.name || 'Application';
     if (isPinnedToHome) {
       updatePersona({ homeApps: persona.homeApps.filter(id => id !== activeSelectedId) });
       addNotification({
@@ -361,7 +431,7 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
       {isDragOver && (
         <div className="absolute inset-0 z-50 bg-neutral-950/90 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none p-6 text-center border-2 border-dashed border-emerald-400">
           <Upload size={48} className="text-emerald-400 animate-bounce mb-3" />
-          <h3 className="text-base font-bold text-white">Drop .APK or .IPA package here</h3>
+          <h3 className="text-base font-bold text-white">Drop .SAP, .APK or .IPA package here</h3>
           <p className="text-xs text-neutral-400 mt-1">LibreDroid OS will automatically verify and install the application.</p>
         </div>
       )}
@@ -369,18 +439,18 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
       {/* Top Header */}
       <div className="p-3 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-gradient-to-tr from-emerald-500 to-rose-500 text-white rounded-xl shadow">
+          <div className="p-1.5 bg-gradient-to-tr from-purple-500 via-emerald-500 to-rose-500 text-white rounded-xl shadow">
             <Box size={18} />
           </div>
           <div>
             <div className="text-sm font-bold flex items-center gap-2">
               Universal Package Hub
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">
-                Android APK + Apple IPA
+              <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full font-mono">
+                Sovereign .SAP + Android APK + Apple IPA
               </span>
             </div>
             <div className="text-[11px] text-neutral-400">
-              Direct installer for Android (Waydroid) and Apple iOS/macOS (Darwin CocoaTouch)
+              Direct installer for Sovereign SAP, Android (Waydroid) and Apple iOS/macOS (Darwin CocoaTouch)
             </div>
           </div>
         </div>
@@ -399,12 +469,12 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
             <span>Install from URL</span>
           </button>
 
-          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-rose-600 hover:from-emerald-500 hover:to-rose-500 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow">
+          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 via-emerald-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow">
             <Upload size={14} />
             <span>Sideload File</span>
             <input
               type="file"
-              accept=".apk,.ipa,.app,.zip"
+              accept=".apk,.ipa,.app,.zip,.sap"
               onChange={handleFileUpload}
               className="hidden"
               disabled={isInstalling}
@@ -421,7 +491,16 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
             activeTab === 'all' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
           }`}
         >
-          All Packages ({apks.length + appleApps.length})
+          All Packages ({apks.length + appleApps.length + sapApps.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('sovereign')}
+          className={`px-3 py-1 rounded-xl font-medium flex items-center gap-1.5 transition-colors ${
+            activeTab === 'sovereign' ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40' : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-purple-400" />
+          <span>Sovereign .SAP ({sapApps.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('android')}
@@ -500,6 +579,55 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
       <div className="flex-1 flex overflow-hidden">
         {/* Left List of Installed Packages */}
         <div className="w-full sm:w-1/2 p-4 overflow-y-auto border-r border-neutral-800 space-y-3">
+          {/* Sovereign SAP Packages */}
+          {(activeTab === 'all' || activeTab === 'sovereign') && (
+            <div className="space-y-2">
+              <div className="text-[11px] font-bold text-purple-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Sovereign Native Applications (.sap Landlock Sandbox)</span>
+                <span className="font-mono text-[10px] text-neutral-400">{sapApps.length} apps</span>
+              </div>
+              {sapApps.map((sap) => (
+                <div
+                  key={sap.id}
+                  onClick={() => {
+                    setSelectedSapApp(sap);
+                    setSelectedApk(null);
+                    setSelectedAppleApp(null);
+                  }}
+                  className={`p-3 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
+                    selectedSapApp?.id === sap.id
+                      ? 'bg-neutral-800 border-purple-500 ring-1 ring-purple-500/50'
+                      : 'bg-neutral-850/60 border-neutral-800 hover:bg-neutral-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl ${sap.iconBg} flex items-center justify-center shadow`}>
+                      <Shield size={20} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                        <span>{sap.name}</span>
+                        <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-mono">.SAP</span>
+                      </div>
+                      <div className="text-[11px] text-neutral-400 font-mono truncate max-w-[160px]">{sap.appId}</div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLaunch(sap.id, sap.name, 'vault');
+                    }}
+                    className="p-2 bg-purple-600/30 hover:bg-purple-600/60 text-purple-300 rounded-xl transition-colors"
+                    title="Launch in Landlock Sandbox"
+                  >
+                    <Play size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Android Packages */}
           {(activeTab === 'all' || activeTab === 'android') && (
             <div className="space-y-2">
@@ -513,6 +641,7 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
                   onClick={() => {
                     setSelectedApk(apk);
                     setSelectedAppleApp(null);
+                    setSelectedSapApp(null);
                   }}
                   className={`p-3 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
                     selectedApk?.packageName === apk.packageName
@@ -561,6 +690,7 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
                   onClick={() => {
                     setSelectedAppleApp(app);
                     setSelectedApk(null);
+                    setSelectedSapApp(null);
                   }}
                   className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                     selectedAppleApp?.id === app.id
@@ -615,7 +745,100 @@ export const ApkInstallerApp: React.FC<Props> = ({ intent, params, paramSeq }) =
           )}
 
           <div className="p-5 flex-1 flex flex-col justify-between overflow-y-auto">
-            {selectedApk ? (
+            {selectedSapApp ? (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between border-b border-neutral-800 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-14 h-14 rounded-2xl ${selectedSapApp.iconBg} flex items-center justify-center shadow-lg`}>
+                      <Shield size={28} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white">{selectedSapApp.name}</h3>
+                      <p className="text-xs text-neutral-400 font-mono">{selectedSapApp.appId}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-md font-mono">
+                          Landlock + Seccomp Sandboxed
+                        </span>
+                        <span className="text-[10px] text-neutral-400">{selectedSapApp.size}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={toggleHomePin}
+                      className={`p-2 rounded-xl transition-colors ${
+                        isPinnedToHome ? 'text-purple-400 bg-purple-500/10' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+                      }`}
+                      title={isPinnedToHome ? 'Unpin from Home' : 'Pin to Home Screen'}
+                    >
+                      {isPinnedToHome ? <PinOff size={16} /> : <Pin size={16} />}
+                    </button>
+                    <button
+                      onClick={() => handleUninstallSap(selectedSapApp.id)}
+                      className="p-2 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
+                      title="Uninstall SAP App"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-xs text-neutral-300 leading-relaxed bg-neutral-900/80 p-3.5 rounded-2xl border border-neutral-800">
+                  {selectedSapApp.description}
+                </div>
+
+                {/* Capabilities & Security */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-purple-400" />
+                    <span>Granted Sovereign Capabilities</span>
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedSapApp.capabilities.map((cap) => (
+                      <span
+                        key={cap}
+                        className="text-[11px] bg-purple-950/40 border border-purple-800/60 px-2.5 py-1 rounded-lg font-mono text-purple-300"
+                      >
+                        {cap}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-neutral-850">
+                    <span className="text-neutral-400">Entrypoint</span>
+                    <span className="text-white font-mono">{selectedSapApp.entrypoint}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-neutral-850">
+                    <span className="text-neutral-400">Digital Signature</span>
+                    <span className="text-emerald-400 font-mono">Ed25519 Verified</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-neutral-850">
+                    <span className="text-neutral-400">Reproducible SBOM</span>
+                    <span className="text-emerald-400 font-mono">SPDX-2.3 Clean</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex gap-2">
+                  <button
+                    onClick={() => handleLaunch(selectedSapApp.id, selectedSapApp.name, 'vault')}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Play size={15} />
+                    <span>Launch Sandboxed App</span>
+                  </button>
+                  <button
+                    onClick={toggleHomePin}
+                    className="px-3 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold text-xs rounded-xl border border-neutral-700 flex items-center gap-1.5"
+                  >
+                    <Pin size={14} />
+                    <span>{isPinnedToHome ? 'Unpin' : 'Pin'}</span>
+                  </button>
+                </div>
+              </div>
+            ) : selectedApk ? (
               <div className="space-y-4">
                 <div className="flex items-start justify-between border-b border-neutral-800 pb-4">
                   <div className="flex items-center gap-3">

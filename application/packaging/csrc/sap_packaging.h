@@ -39,6 +39,12 @@ int sap_pkg_verify_package(const char* sap_path, const char* pub_key_path);
 // Parse and lint manifest JSON
 int sap_pkg_lint_manifest(const char* manifest_path, SapManifestInfo* info);
 
+// Inspect .sap package manifest and metadata without permanent extraction
+int sap_pkg_inspect_package(const char* sap_path, SapManifestInfo* info_out);
+
+// Install verified .sap package to target directory
+int sap_pkg_install(const char* sap_path, const char* install_dir, const char* pub_key_path);
+
 #ifdef __cplusplus
 }
 #endif
