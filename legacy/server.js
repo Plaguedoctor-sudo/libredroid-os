@@ -1894,7 +1894,11 @@ const server = http.createServer(async (req, res) => {
   // 5. Static file serving from dist/
   if (method === 'GET' || method === 'HEAD') {
     const cleanPath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
-    let target = path.join(DIST_DIR, cleanPath);
+    const target = path.resolve(DIST_DIR, '.' + path.sep + cleanPath);
+    if (!target.startsWith(DIST_DIR)) {
+      res.writeHead(403, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, error: 'Forbidden' }));
+    }
 
     fs.stat(target, (err, stats) => {
       if (!err && stats.isFile()) {
