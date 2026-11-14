@@ -11,6 +11,9 @@ ExecStart=/usr/bin/lrd-security-audit
 TimeoutStartSec=180
 # a failing audit must not stop the boot; it must be visible
 SuccessExitStatus=0 1
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
 
 [Install]
 WantedBy=multi-user.target

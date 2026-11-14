@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/sh
+set -e
 echo "[lrd] exit $1 at $(date -Is)" >>"$HOME/.lrd/log/server.log"
 # runit respawns; throttle a hot crash loop
 sleep 2

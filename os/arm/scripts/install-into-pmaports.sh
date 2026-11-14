@@ -15,7 +15,7 @@ for p in libredroid-shell libredroid-config libredroid-meta; do
 done
 
 echo "→ generating checksums"
-cd "$PMAPORTS"
+cd "$PMAPORTS" || exit 1
 for p in libredroid-shell libredroid-config libredroid-meta; do
   ( cd "main/$p" && pmbootstrap checksum --arch aarch64 )
 done

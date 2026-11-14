@@ -124,7 +124,7 @@ echo "[3/5] Executing Builder Alpha (Env: TZ=UTC, umask=0022, ID=alpha)..."
     export BUILDER_ID="alpha"
     export LANG="C.UTF-8"
     umask 0022
-    cd "$FS_ROOT"
+    cd "$FS_ROOT" || exit 1
     python3 tools/fsbuild/fsbuild.py stage --target x200-libreboot --profile native
     cp -a out/root-x200-libreboot "$BUILD_A/"
 )
@@ -136,7 +136,7 @@ echo "[4/5] Executing Builder Beta (Env: TZ=Asia/Tokyo, umask=0077, LANG=de_DE.U
     export LANG="C"
     export LC_ALL="C"
     umask 0077
-    cd "$FS_ROOT"
+    cd "$FS_ROOT" || exit 1
     bash tools/independent-build.sh --out "$BUILD_B/root-x200-libreboot" --target x200-libreboot --profile native
 )
 

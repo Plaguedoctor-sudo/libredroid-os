@@ -74,7 +74,7 @@ fi
 # 3. Pack as cpio.gz
 OUTPUT_CPIO="$OUT/initramfs.cpio.gz"
 (
-  cd "$WORKDIR"
+  cd "$WORKDIR" || exit 1
   find . -mindepth 1 | sort | cpio -o -H newc -R 0:0 2>/dev/null | gzip -9 > "$OUTPUT_CPIO"
 )
 

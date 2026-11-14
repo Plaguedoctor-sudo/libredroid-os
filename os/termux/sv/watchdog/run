@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/sh
+set -e
 exec 2>&1
 . "$HOME/.lrd/etc/lrd.env"
 fails=0; restarts=0; window=0

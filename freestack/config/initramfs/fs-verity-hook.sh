@@ -33,7 +33,7 @@ echo "Mounting verified rootfs..."
 mount -o ro "/dev/mapper/$MAPPER_NAME" /newroot
 
 # Pivot root into verified system
-cd /newroot
+cd /newroot || exit 1
 pivot_root . initrd || pivot_root /newroot /newroot/initrd
 
 echo "DM-Verity verified mount successful."

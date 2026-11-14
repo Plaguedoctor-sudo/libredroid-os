@@ -41,7 +41,7 @@ fi
 export SOURCE_DATE_EPOCH=1700000000
 umask 0077
 
-cd "$FS_ROOT"
+cd "$FS_ROOT" || exit 1
 python3 tools/fsbuild/fsbuild.py stage --target "$TARGET" --profile "$PROFILE" $ALLOW_BLOBS
 
 cp -a "out/root-$TARGET/." "$OUT_DIR/"

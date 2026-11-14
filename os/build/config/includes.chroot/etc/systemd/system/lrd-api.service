@@ -8,6 +8,10 @@ ExecStart=/usr/bin/python3 /usr/lib/lrd/lrd-api.py
 Restart=always
 RestartSec=2
 User=root
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target

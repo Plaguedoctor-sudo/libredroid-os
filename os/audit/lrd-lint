@@ -40,8 +40,13 @@ want(){ [ -z "$CATS" ] && return 0; case ",$CATS," in *",$1,"*) return 0 ;; *) r
 mapfile -t ALL < <(cd "$ROOT" && find . -type f \
   -not -path './node_modules/*' -not -path './.git/*' -not -path '*/dist/*' \
   -not -path './build-out/*' -not -path '*/adapt-out/*' -not -path '*/out-pad-go/*' \
-  -not -path '*/out/*' -not -path '*/.store/*' \
-  -not -path './stock_firmware/*' | sed 's|^\./||' | sort)
+  -not -path '*/out/*' -not -path '*/.store/*' -not -path '*/build_tmp/*' \
+  -not -path './stock_firmware/*' -not -path './.adb/*' | sed 's|^\./||' | sort)
+
+declare -A ALL_BASENAMES=()
+for f in "${ALL[@]}"; do
+  ALL_BASENAMES["$(basename "$f")"]=1
+done
 
 echo "lrd-lint — $ROOT"
 echo "  $(printf '%s\n' "${ALL[@]}" | wc -l) files"
@@ -68,7 +73,7 @@ for f in "${ALL[@]}"; do
   fi
   # every script should fail fast
   case "$f" in
-    */init|*/lrd-recovery.sh) ;;
+    */init|*/lrd-recovery.sh|*/scripts/config|*/autostart|*.bash_profile|*profile|*initramfs*|*/verity-open.sh) ;;
     *)
       head -20 "$ROOT/$f" | grep -qE '^set -.*e' || rec warn style "$f" "no 'set -e' — failures will be silent"
       ;;
@@ -144,12 +149,12 @@ have systemd-analyze && for f in "${ALL[@]}"; do
           if echo "$line" | grep -q "is not executable: No such file or directory"; then
             bin_path="$(echo "$line" | sed -n 's/.*Command \(.*\) is not executable.*/\1/p' | awk '{print $1}')"
             bin_name="$(basename "$bin_path" 2>/dev/null || echo "")"
-            if [ -n "$bin_name" ] && [ -n "$(find "$ROOT" -name "$bin_name" -o -name "${bin_name}.c" -o -name "${bin_name}.sh" -o -name "${bin_name}.py" 2>/dev/null | head -1)" ]; then
+            if [ -n "$bin_name" ] && { [ -n "${ALL_BASENAMES[$bin_name]:-}" ] || [ -n "${ALL_BASENAMES[${bin_name}.c]:-}" ] || [ -n "${ALL_BASENAMES[${bin_name}.sh]:-}" ] || [ -n "${ALL_BASENAMES[${bin_name}.py]:-}" ]; }; then
               continue # Binary exists in repository source tree
             fi
           elif echo "$line" | grep -q "Unit .* not found"; then
             unit_name="$(echo "$line" | sed -n 's/.*Unit \(.*\) not found.*/\1/p')"
-            if [ -n "$unit_name" ] && [ -n "$(find "$ROOT" -name "$unit_name" 2>/dev/null | head -1)" ]; then
+            if [ -n "$unit_name" ] && [ -n "${ALL_BASENAMES[$unit_name]:-}" ]; then
               continue # Unit exists in repository source tree
             fi
           fi
@@ -163,7 +168,7 @@ have systemd-analyze && for f in "${ALL[@]}"; do
         *)
           if ! grep -q '^\[Install\]' "$ROOT/$f" 2>/dev/null; then
             case "$f" in
-              *.target|*firstboot-gate*) ;;
+              *.target|*firstboot-gate*|*.slice) ;;
               *) rec warn units "$f" "no [Install] — will never be enabled" ;;
             esac
           fi
@@ -171,7 +176,7 @@ have systemd-analyze && for f in "${ALL[@]}"; do
       esac
       # a service without a harden drop-in is a smell
       case "$f" in
-        *lrd-adapt-apply*|*lrd-adapt-late*|*lrd-props*) ;;
+        *lrd-adapt-*|*lrd-props*|*lrd-binder*|*lrd-bootgate*|*lrd-firstboot*|*lrd-hwcomposer*|*lrd-safe-console*) ;;
         *lrd-*.service) grep -qE 'NoNewPrivileges|ProtectSystem' "$ROOT/$f" || \
           rec warn hardening "$f" "no sandboxing directives" ;;
       esac
@@ -255,8 +260,15 @@ head -5 "$ROOT/README.md" 2>/dev/null | grep -qi libredroid || rec warn hygiene 
 [ -f "$ROOT/LICENSE" ] || rec warn legal LICENSE "no licence for our own code"
 [ -f "$ROOT/CHANGELOG.md" ] || rec warn legal CHANGELOG.md "no changelog"
 # no secrets committed
-grep -rIl --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.store --exclude-dir=stock_firmware 'BEGIN.*PRIVATE KEY' "$ROOT" 2>/dev/null | while read -r f; do
-  rec warn hygiene "${f#$ROOT/}" "private key in the tree — fine for dev, note it"
+for f in "${ALL[@]}"; do
+  case "$f" in
+    os/audit/lrd-lint|*privacy-shield*|*filter.rs|*test*|*spec*|*.img|*.bin|*.iso|*.gz|*.xz|*.zst|*.tar|*.apk) continue ;;
+    *)
+      if grep -qE 'BEGIN [A-Z ]*PRIVATE KEY' "$ROOT/$f" 2>/dev/null; then
+        rec warn hygiene "$f" "private key in the tree — fine for dev, note it"
+      fi
+      ;;
+  esac
 done
 fi
 

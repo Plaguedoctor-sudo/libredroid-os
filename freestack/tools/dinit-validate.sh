@@ -17,7 +17,7 @@ if [ ! -e "${SERVICES[0]}" ]; then
 fi
 
 COUNT=0
-for svc in "${SERVICES[@]}"; do
+for svc in "${SERVICES[@]:-}"; do
     COUNT=$((COUNT + 1))
     NAME="$(basename "$svc")"
     

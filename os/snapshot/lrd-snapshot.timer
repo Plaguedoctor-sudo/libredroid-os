@@ -5,3 +5,6 @@ Description=Daily LibreDroid automatic snapshot
 OnCalendar=*-*-* 03:30
 RandomizedDelaySec=2h
 Persistent=true
+
+[Install]
+WantedBy=timers.target

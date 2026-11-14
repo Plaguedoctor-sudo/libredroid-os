@@ -7,7 +7,7 @@
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-cd "$HERE"
+cd "$HERE" || exit 1
 
 CYAN='\033[1;36m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; BOLD='\033[1m'; NC='\033[0m'
 say(){ printf "${CYAN}::${NC} %s\n" "$*"; }
@@ -38,7 +38,7 @@ MANDATORY_TYPES=(
     "fs_bin_t"
 )
 
-for t in "${MANDATORY_TYPES[@]}"; do
+for t in "${MANDATORY_TYPES[@]:-}"; do
     if ! grep -q "type $t" services.te && ! grep -q "type $t" minimal.te; then
         die "Assertion failed: mandatory type $t not declared in policy modules!"
     fi

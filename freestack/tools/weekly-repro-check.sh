@@ -8,7 +8,7 @@ FS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "=== FreeStack Weekly Random Reproducibility Spot-Check ==="
 
-cd "$FS_ROOT"
+cd "$FS_ROOT" || exit 1
 # Randomly select 2 components from locked manifest and rebuild
 COMPONENTS=("musl" "toybox" "dinit" "bubblewrap")
 SELECTED_INDEX=$((RANDOM % ${#COMPONENTS[@]}))

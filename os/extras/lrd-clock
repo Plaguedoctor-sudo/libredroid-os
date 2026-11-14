@@ -1,5 +1,8 @@
 #!/bin/sh
+set -e
 # last-good wall clock survives reboots; monotonic covers the gap
 last=$(cat /persist/last-good 2>/dev/null || echo 0)
 now=$(date +%s)
-[ "$now" -lt "$last" ] && date -s "@$last" && logger -t lrd-clock "restored from last-good"
+if [ "$now" -lt "$last" ]; then
+  date -s "@$last" && logger -t lrd-clock "restored from last-good"
+fi

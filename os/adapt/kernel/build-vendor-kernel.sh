@@ -8,7 +8,7 @@ OUT="${OUT:-$PWD/kernel-out}"
 command -v aarch64-linux-gnu-gcc >/dev/null || { echo "apt install gcc-aarch64-linux-gnu"; exit 1; }
 mkdir -p "$OUT"
 
-cd "$SRC"
+cd "$SRC" || exit 1
 # some vendor trees ship a build script, some are plain kbuild
 if [ -x build/build.sh ]; then
   echo ":: vendor build script detected"

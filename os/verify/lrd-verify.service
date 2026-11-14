@@ -7,6 +7,9 @@ ConditionPathExists=!/var/lib/lrd/.verified
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
 # run it on the console so a human sees it and a serial capture gets it
 StandardOutput=tty
 StandardError=tty

@@ -17,3 +17,6 @@ TimeoutStartSec=30
 # a hung report must not stall the boot
 TimeoutAbortSec=10
 Nice=5
+
+[Install]
+WantedBy=multi-user.target

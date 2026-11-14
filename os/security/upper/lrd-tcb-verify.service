@@ -7,6 +7,9 @@ Requires=lrd-adapt-validate.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
 # warn by default: a modified sudoers must not stop the OS from booting
 ExecStart=/usr/bin/lrd-tcb-manifest verify
 TimeoutStartSec=45

@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 # severity: 0 ok, 1 warn, 2 fail
 J=/var/log/lrd/hwcheck.json; mkdir -p /var/log/lrd
 say() { printf '{"check":"%s","sev":%s,"detail":"%s"}\n' "$1" "$2" "$3" >> "$J"; }

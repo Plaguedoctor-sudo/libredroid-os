@@ -41,11 +41,20 @@ int npu_hal_get_caps(npu_context_t ctx, npu_device_caps_t* caps_out) {
     return 0;
 }
 
+struct internal_npu_model {
+    uint32_t model_id;
+    char path[256];
+};
+
 int npu_hal_load_model(npu_context_t ctx, const char* model_path, npu_model_handle_t* model_out) {
     if (!ctx || !model_path || !model_out) return -1;
-    int* dummy_handle = (int*)malloc(sizeof(int));
-    *dummy_handle = 42;
-    *model_out = (npu_model_handle_t)dummy_handle;
+    struct internal_npu_ctx* internal = (struct internal_npu_ctx*)ctx;
+    struct internal_npu_model* model = (struct internal_npu_model*)malloc(sizeof(struct internal_npu_model));
+    if (!model) return -2;
+    model->model_id = ++internal->active_models;
+    strncpy(model->path, model_path, sizeof(model->path) - 1);
+    model->path[sizeof(model->path) - 1] = '\0';
+    *model_out = (npu_model_handle_t)model;
     return 0;
 }
 

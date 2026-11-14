@@ -55,7 +55,8 @@ J "$(cat <<EOF
     "thermal": $thermal, "cpufreq": $cpufreq, "haptics": $haptics,
     "pipewire": $pipewire, "bluez": $bluez, "nfc": $nfc
   },
-  "external": $(ls /sys/class/drm/card*-HDMI* 2>/dev/null | while read -r d; do
+  "external": $(for d in /sys/class/drm/card*-HDMI*; do
+      [ -e "$d" ] || continue
       printf '{"name":"%s","connected":%s},' "$(basename "$d")" "$([ "$(rd "$d/status")" = connected ] && echo true || echo false)"; done | sed 's/,$//' | sed 's/^/[/;s/$/]/'),
   "thermal_zones": $(for z in /sys/class/thermal/thermal_zone*; do
       [ -e "$z" ] || continue

@@ -15,7 +15,7 @@ for c in lb mmdebstrap xorriso node npm; do need "$c"; done
 
 sudo -v
 echo "── 1/4  building the shell ──────────────────────────────"
-cd "$REPO"
+cd "$REPO" || exit 1
 if [ -f package-lock.json ]; then npm ci --no-audit --fund=false
 else npm install --no-audit --fund=false; fi
 npm run build
@@ -38,7 +38,7 @@ chmod +x "$BUILD"/config/includes.chroot/opt/libredroid/bin/*
 chmod +x "$BUILD"/config/includes.chroot/opt/libredroid/bridge/*.sh
 
 echo "── 4/4  lb build (this takes 15–40 min) ────────────────"
-cd "$BUILD"
+cd "$BUILD" || exit 1
 sudo lb clean --purge
 sudo lb build
 

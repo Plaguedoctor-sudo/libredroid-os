@@ -1,2 +1,3 @@
 #!/bin/sh
+set -e
 exec /usr/lib/lrd/lrd-clock "$@"

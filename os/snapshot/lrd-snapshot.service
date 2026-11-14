@@ -7,3 +7,9 @@ Type=oneshot
 ExecStart=/usr/bin/lrd-snapshot take auto
 Nice=10
 IOSchedulingClass=idle
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

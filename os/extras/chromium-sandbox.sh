@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 # /etc/lrd/chromium-sandbox.sh — wrapped by launch.sh
 # Chromium already seccomp-bpf's its renderers. What it does not do is restrict
 # the browser process. Use systemd's sandbox for that via a user unit.

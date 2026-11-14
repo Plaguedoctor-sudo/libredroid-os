@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
+set -e
 # lrd-termux-doctor — verify the I1 install. Exit 0 = healthy. --quiet, --json.
 . "$HOME/.lrd/etc/lrd.env" 2>/dev/null || true
 QUIET=0; JSON=0

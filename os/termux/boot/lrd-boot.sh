@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
+set -e
 # Runs on device boot via Termux:Boot. Must return fast.
 exec >>"$HOME/.lrd/log/boot.log" 2>&1
 echo "=== boot $(date -Is) ==="

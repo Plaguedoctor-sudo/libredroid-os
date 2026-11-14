@@ -11,7 +11,7 @@ TARGET_REF="${2:-HEAD}"
 
 echo "=== FreeStack Threat Model Delta Audit ($BASE_REF..$TARGET_REF) ==="
 
-cd "$FS_ROOT"
+cd "$FS_ROOT" || exit 1
 if git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
     DELTA=$(git diff "$BASE_REF".."$TARGET_REF" -- THREAT-MODEL.md)
     if [ -z "$DELTA" ]; then
