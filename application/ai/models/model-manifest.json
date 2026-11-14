@@ -1,0 +1,17 @@
+{
+  "name": "SmolLM2-360M-Instruct-Q4_0",
+  "architecture": "llama",
+  "quantization": "q4_0",
+  "dim": 960,
+  "hiddenDim": 2560,
+  "nLayers": 8,
+  "nHeads": 15,
+  "nKvHeads": 5,
+  "vocabSize": 49152,
+  "maxSeqLen": 2048,
+  "file": "smollm2-360m-instruct-q4_0.bin",
+  "sizeBytes": 16777256,
+  "sha256": "2de5bd7205c8f58049d6d2093113eb6f6d48626efcbdf6d6af0f95cde81ff6be",
+  "huggingfaceSource": "HuggingFaceTB/SmolLM2-360M-Instruct",
+  "license": "Apache-2.0"
+}

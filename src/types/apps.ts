@@ -39,6 +39,9 @@ export type AppId =
   | 'secure_folder'
   | 'device_care'
   | 'smart_view'
+  | 'calendar'
+  | 'contacts'
+  | 'maps'
   | string; // Dynamic sideloaded APKs
 
 export interface AppMetadata {

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SovereignApplicationManifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "appId",
+    "version",
+    "name",
+    "entrypoint",
+    "requestedCapabilities",
+    "networkPolicy",
+    "storage"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "appId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9]+)+$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-z0-9.]+)?$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "entrypoint": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["native_elf", "wasm_wasi", "ui_declarative"]
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "requestedCapabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["resourceId", "reason", "attenuation"],
+        "properties": {
+          "resourceId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "attenuation": {
+            "type": "string",
+            "enum": ["read_only", "write_only", "transient_lease", "full"]
+          }
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "string",
+      "enum": ["default_deny", "tor_only", "wireguard_vpn", "local_mesh", "clearnet"]
+    },
+    "storage": {
+      "type": "object",
+      "required": ["quotaMb", "encryptionLevel"],
+      "properties": {
+        "quotaMb": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10240
+        },
+        "encryptionLevel": {
+          "type": "string",
+          "enum": ["hardware_tpm", "passkey_biometric", "session_volatile"]
+        }
+      }
+    }
+  }
+}

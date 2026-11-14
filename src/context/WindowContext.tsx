@@ -63,6 +63,9 @@ const APP_TITLES: Record<string, string> = {
   secure_folder: 'Samsung Knox Secure Folder',
   device_care: 'Samsung Device Care & 6000mAh Battery',
   smart_view: 'Samsung Smart View & DeX',
+  calendar: 'Calendar & Agenda',
+  contacts: 'Contacts & Address Book',
+  maps: 'Maps & Offline Navigation',
 };
 
 const DEFAULT_APP_DOMAINS: Record<string, OsDomainId> = {
@@ -98,6 +101,9 @@ const DEFAULT_APP_DOMAINS: Record<string, OsDomainId> = {
   apk_installer: 'hardened-android',
   darwin_bridge: 'darwin-apple',
   system_installer: 'vault-airgap',
+  calendar: 'workstation-debian',
+  contacts: 'workstation-debian',
+  maps: 'workstation-debian',
   'com.christianselig.apollo': 'darwin-apple',
   'com.rileytestut.delta': 'darwin-apple',
   'com.firecore.infuse': 'darwin-apple',

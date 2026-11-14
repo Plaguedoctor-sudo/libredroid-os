@@ -1,0 +1,36 @@
+[Unit]
+Description=LibreDroid Waydroid First-Party Domain
+Documentation=https://libredroid.org/docs/waydroid-domain
+Wants=waydroid-container.service
+After=lrd-domains.slice network.target graphical-session.target
+Requires=lrd-domains.slice
+PartOf=graphical-session.target
+
+[Service]
+Type=forking
+ExecStartPre=/usr/lib/libredroid/waydroid/lrd-waydroid-domain.sh status
+ExecStart=/usr/lib/libredroid/waydroid/lrd-waydroid-domain.sh start
+ExecStop=/usr/lib/libredroid/waydroid/lrd-waydroid-domain.sh stop
+ExecReload=/usr/lib/libredroid/waydroid/lrd-waydroid-domain.sh status
+TimeoutStartSec=60
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5s
+
+# Resource limits per spec
+MemoryMax=4G
+CPUQuota=400%
+Slice=lrd-waydroid.slice
+
+# Runtime user context
+User=root
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+
+# Security hardening
+NoNewPrivileges=false
+PrivateTmp=false
+ProtectSystem=false
+ProtectHome=false
+
+[Install]
+WantedBy=graphical-session.target multi-user.target

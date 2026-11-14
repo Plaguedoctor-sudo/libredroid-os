@@ -1,0 +1,31 @@
+{
+  "id": "arm64-rpi5",
+  "name": "Raspberry Pi 5 (Converged Desktop & Edge Appliance)",
+  "arch": "aarch64",
+  "soc": "Broadcom BCM2712 (Quad-core Cortex-A76 @ 2.4GHz)",
+  "formFactors": ["desktopDocked"],
+  "bootloader": "rpi-eeprom-bootloader",
+  "display": {
+    "compositor": "wayland-drm-kms",
+    "drivers": ["v3d", "vc4"],
+    "vulkan": "v3dv (Vulkan 1.3)",
+    "outputs": ["dual-hdmi-4k60"]
+  },
+  "audio": {
+    "subsystem": "pipewire-alsa-ucm2",
+    "hdmiAudio": true,
+    "usbAudio": true
+  },
+  "connectivity": {
+    "ethernet": "bcmgenet 1Gbps",
+    "wifi": "brcmfmac 802.11ac",
+    "bluetooth": "bluez 5.0"
+  },
+  "aiEngine": {
+    "accelerator": "v3dv-vulkan-neon",
+    "targetModelSize": "1.0B-1.5B",
+    "quantization": "INT4",
+    "maxRamBudgetMb": 800,
+    "maxKvCacheTokens": 2048
+  }
+}

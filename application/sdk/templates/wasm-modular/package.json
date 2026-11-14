@@ -1,0 +1,9 @@
+{
+  "name": "org.sovereign.wasm-sample",
+  "version": "1.0.0",
+  "description": "WASI / WebAssembly Modular Sovereign Component",
+  "main": "dist/index.wasm",
+  "scripts": {
+    "build": "echo 'Compiling WASI component...' && mkdir -p dist && touch dist/index.wasm"
+  }
+}

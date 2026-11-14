@@ -1,0 +1,10 @@
+[package]
+name = "sap-ai-context"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }

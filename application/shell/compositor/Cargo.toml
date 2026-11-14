@@ -1,0 +1,12 @@
+[package]
+name = "sap-shell-compositor"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+nix = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+sap-ipc-transport = { path = "../../ipc/transport" }

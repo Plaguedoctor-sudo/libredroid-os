@@ -42,6 +42,9 @@ import { GameSpaceApp } from '../apps/GameSpaceApp';
 import { SecureFolderApp } from '../apps/SecureFolderApp';
 import { DeviceCareApp } from '../apps/DeviceCareApp';
 import { SmartViewApp } from '../apps/SmartViewApp';
+import { CalendarApp } from '../apps/CalendarApp';
+import { ContactsApp } from '../apps/ContactsApp';
+import { MapsApp } from '../apps/MapsApp';
 import { AppleAppRunner } from '../apps/AppleAppRunner';
 import { WaydroidAppRunner } from '../apps/WaydroidAppRunner';
 import { getInstalledAppleApps } from '../../services/appleAppManager';
@@ -86,6 +89,9 @@ const NATIVE: Record<string, React.FC<any>> = {
   secure_folder: SecureFolderApp,
   device_care: DeviceCareApp,
   smart_view: SmartViewApp,
+  calendar: CalendarApp,
+  contacts: ContactsApp,
+  maps: MapsApp,
 };
 
 interface SurfaceDescriptor {

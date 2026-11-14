@@ -39,6 +39,9 @@ import {
   TabletSmartphone,
   FolderLock,
   Cast,
+  Calendar,
+  Users,
+  Navigation,
   LucideIcon 
 } from 'lucide-react';
 import { AppId } from '../../types/apps';
@@ -240,6 +243,21 @@ const ICON_MAP: Record<string, { icon: LucideIcon; bg: string; color: string }> 
   smart_view: {
     icon: Cast,
     bg: 'bg-gradient-to-tr from-blue-500 via-cyan-500 to-teal-600',
+    color: 'text-white',
+  },
+  calendar: {
+    icon: Calendar,
+    bg: 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-700',
+    color: 'text-white',
+  },
+  contacts: {
+    icon: Users,
+    bg: 'bg-gradient-to-tr from-teal-600 via-emerald-600 to-cyan-700',
+    color: 'text-white',
+  },
+  maps: {
+    icon: Navigation,
+    bg: 'bg-gradient-to-tr from-emerald-600 via-lime-600 to-teal-700',
     color: 'text-white',
   },
   'com.christianselig.apollo': {

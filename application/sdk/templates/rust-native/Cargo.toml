@@ -1,0 +1,7 @@
+[package]
+name = "sovereign-sample-app"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+sap-core-capability = { path = "../../../core/capability" }

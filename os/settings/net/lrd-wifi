@@ -58,7 +58,7 @@ check_captive_portal() {
     local status="clear"
     if command -v curl >/dev/null 2>&1; then
         local code
-        code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 http://connectivity-check.ubuntu.com 2>/dev/null || echo "204")
+        code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 --max-time 2 http://connectivity-check.ubuntu.com 2>/dev/null || echo "204")
         if [ "$code" = "302" ] || [ "$code" = "301" ]; then
             status="captive_portal_detected"
         fi

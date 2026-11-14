@@ -33,6 +33,14 @@ dist/
 /build/
 build-out/
 out/
+application/out/
+application/build/out/
+*.o
+*.a
+*_bench
+*sap_*bench*
+application/ipc/csrc/sap_ipc_router
+application/sdk/cli/sapp
 os/arm/treble/build_tmp/
 os/arm/treble/output/*.img
 audit-out/

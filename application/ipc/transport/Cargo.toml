@@ -1,0 +1,9 @@
+[package]
+name = "sap-ipc-transport"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+nix = { workspace = true }
+memmap2 = { workspace = true }
+thiserror = { workspace = true }

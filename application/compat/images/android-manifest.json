@@ -1,0 +1,20 @@
+{
+  "name": "LineageOS-20-microG-Waydroid",
+  "androidVersion": 13,
+  "apiLevel": 33,
+  "images": {
+    "system": {
+      "file": "system.img",
+      "sha256": "64f4825c9c039d28de2561fa129396f0961b24ca922e149a35480a6d21a5ea0a",
+      "sizeBytes": 8388608
+    },
+    "vendor": {
+      "file": "vendor.img",
+      "sha256": "198040b4b9a4341963402825dbbd9771f296ade01d46147442bf9a43f15efd08",
+      "sizeBytes": 4194304
+    }
+  },
+  "microGEnabled": true,
+  "telephonySpoofed": true,
+  "fexEmuSupported": true
+}

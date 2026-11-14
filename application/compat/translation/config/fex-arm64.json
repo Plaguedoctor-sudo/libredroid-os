@@ -1,0 +1,13 @@
+{
+  "Core": {
+    "X86_64_MODE": 1,
+    "AARCH64_MODE": 1,
+    "TSOEnabled": 1,
+    "VectorRegisters": 1
+  },
+  "Thunks": {
+    "Vulkan": 1,
+    "GL": 1,
+    "Wayland": 1
+  }
+}

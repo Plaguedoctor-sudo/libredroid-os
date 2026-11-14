@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "appId": "org.sovereign.sample",
+  "version": "1.0.0",
+  "name": "Sovereign Sample App",
+  "entrypoint": {
+    "type": "native_elf",
+    "path": "bin/sovereign-sample-app"
+  },
+  "requestedCapabilities": [
+    {
+      "resourceId": "sap://display/surface",
+      "reason": "Render UI to Wayland compositor",
+      "attenuation": "full"
+    }
+  ],
+  "networkPolicy": "default_deny",
+  "storage": {
+    "quotaMb": 64,
+    "encryptionLevel": "hardware_tpm"
+  }
+}

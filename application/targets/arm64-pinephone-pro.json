@@ -1,0 +1,44 @@
+{
+  "id": "arm64-pinephone-pro",
+  "name": "Pine64 PinePhone Pro",
+  "arch": "aarch64",
+  "soc": "Rockchip RK3399S",
+  "formFactors": ["handset", "desktopDocked"],
+  "bootloader": "u-boot-rockchip",
+  "display": {
+    "compositor": "wayland-drm-kms",
+    "drivers": ["rockchipdrm", "panfrost"],
+    "panel": "mipi-dsi 720x1440 60Hz",
+    "touch": "goodix-gt917s"
+  },
+  "audio": {
+    "subsystem": "pipewire-alsa-ucm2",
+    "card": "rk3399-pinephone-pro",
+    "codec": "es8316"
+  },
+  "telephony": {
+    "modem": "Quectel EG25-G",
+    "bus": "usb-cdc-acm / qmi",
+    "voLte": true,
+    "sms": true,
+    "gnss": true
+  },
+  "sensors": {
+    "accel": "mpu6050",
+    "light": "stk3311",
+    "proximity": "stk3311"
+  },
+  "power": {
+    "pmic": "rk818",
+    "deepSleep": "s2idle-crust",
+    "batteryFuelGauge": "rk818-battery"
+  },
+  "aiEngine": {
+    "accelerator": "panfrost-vulkan-neon",
+    "targetModelSize": "0.5B-1.0B",
+    "quantization": "INT4",
+    "maxRamBudgetMb": 512,
+    "maxKvCacheTokens": 1024,
+    "thermalThrottleTempC": 62
+  }
+}

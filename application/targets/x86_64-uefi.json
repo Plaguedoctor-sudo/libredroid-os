@@ -1,0 +1,35 @@
+{
+  "id": "x86_64-uefi",
+  "name": "Generic x86_64 UEFI Appliance / Laptop",
+  "arch": "x86_64",
+  "formFactors": ["desktopDocked", "handset"],
+  "bootloader": "systemd-boot / grub-efi",
+  "display": {
+    "compositor": "wayland-drm-kms",
+    "drivers": ["i915", "amdgpu", "nouveau", "virtio-gpu"],
+    "vrrSupported": true,
+    "maxRefreshHz": 144
+  },
+  "audio": {
+    "subsystem": "pipewire-alsa-ucm2",
+    "drivers": ["snd_hda_intel", "snd_soc_sof_pci"]
+  },
+  "connectivity": {
+    "wifi": ["iwlwifi", "ath11k", "mt7921e"],
+    "torGateway": true,
+    "defaultDenyNftables": true
+  },
+  "security": {
+    "tpmVersion": "2.0",
+    "pcrSealIndex": 7,
+    "secureBoot": true,
+    "luks2Argon2id": true
+  },
+  "aiEngine": {
+    "accelerator": "vulkan-compute-avx512",
+    "targetModelSize": "0.5B-1.5B",
+    "quantization": "INT4",
+    "maxRamBudgetMb": 800,
+    "maxKvCacheTokens": 2048
+  }
+}

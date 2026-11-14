@@ -1,0 +1,28 @@
+{
+  "id": "arm64-mnt-reform",
+  "name": "MNT Reform v2 / Next (Open Hardware)",
+  "arch": "aarch64",
+  "soc": "NXP i.MX8MQ / RK3588",
+  "formFactors": ["desktopDocked", "tablet"],
+  "bootloader": "u-boot-imx8mq",
+  "display": {
+    "compositor": "wayland-drm-kms",
+    "drivers": ["etnaviv / panthor", "imx-dcss"],
+    "panel": "edp 1920x1080 60Hz"
+  },
+  "audio": {
+    "subsystem": "pipewire-alsa-ucm2",
+    "codec": "wm8960"
+  },
+  "power": {
+    "pmic": "lpc11u35-battery-manager",
+    "deepSleep": "s2idle"
+  },
+  "aiEngine": {
+    "accelerator": "arm-neon-vulkan",
+    "targetModelSize": "1.0B-1.5B",
+    "quantization": "INT4",
+    "maxRamBudgetMb": 768,
+    "maxKvCacheTokens": 2048
+  }
+}

@@ -1,0 +1,10 @@
+# Sovereign OS Android Compatibility Layer
+ro.build.version.release=13
+ro.build.version.sdk=33
+ro.product.model=SovereignDevice-X
+ro.product.manufacturer=SovereignOS
+ro.product.brand=Sovereign
+ro.build.display.id=lineage-20.0-sovereign-microg
+ro.crypto.state=encrypted
+ro.crypto.type=file
+telephony.lteOnCdmaDevice=1

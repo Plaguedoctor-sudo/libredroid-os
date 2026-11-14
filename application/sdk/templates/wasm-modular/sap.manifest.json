@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0.0",
+  "appId": "org.sovereign.wasm-sample",
+  "version": "1.0.0",
+  "name": "Sovereign WASM Component",
+  "entrypoint": {
+    "type": "wasm_wasi",
+    "path": "wasm/app.wasm"
+  },
+  "requestedCapabilities": [],
+  "networkPolicy": "default_deny",
+  "storage": {
+    "quotaMb": 16,
+    "encryptionLevel": "session_volatile"
+  }
+}

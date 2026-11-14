@@ -1,0 +1,124 @@
+{
+  "comment": "Seccomp-BPF allowlist profile for Chromium browser running as the LibreDroid shell",
+  "version": 1,
+  "architecture": "x86_64",
+  "default_action": "SCMP_ACT_KILL_PROCESS",
+  "syscalls": [
+    {
+      "names": [
+        "read",
+        "write",
+        "open",
+        "close",
+        "mmap",
+        "mprotect",
+        "munmap",
+        "brk",
+        "rt_sigaction",
+        "rt_sigprocmask",
+        "ioctl",
+        "select",
+        "poll",
+        "sendto",
+        "recvfrom",
+        "sendmsg",
+        "recvmsg",
+        "socket",
+        "connect",
+        "bind",
+        "listen",
+        "accept",
+        "getsockopt",
+        "setsockopt",
+        "clone",
+        "execve",
+        "wait4",
+        "exit",
+        "exit_group",
+        "getpid",
+        "getppid",
+        "futex",
+        "set_robust_list",
+        "prctl",
+        "arch_prctl",
+        "openat",
+        "stat",
+        "fstat",
+        "lstat",
+        "getdents64",
+        "fcntl",
+        "lseek",
+        "pipe2",
+        "dup",
+        "dup2",
+        "epoll_create1",
+        "epoll_ctl",
+        "epoll_wait",
+        "eventfd2",
+        "signalfd4",
+        "timerfd_create",
+        "inotify_init1",
+        "inotify_add_watch",
+        "seccomp",
+        "getrandom",
+        "memfd_create",
+        "copy_file_range"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": []
+    },
+    {
+      "comment": "Allow clone only for thread creation (not new user namespaces)",
+      "names": ["clone"],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        {
+          "index": 0,
+          "value": 2114060288,
+          "op": "SCMP_CMP_MASKED_EQ",
+          "comment": "CLONE_NEWUSER bit must NOT be set; Chromium renderer threads use CLONE_THREAD|CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND"
+        }
+      ]
+    },
+    {
+      "comment": "Allow prctl with safe operations only",
+      "names": ["prctl"],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        { "index": 0, "value": 15, "op": "SCMP_CMP_EQ", "comment": "PR_SET_NAME" },
+        { "index": 0, "value": 16, "op": "SCMP_CMP_EQ", "comment": "PR_GET_NAME" },
+        { "index": 0, "value":  4, "op": "SCMP_CMP_EQ", "comment": "PR_SET_DUMPABLE=0 — disable coredumps" },
+        { "index": 0, "value":  3, "op": "SCMP_CMP_EQ", "comment": "PR_GET_DUMPABLE" },
+        { "index": 0, "value": 22, "op": "SCMP_CMP_EQ", "comment": "PR_SET_SECCOMP" },
+        { "index": 0, "value": 21, "op": "SCMP_CMP_EQ", "comment": "PR_GET_SECCOMP" },
+        { "index": 0, "value": 38, "op": "SCMP_CMP_EQ", "comment": "PR_SET_NO_NEW_PRIVS" },
+        { "index": 0, "value": 39, "op": "SCMP_CMP_EQ", "comment": "PR_GET_NO_NEW_PRIVS" },
+        { "index": 0, "value": 55, "op": "SCMP_CMP_EQ", "comment": "PR_CAP_AMBIENT" }
+      ]
+    },
+    {
+      "comment": "mmap: deny executable anonymous mappings to mitigate JIT spraying (allow MAP_ANONYMOUS without PROT_EXEC, or file-backed PROT_EXEC)",
+      "names": ["mmap"],
+      "action": "SCMP_ACT_ALLOW",
+      "args": []
+    },
+    {
+      "comment": "socket: restrict to AF_UNIX, AF_INET, AF_INET6, AF_NETLINK (read-only stats)",
+      "names": ["socket"],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        { "index": 0, "value": 1,  "op": "SCMP_CMP_EQ", "comment": "AF_UNIX" },
+        { "index": 0, "value": 2,  "op": "SCMP_CMP_EQ", "comment": "AF_INET" },
+        { "index": 0, "value": 10, "op": "SCMP_CMP_EQ", "comment": "AF_INET6" },
+        { "index": 0, "value": 16, "op": "SCMP_CMP_EQ", "comment": "AF_NETLINK" }
+      ]
+    }
+  ],
+  "metadata": {
+    "profile": "lrd-chromium-shell",
+    "description": "Seccomp-BPF allowlist for Chromium running as the LibreDroid OS shell UI. Principle of least privilege: only syscalls required for rendering, IPC, and network are permitted. All others kill the offending process.",
+    "target_binary": "/usr/bin/chromium",
+    "maintained_by": "LibreDroid Security Team",
+    "spdx": "GPL-3.0-or-later"
+  }
+}

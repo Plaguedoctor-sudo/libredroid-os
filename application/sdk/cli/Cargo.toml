@@ -1,0 +1,13 @@
+[package]
+name = "sapp"
+version = "1.0.0"
+edition = "2021"
+
+[[bin]]
+name = "sapp"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

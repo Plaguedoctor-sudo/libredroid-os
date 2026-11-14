@@ -172,25 +172,38 @@ export const FilesApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
     }
   };
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderNameInput.trim()) return;
     const name = newFolderNameInput.trim();
-    const newFolder: VFile = {
-      id: Math.random().toString(36).substring(2, 7),
-      name,
-      isFolder: true,
-      parentId: currentFolder,
-      modified: 'Just now',
-    };
-    setFiles((prev) => [...prev, newFolder]);
+    if (sourceMode === 'physical') {
+      const res = await createPhysicalFile(physicalPath, name);
+      if (res.success) {
+        addNotification({
+          appId: 'files',
+          appName: 'Files Hub',
+          title: 'Physical Folder Created',
+          body: `Created folder "${name}" directly in ${physicalPath}`,
+        });
+        loadPhysicalDirectory(physicalPath);
+      }
+    } else {
+      const newFolder: VFile = {
+        id: Math.random().toString(36).substring(2, 7),
+        name,
+        isFolder: true,
+        parentId: currentFolder,
+        modified: 'Just now',
+      };
+      setFiles((prev) => [...prev, newFolder]);
+      addNotification({
+        appId: 'files',
+        appName: 'Files Hub',
+        title: 'Folder Created',
+        body: `Created folder "${name}" in ${currentFolder === 'root' ? 'root directory' : 'current folder'}.`,
+      });
+    }
     setNewFolderNameInput('');
     setShowNewFolderModal(false);
-    addNotification({
-      appId: 'files',
-      appName: 'Files Hub',
-      title: 'Folder Created',
-      body: `Created folder "${name}" in ${currentFolder === 'root' ? 'root directory' : 'current folder'}.`,
-    });
   };
 
   const handleNavigateUp = () => {
