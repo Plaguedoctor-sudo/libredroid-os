@@ -34,13 +34,37 @@ EOF
 cp "${APP_DIR}/targets/${ARCH}-"*.json "${STAGING_DIR}/etc/sap/targets/" 2>/dev/null || \
 cp "${APP_DIR}/targets/x86_64-uefi.json" "${STAGING_DIR}/etc/sap/targets/"
 
-# Copy Native Local AI Engine binary if built
-if [ -f "${APP_DIR}/ai/inference/csrc/sap_bench_int4" ]; then
-    cp "${APP_DIR}/ai/inference/csrc/sap_bench_int4" "${STAGING_DIR}/bin/sap_ai_engine"
-else
-    echo "#!/bin/sh\necho 'sap ai stub'" > "${STAGING_DIR}/bin/sap_ai_engine"
-    chmod +x "${STAGING_DIR}/bin/sap_ai_engine"
-fi
+# Copy Native Sovereign Platform binaries into staging rootfs
+say "Installing native Sovereign Application Platform service daemons..."
+install_bin() {
+    local src="$1"
+    local dst="$2"
+    if [ -f "$src" ]; then
+        cp "$src" "${STAGING_DIR}/bin/${dst}"
+        chmod +x "${STAGING_DIR}/bin/${dst}"
+    fi
+}
+
+install_bin "${APP_DIR}/ai/inference/csrc/sap_bench_int4" "sap_ai_engine"
+install_bin "${APP_DIR}/ipc/csrc/sap_ipc_router" "sap_ipc_router"
+install_bin "${APP_DIR}/sdk/cli/sapp" "sapp"
+install_bin "${APP_DIR}/security/csrc/sap_security_bench" "sap_security_daemon"
+install_bin "${APP_DIR}/security/vault/csrc/sap_vault_bench" "sap_vault_daemon"
+install_bin "${APP_DIR}/services/telephony/csrc/sap_telephony_bench" "sap_telephony_daemon"
+install_bin "${APP_DIR}/services/audio/csrc/sap_audio_bench" "sap_audio_daemon"
+install_bin "${APP_DIR}/services/camera/csrc/sap_camera_bench" "sap_camera_daemon"
+install_bin "${APP_DIR}/services/sensors/csrc/sap_sensors_bench" "sap_sensors_daemon"
+install_bin "${APP_DIR}/services/power/csrc/sap_power_bench" "sap_power_daemon"
+install_bin "${APP_DIR}/services/connectivity/csrc/sap_connectivity_bench" "sap_connectivity_daemon"
+install_bin "${APP_DIR}/services/identity/csrc/sap_identity_bench" "sap_identity_daemon"
+install_bin "${APP_DIR}/services/notifications/csrc/sap_notifications_bench" "sap_notifications_daemon"
+install_bin "${APP_DIR}/packaging/csrc/sap_packaging_bench" "sap_packaging_daemon"
+install_bin "${APP_DIR}/compat/csrc/sap_compat_bench" "sap_compat_daemon"
+install_bin "${APP_DIR}/shell/csrc/sap_ui_bench" "sap_ui"
+install_bin "${APP_DIR}/shell/csrc/sap_compositor_bench" "sap_compositor"
+install_bin "${APP_DIR}/core/sandbox/csrc/sap_sandbox_bench" "sap_sandbox"
+install_bin "${APP_DIR}/core/capability/csrc/sap_capability_bench" "sap_capability"
+install_bin "${APP_DIR}/core/memory/csrc/sap_memory_bench" "sap_memory"
 
 # Bundle INT4 Model Weights Asset into /usr/share/sap/models/
 if [ -f "${APP_DIR}/ai/models/smollm2-360m-instruct-q4_0.bin" ]; then

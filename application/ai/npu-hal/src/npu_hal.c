@@ -1,4 +1,4 @@
-#include "npu_hal.h"
+#include "../include/npu_hal.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

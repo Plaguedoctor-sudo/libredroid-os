@@ -1,4 +1,4 @@
-@0x0123456789abcdef;
+@0x8123456789abcdef;
 
 enum CellularRadioTech {
   none @0;

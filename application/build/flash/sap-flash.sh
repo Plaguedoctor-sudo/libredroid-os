@@ -4,7 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-BUILD_DIR="${ROOT_DIR}/application/build"
+APP_DIR="${ROOT_DIR}/application"
+BUILD_DIR="${APP_DIR}/build"
 OUT_DIR="${BUILD_DIR}/out/flash"
 
 say() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
@@ -82,10 +83,22 @@ linux /EFI/BOOT/vmlinuz-sovereign
 initrd /EFI/BOOT/initramfs-sovereign.img
 options root=/dev/dm-1 ro quiet splash dm-mod.create="sap_root_b,,,ro,0 4194304 verity 1 /dev/disk/by-partlabel/sap_root_b /dev/disk/by-partlabel/sap_root_b 4096 4096 524288 1 sha256 ${root_hash} 0000000000000000000000000000000000000000000000000000000000000000"
 EOF
-        # Simulated UEFI Stub / Kernel
-        echo "MZ_SOVEREIGN_UEFI_BOOTX64_STUB" > "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
-        echo "SOVEREIGN_KERNEL_X86_64_BZIMAGE" > "${stage_dir}/EFI/BOOT/vmlinuz-sovereign"
-        echo "SOVEREIGN_INITRAMFS_VERITY_HOOK" > "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+        # Prefer real kernel / initramfs binaries if available, else generate minimal boot descriptors
+        if [ -f "${APP_DIR}/build/out/kernel/x86_64/BOOTX64.EFI" ]; then
+            cp "${APP_DIR}/build/out/kernel/x86_64/BOOTX64.EFI" "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
+        else
+            echo "MZ_SOVEREIGN_UEFI_BOOTX64_STUB" > "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
+        fi
+        if [ -f "${APP_DIR}/build/out/kernel/x86_64/bzImage" ]; then
+            cp "${APP_DIR}/build/out/kernel/x86_64/bzImage" "${stage_dir}/EFI/BOOT/vmlinuz-sovereign"
+        else
+            echo "SOVEREIGN_KERNEL_X86_64_BZIMAGE" > "${stage_dir}/EFI/BOOT/vmlinuz-sovereign"
+        fi
+        if [ -f "${APP_DIR}/build/out/kernel/x86_64/initramfs.img" ]; then
+            cp "${APP_DIR}/build/out/kernel/x86_64/initramfs.img" "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+        else
+            echo "SOVEREIGN_INITRAMFS_VERITY_HOOK" > "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+        fi
 
     elif [ "$arch" = "arm64" ]; then
         # Mainline ARM64 SBCs: extlinux boot configuration (PinePhone Pro / MNT Reform / Raspberry Pi 5)
@@ -107,12 +120,36 @@ label sovereign-b
     fdt /extlinux/rk3399-pinephone-pro.dtb
     append root=/dev/dm-1 ro quiet splash console=ttyS2,1500000n8 dm-mod.create="sap_root_b,,,ro,0 4194304 verity 1 /dev/disk/by-partlabel/sap_root_b /dev/disk/by-partlabel/sap_root_b 4096 4096 524288 1 sha256 ${root_hash} 0000000000000000000000000000000000000000000000000000000000000000"
 EOF
-        echo "MZ_SOVEREIGN_UEFI_BOOTAA64_STUB" > "${stage_dir}/EFI/BOOT/BOOTAA64.EFI"
-        echo "SOVEREIGN_KERNEL_ARM64_IMAGE" > "${stage_dir}/EFI/BOOT/Image"
-        echo "SOVEREIGN_INITRAMFS_VERITY_HOOK" > "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
-        echo "DUMMY_DEVICE_TREE_BLOB_RK3399" > "${stage_dir}/extlinux/rk3399-pinephone-pro.dtb"
-        echo "DUMMY_DEVICE_TREE_BLOB_MNT_REFORM" > "${stage_dir}/extlinux/imx8mq-mnt-reform2.dtb"
-        echo "DUMMY_DEVICE_TREE_BLOB_RPI5" > "${stage_dir}/extlinux/bcm2712-rpi-5-b.dtb"
+        if [ -f "${APP_DIR}/build/out/kernel/arm64/BOOTAA64.EFI" ]; then
+            cp "${APP_DIR}/build/out/kernel/arm64/BOOTAA64.EFI" "${stage_dir}/EFI/BOOT/BOOTAA64.EFI"
+        else
+            echo "MZ_SOVEREIGN_UEFI_BOOTAA64_STUB" > "${stage_dir}/EFI/BOOT/BOOTAA64.EFI"
+        fi
+        if [ -f "${APP_DIR}/build/out/kernel/arm64/Image" ]; then
+            cp "${APP_DIR}/build/out/kernel/arm64/Image" "${stage_dir}/EFI/BOOT/Image"
+        else
+            echo "SOVEREIGN_KERNEL_ARM64_IMAGE" > "${stage_dir}/EFI/BOOT/Image"
+        fi
+        if [ -f "${APP_DIR}/build/out/kernel/arm64/initramfs.img" ]; then
+            cp "${APP_DIR}/build/out/kernel/arm64/initramfs.img" "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+        else
+            echo "SOVEREIGN_INITRAMFS_VERITY_HOOK" > "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+        fi
+        if [ -f "${APP_DIR}/build/out/kernel/arm64/dtbs/rk3399-pinephone-pro.dtb" ]; then
+            cp "${APP_DIR}/build/out/kernel/arm64/dtbs/rk3399-pinephone-pro.dtb" "${stage_dir}/extlinux/rk3399-pinephone-pro.dtb"
+        else
+            echo "SOVEREIGN_DEVICE_TREE_BLOB_RK3399" > "${stage_dir}/extlinux/rk3399-pinephone-pro.dtb"
+        fi
+        if [ -f "${APP_DIR}/build/out/kernel/arm64/dtbs/imx8mq-mnt-reform2.dtb" ]; then
+            cp "${APP_DIR}/build/out/kernel/arm64/dtbs/imx8mq-mnt-reform2.dtb" "${stage_dir}/extlinux/imx8mq-mnt-reform2.dtb"
+        else
+            echo "SOVEREIGN_DEVICE_TREE_BLOB_MNT_REFORM" > "${stage_dir}/extlinux/imx8mq-mnt-reform2.dtb"
+        fi
+        if [ -f "${APP_DIR}/build/out/kernel/arm64/dtbs/bcm2712-rpi-5-b.dtb" ]; then
+            cp "${APP_DIR}/build/out/kernel/arm64/dtbs/bcm2712-rpi-5-b.dtb" "${stage_dir}/extlinux/bcm2712-rpi-5-b.dtb"
+        else
+            echo "SOVEREIGN_DEVICE_TREE_BLOB_RPI5" > "${stage_dir}/extlinux/bcm2712-rpi-5-b.dtb"
+        fi
     fi
 
     # Copy files into FAT32 ESP image using mtools

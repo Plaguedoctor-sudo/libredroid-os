@@ -1,4 +1,4 @@
-@0x3456789abcdef012;
+@0xb3456789abcdef02;
 
 enum NotificationUrgency {
   low @0;

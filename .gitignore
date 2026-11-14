@@ -39,6 +39,7 @@ application/build/out/
 *.a
 *_bench
 *sap_*bench*
+!*bench*.c
 application/ipc/csrc/sap_ipc_router
 application/sdk/cli/sapp
 os/arm/treble/build_tmp/

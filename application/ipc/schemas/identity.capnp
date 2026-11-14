@@ -1,4 +1,4 @@
-@0x23456789abcdef01;
+@0xa3456789abcdef01;
 
 struct PasskeyCredential {
   credentialId @0 :Data;

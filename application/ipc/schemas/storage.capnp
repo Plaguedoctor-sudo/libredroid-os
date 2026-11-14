@@ -1,4 +1,4 @@
-@0x123456789abcdef0;
+@0x923456789abcdef0;
 
 enum StorageSecurityLevel {
   hardwareTpmSealed @0; # Master key unwrapped only when PCRs match verified state

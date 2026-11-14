@@ -2,6 +2,10 @@
 # Sovereign Application Platform — Automated Lifecycle & Invariant Verification Suite
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${APP_DIR}"
+
 echo "========================================================"
 echo "Sovereign Application Platform (SAP) Verification Suite"
 echo "========================================================"

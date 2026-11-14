@@ -255,7 +255,7 @@ head -5 "$ROOT/README.md" 2>/dev/null | grep -qi libredroid || rec warn hygiene 
 [ -f "$ROOT/LICENSE" ] || rec warn legal LICENSE "no licence for our own code"
 [ -f "$ROOT/CHANGELOG.md" ] || rec warn legal CHANGELOG.md "no changelog"
 # no secrets committed
-grep -rIl --exclude-dir=node_modules 'BEGIN.*PRIVATE KEY' "$ROOT" 2>/dev/null | while read -r f; do
+grep -rIl --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.store --exclude-dir=stock_firmware 'BEGIN.*PRIVATE KEY' "$ROOT" 2>/dev/null | while read -r f; do
   rec warn hygiene "${f#$ROOT/}" "private key in the tree — fine for dev, note it"
 done
 fi
