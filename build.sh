@@ -7,6 +7,7 @@ export TZ="UTC"
 export LC_ALL="C.UTF-8"
 
 echo ":: building frontend with Vite + TypeScript"
+[ -f server.js ] || [ ! -f legacy/server.js ] || cp legacy/server.js server.js
 npm run build
 
 echo ":: creating deterministic LibreDroid I1 distribution tarball (lrd-i1.tgz)"

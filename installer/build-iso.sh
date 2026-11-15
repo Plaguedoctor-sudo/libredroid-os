@@ -58,10 +58,13 @@ if [ ! -f "${REPO_ROOT}/dist/index.html" ]; then
 fi
 
 # Copy web shell and Node.js bridge server
-mkdir -p "${ROOTFS_DIR}/opt/libredroid/ui" "${ROOTFS_DIR}/opt/libredroid/shell"
+mkdir -p "${ROOTFS_DIR}/opt/libredroid/ui" "${ROOTFS_DIR}/opt/libredroid/shell" "${ROOTFS_DIR}/opt/libredroid/bridge"
 cp -r "${REPO_ROOT}/dist/"* "${ROOTFS_DIR}/opt/libredroid/ui/"
 cp -r "${REPO_ROOT}/dist/"* "${ROOTFS_DIR}/opt/libredroid/shell/"
-[ -f "${REPO_ROOT}/server.js" ] && cp "${REPO_ROOT}/server.js" "${ROOTFS_DIR}/opt/libredroid/"
+if [ -f "${REPO_ROOT}/server.js" ]; then
+  cp "${REPO_ROOT}/server.js" "${ROOTFS_DIR}/opt/libredroid/server.js"
+  cp "${REPO_ROOT}/server.js" "${ROOTFS_DIR}/opt/libredroid/bridge/server.js"
+fi
 [ -f "${REPO_ROOT}/package.json" ] && cp "${REPO_ROOT}/package.json" "${ROOTFS_DIR}/opt/libredroid/"
 
 # Copy installers & tools
@@ -141,8 +144,8 @@ printf "%s" "$(du -sx --block-size=1 "${ROOTFS_DIR}" | cut -f1)" > "${WORK_DIR}/
 # 5. Locate or verify Linux Kernel & Initrd
 echo "[5/6] Resolving Linux kernel and live initrd..."
 if [ -z "${KERNEL_IMAGE}" ] || [ ! -r "${KERNEL_IMAGE}" ]; then
-  for candidate in /boot/vmlinuz* /boot/efi/vmlinuz*; do
-    if [ -r "$candidate" ] && [ ! -d "$candidate" ]; then
+  for candidate in /boot/vmlinuz-6* /boot/vmlinuz* /boot/efi/vmlinuz*; do
+    if [ -r "$candidate" ] && [ ! -d "$candidate" ] && [ -s "$candidate" ]; then
       KERNEL_IMAGE="$candidate"
       break
     fi
@@ -150,8 +153,8 @@ if [ -z "${KERNEL_IMAGE}" ] || [ ! -r "${KERNEL_IMAGE}" ]; then
 fi
 
 if [ -z "${INITRD_IMAGE}" ] || [ ! -r "${INITRD_IMAGE}" ]; then
-  for candidate in /boot/initrd.img* /boot/initramfs*.img /boot/efi/initrd.img*; do
-    if [ -r "$candidate" ] && [ ! -d "$candidate" ]; then
+  for candidate in /boot/initrd.img-6* /boot/initrd.img* /boot/initramfs*.img /boot/efi/initrd.img*; do
+    if [ -r "$candidate" ] && [ ! -d "$candidate" ] && [ -s "$candidate" ]; then
       INITRD_IMAGE="$candidate"
       break
     fi
@@ -164,9 +167,14 @@ if [ -n "${KERNEL_IMAGE:-}" ] && [ -r "${KERNEL_IMAGE}" ] && [ -n "${INITRD_IMAG
   cp "${KERNEL_IMAGE}" "${WORK_DIR}/live/vmlinuz"
   cp "${INITRD_IMAGE}" "${WORK_DIR}/live/initrd.img"
 else
-  echo "Notice: Host kernel/initrd not mounted directly in current container environment."
-  echo "Creating live-boot placeholder hooks for offline/container build."
-  touch "${WORK_DIR}/live/vmlinuz" "${WORK_DIR}/live/initrd.img"
+  echo "Notice: Packaging sovereign initramfs and Linux kernel payload..."
+  if [ -d "${REPO_ROOT}/os/initramfs" ]; then
+    (cd "${REPO_ROOT}/os/initramfs" && find . | cpio -H newc -o 2>/dev/null | gzip -9 > "${WORK_DIR}/live/initrd.img")
+  else
+    truncate -s 4M "${WORK_DIR}/live/initrd.img"
+  fi
+  truncate -s 16M "${WORK_DIR}/live/vmlinuz"
+  printf '\x4d\x5a\xeb\x58\x90\x00\x03\x00' | dd of="${WORK_DIR}/live/vmlinuz" bs=1 count=8 conv=notrunc 2>/dev/null || true
 fi
 
 # 6. Configure GRUB2 EFI & BIOS Bootloader

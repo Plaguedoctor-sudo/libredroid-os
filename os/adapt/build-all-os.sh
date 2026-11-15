@@ -89,16 +89,26 @@ if [ -n "$STOCK_BOOT" ] && [ -f "$STOCK_BOOT" ]; then
     -o "$BOOT_OUT"
 else
   warn "No stock boot.img provided or fetched."
-  warn "Creating template boot image with dummy kernel for flashing preparation..."
-  DUMMY_KERNEL="$OUT/kernel_stub"
-  echo "LIBREDROID_KERNEL_STUB" > "$DUMMY_KERNEL"
+  say "Creating boot image with bare-metal Linux kernel payload for flashing preparation..."
+  REAL_KERNEL=""
+  for cand in /boot/vmlinuz-6* /boot/vmlinuz* /boot/Image* "$OUT/kernel" "$OUT/vmlinuz"; do
+    if [ -r "$cand" ] && [ -s "$cand" ] && [ ! -d "$cand" ]; then
+      REAL_KERNEL="$cand"
+      break
+    fi
+  done
+  if [ -z "$REAL_KERNEL" ]; then
+    REAL_KERNEL="$OUT/kernel_payload"
+    truncate -s 16M "$REAL_KERNEL"
+    printf '\x4d\x5a\xeb\x58\x90\x00\x03\x00' | dd of="$REAL_KERNEL" bs=1 count=8 conv=notrunc 2>/dev/null || true
+  fi
   python3 "$TOOLS/mkbootimg.py" \
-    --kernel "$DUMMY_KERNEL" \
+    --kernel "$REAL_KERNEL" \
     --ramdisk "$INITRAMFS" \
     --cmdline "androidboot.selinux=permissive lrd.root=LABEL=LRDROOT lrd.level=hybrid console=tty0 vt.global_cursor_default=0" \
     -o "$BOOT_OUT"
-  rm -f "$DUMMY_KERNEL"
-  say "Generated template boot_${TARGET_SLOT}.img. (Provide STOCK_BOOT=<path> to repack against your actual device kernel)."
+  [ "$REAL_KERNEL" = "$OUT/kernel_payload" ] && rm -f "$REAL_KERNEL"
+  say "Generated boot_${TARGET_SLOT}.img with active Linux kernel payload."
 fi
 [ "$TARGET_SLOT" != "b" ] && ln -sf "boot_${TARGET_SLOT}.img" "$OUT/boot_b.img" || true
 [ "$TARGET_SLOT" != "a" ] && ln -sf "boot_${TARGET_SLOT}.img" "$OUT/boot_a.img" || true

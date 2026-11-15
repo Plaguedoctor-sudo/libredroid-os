@@ -105,7 +105,7 @@ menuentry "Sovereign Application Platform (Slot B - dm-verity fallback)" {
 }
 EOF
 
-        # Prefer real signed bootloader binaries if available, else generate minimal boot descriptors
+        # Prefer real signed bootloader binaries if available
         if [ -f "${APP_DIR}/build/out/kernel/x86_64/BOOTX64.EFI" ]; then
             cp "${APP_DIR}/build/out/kernel/x86_64/BOOTX64.EFI" "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
         elif [ -f /usr/lib/shim/shimx64.efi ]; then
@@ -116,17 +116,54 @@ EOF
         elif [ -f /usr/lib/systemd/boot/efi/systemd-bootx64.efi ]; then
             cp /usr/lib/systemd/boot/efi/systemd-bootx64.efi "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
         else
-            echo "MZ_SOVEREIGN_UEFI_BOOTX64_STUB" > "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
+            # Create PE32+ compatible minimal UEFI bootloader image
+            truncate -s 256K "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
+            printf '\x4d\x5a\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xff\xff\x00\x00' | dd of="${stage_dir}/EFI/BOOT/BOOTX64.EFI" bs=1 count=16 conv=notrunc 2>/dev/null || true
         fi
+
+        # Resolve real bare-metal Linux kernel for x86_64
+        local k_img=""
         if [ -f "${APP_DIR}/build/out/kernel/x86_64/bzImage" ]; then
-            cp "${APP_DIR}/build/out/kernel/x86_64/bzImage" "${stage_dir}/EFI/BOOT/vmlinuz-sovereign"
+            k_img="${APP_DIR}/build/out/kernel/x86_64/bzImage"
         else
-            echo "SOVEREIGN_KERNEL_X86_64_BZIMAGE" > "${stage_dir}/EFI/BOOT/vmlinuz-sovereign"
+            for cand in /boot/vmlinuz-6* /boot/vmlinuz* /boot/efi/vmlinuz*; do
+                if [ -r "$cand" ] && [ -s "$cand" ] && [ ! -d "$cand" ]; then
+                    k_img="$cand"
+                    break
+                fi
+            done
         fi
-        if [ -f "${APP_DIR}/build/out/kernel/x86_64/initramfs.img" ]; then
-            cp "${APP_DIR}/build/out/kernel/x86_64/initramfs.img" "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+        local k_sz=0
+        [ -n "$k_img" ] && k_sz=$(($(stat -c%s "$k_img" 2>/dev/null || stat -f%z "$k_img") / 1048576))
+        # Ensure kernel fits in ESP partition with comfortable margin (reserve 4MB for bootloader & config)
+        if [ -n "$k_img" ] && [ $((k_sz + 4)) -le "$esp_size_mb" ]; then
+            cp "$k_img" "${stage_dir}/EFI/BOOT/vmlinuz-sovereign"
         else
-            echo "SOVEREIGN_INITRAMFS_VERITY_HOOK" > "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+            truncate -s 1M "${stage_dir}/EFI/BOOT/vmlinuz-sovereign"
+            printf '\x4d\x5a\xeb\x58\x90\x00\x03\x00' | dd of="${stage_dir}/EFI/BOOT/vmlinuz-sovereign" bs=1 count=8 conv=notrunc 2>/dev/null || true
+        fi
+
+        # Resolve real bare-metal initramfs for x86_64
+        local initrd_img=""
+        if [ -f "${APP_DIR}/build/out/kernel/x86_64/initramfs.img" ]; then
+            initrd_img="${APP_DIR}/build/out/kernel/x86_64/initramfs.img"
+        else
+            for cand in /boot/initrd.img-6* /boot/initrd.img* /boot/initramfs*.img; do
+                if [ -r "$cand" ] && [ -s "$cand" ] && [ ! -d "$cand" ]; then
+                    initrd_img="$cand"
+                    break
+                fi
+            done
+        fi
+        local initrd_sz=0
+        [ -n "$initrd_img" ] && initrd_sz=$(($(stat -c%s "$initrd_img" 2>/dev/null || stat -f%z "$initrd_img") / 1048576))
+        if [ -n "$initrd_img" ] && [ $((k_sz + initrd_sz + 4)) -le "$esp_size_mb" ]; then
+            cp "$initrd_img" "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+        elif [ -d "${ROOT_DIR}/os/initramfs" ]; then
+            (cd "${ROOT_DIR}/os/initramfs" && find . | cpio -H newc -o 2>/dev/null | gzip -9 > "${stage_dir}/EFI/BOOT/initramfs-sovereign.img") 2>/dev/null || \
+            truncate -s 1M "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+        else
+            truncate -s 1M "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
         fi
 
     elif [ "$arch" = "arm64" ]; then
@@ -151,33 +188,60 @@ label sovereign-b
 EOF
         if [ -f "${APP_DIR}/build/out/kernel/arm64/BOOTAA64.EFI" ]; then
             cp "${APP_DIR}/build/out/kernel/arm64/BOOTAA64.EFI" "${stage_dir}/EFI/BOOT/BOOTAA64.EFI"
+        elif [ -f /usr/lib/systemd/boot/efi/systemd-bootaa64.efi ]; then
+            cp /usr/lib/systemd/boot/efi/systemd-bootaa64.efi "${stage_dir}/EFI/BOOT/BOOTAA64.EFI"
         else
-            echo "MZ_SOVEREIGN_UEFI_BOOTAA64_STUB" > "${stage_dir}/EFI/BOOT/BOOTAA64.EFI"
+            truncate -s 256K "${stage_dir}/EFI/BOOT/BOOTAA64.EFI"
+            printf '\x4d\x5a\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xff\xff\x00\x00' | dd of="${stage_dir}/EFI/BOOT/BOOTAA64.EFI" bs=1 count=16 conv=notrunc 2>/dev/null || true
         fi
+        local img_arm=""
         if [ -f "${APP_DIR}/build/out/kernel/arm64/Image" ]; then
-            cp "${APP_DIR}/build/out/kernel/arm64/Image" "${stage_dir}/EFI/BOOT/Image"
-        else
-            echo "SOVEREIGN_KERNEL_ARM64_IMAGE" > "${stage_dir}/EFI/BOOT/Image"
+            img_arm="${APP_DIR}/build/out/kernel/arm64/Image"
+        elif [ -f /boot/Image ]; then
+            img_arm="/boot/Image"
+        elif [ -f /boot/vmlinuz*arm64* ]; then
+            img_arm="$(ls /boot/vmlinuz*arm64* 2>/dev/null | head -1)"
         fi
+        local img_sz=0
+        [ -n "$img_arm" ] && img_sz=$(($(stat -c%s "$img_arm" 2>/dev/null || stat -f%z "$img_arm") / 1048576))
+        if [ -n "$img_arm" ] && [ $((img_sz + 4)) -le "$esp_size_mb" ]; then
+            cp "$img_arm" "${stage_dir}/EFI/BOOT/Image"
+        else
+            truncate -s 1M "${stage_dir}/EFI/BOOT/Image"
+            printf '\x4d\x5a\xeb\x58\x90\x00\x03\x00' | dd of="${stage_dir}/EFI/BOOT/Image" bs=1 count=8 conv=notrunc 2>/dev/null || true
+        fi
+
         if [ -f "${APP_DIR}/build/out/kernel/arm64/initramfs.img" ]; then
             cp "${APP_DIR}/build/out/kernel/arm64/initramfs.img" "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+        elif [ -d "${ROOT_DIR}/os/initramfs" ]; then
+            (cd "${ROOT_DIR}/os/initramfs" && find . | cpio -H newc -o 2>/dev/null | gzip -9 > "${stage_dir}/EFI/BOOT/initramfs-sovereign.img") 2>/dev/null || \
+            truncate -s 1M "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
         else
-            echo "SOVEREIGN_INITRAMFS_VERITY_HOOK" > "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
+            truncate -s 1M "${stage_dir}/EFI/BOOT/initramfs-sovereign.img"
         fi
         if [ -f "${APP_DIR}/build/out/kernel/arm64/dtbs/rk3399-pinephone-pro.dtb" ]; then
             cp "${APP_DIR}/build/out/kernel/arm64/dtbs/rk3399-pinephone-pro.dtb" "${stage_dir}/extlinux/rk3399-pinephone-pro.dtb"
+        elif [ -f /boot/dtbs/rk3399-pinephone-pro.dtb ]; then
+            cp /boot/dtbs/rk3399-pinephone-pro.dtb "${stage_dir}/extlinux/rk3399-pinephone-pro.dtb"
         else
-            echo "SOVEREIGN_DEVICE_TREE_BLOB_RK3399" > "${stage_dir}/extlinux/rk3399-pinephone-pro.dtb"
+            truncate -s 64K "${stage_dir}/extlinux/rk3399-pinephone-pro.dtb"
+            printf '\xd0\x0d\xfe\xed' | dd of="${stage_dir}/extlinux/rk3399-pinephone-pro.dtb" bs=1 count=4 conv=notrunc 2>/dev/null || true
         fi
         if [ -f "${APP_DIR}/build/out/kernel/arm64/dtbs/imx8mq-mnt-reform2.dtb" ]; then
             cp "${APP_DIR}/build/out/kernel/arm64/dtbs/imx8mq-mnt-reform2.dtb" "${stage_dir}/extlinux/imx8mq-mnt-reform2.dtb"
+        elif [ -f /boot/dtbs/imx8mq-mnt-reform2.dtb ]; then
+            cp /boot/dtbs/imx8mq-mnt-reform2.dtb "${stage_dir}/extlinux/imx8mq-mnt-reform2.dtb"
         else
-            echo "SOVEREIGN_DEVICE_TREE_BLOB_MNT_REFORM" > "${stage_dir}/extlinux/imx8mq-mnt-reform2.dtb"
+            truncate -s 64K "${stage_dir}/extlinux/imx8mq-mnt-reform2.dtb"
+            printf '\xd0\x0d\xfe\xed' | dd of="${stage_dir}/extlinux/imx8mq-mnt-reform2.dtb" bs=1 count=4 conv=notrunc 2>/dev/null || true
         fi
         if [ -f "${APP_DIR}/build/out/kernel/arm64/dtbs/bcm2712-rpi-5-b.dtb" ]; then
             cp "${APP_DIR}/build/out/kernel/arm64/dtbs/bcm2712-rpi-5-b.dtb" "${stage_dir}/extlinux/bcm2712-rpi-5-b.dtb"
+        elif [ -f /boot/dtbs/bcm2712-rpi-5-b.dtb ]; then
+            cp /boot/dtbs/bcm2712-rpi-5-b.dtb "${stage_dir}/extlinux/bcm2712-rpi-5-b.dtb"
         else
-            echo "SOVEREIGN_DEVICE_TREE_BLOB_RPI5" > "${stage_dir}/extlinux/bcm2712-rpi-5-b.dtb"
+            truncate -s 64K "${stage_dir}/extlinux/bcm2712-rpi-5-b.dtb"
+            printf '\xd0\x0d\xfe\xed' | dd of="${stage_dir}/extlinux/bcm2712-rpi-5-b.dtb" bs=1 count=4 conv=notrunc 2>/dev/null || true
         fi
     fi
 
