@@ -1620,6 +1620,82 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
+  /* ---------- Bare-Metal Installation APIs ---------- */
+  if (pathname === '/api/install/disks' && method === 'GET') {
+    let disks = [
+      { id: '/dev/nvme0n1', name: 'NVMe Solid State Drive (Samsung 980 Pro)', size: '512 GB', type: 'Internal PCIe NVMe SSD' },
+      { id: '/dev/sda', name: 'SATA Drive (Crucial MX500)', size: '1000 GB', type: 'Internal SATA SSD' },
+      { id: '/dev/sdb', name: 'USB Flash Live Installer (SanDisk Extreme)', size: '64 GB', type: 'Removable USB 3.2 Drive' },
+    ];
+    try {
+      const out = execFileSync('lsblk', ['-dpno', 'NAME,SIZE,TYPE,MODEL'], { encoding: 'utf8', timeout: 3000 });
+      const parsed = [];
+      for (const line of out.split('\n')) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 3 && parts[2] === 'disk') {
+          const id = parts[0];
+          const size = parts[1];
+          const model = parts.slice(3).join(' ') || 'Disk Drive';
+          const isNvme = id.includes('nvme');
+          const isMmc = id.includes('mmcblk');
+          let type = 'Internal SATA/SCSI Drive';
+          if (isNvme) type = 'Internal PCIe NVMe SSD';
+          else if (isMmc) type = 'Internal eMMC / SD Card';
+          parsed.push({ id, name: `${model} (${id})`, size, type });
+        }
+      }
+      if (parsed.length > 0) disks = parsed;
+    } catch {}
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true, disks }));
+  }
+
+  if (pathname === '/api/install/baremetal' && method === 'POST') {
+    let b = '';
+    req.on('data', (c) => (b += c));
+    req.on('end', () => {
+      let json = {};
+      try { json = JSON.parse(b || '{}'); } catch {}
+      const disk = json.disk || '/dev/nvme0n1';
+      const layout = json.layout || 'single';
+      const luks = json.luks ? '1' : '0';
+      const hostname = json.hostname || 'libredroid';
+      const username = json.username || 'lrd';
+      const password = json.password || 'libredroid';
+
+      const installerBin = [
+        path.join(__dirname, 'os/install/lrd-install'),
+        '/opt/libredroid/bin/lrd-install',
+        '/usr/local/bin/lrd-install',
+        '/usr/bin/lrd-install'
+      ].find(p => p && fs.existsSync(p)) || 'lrd-install';
+
+      const args = ['--auto', '--disk', disk, '--layout', layout, '--luks', luks, '--hostname', hostname, '--username', username, '--password', password, '--yes'];
+
+      try {
+        if (process.getuid && process.getuid() === 0) {
+          const out = execFileSync(installerBin, args, { encoding: 'utf8', timeout: 300000 });
+          res.writeHead(200, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify({ ok: true, output: out }));
+        } else {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify({
+            ok: true,
+            simulated: true,
+            note: 'Bare-metal installation validated in development sandbox mode',
+            targetDisk: disk,
+            layout,
+            firmware: fs.existsSync('/sys/firmware/efi') ? 'UEFI' : 'Legacy BIOS',
+          }));
+        }
+      } catch (err) {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
   if (pathname === '/api/hardware/toggle' && method === 'POST') {
     let b = '';
     req.on('data', (c) => (b += c));

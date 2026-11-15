@@ -37,6 +37,8 @@ echo "=== Running Phase 14 Unified Build & CI Verification Suite ==="
 # Check files exist
 assert_ok "lrd-make build harness exists and executable" test -x "$LRD_MAKE"
 assert_ok "lrd-qemu-test runner exists and executable" test -x "$QEMU_TEST"
+test_lrd_install() { "$REPO_ROOT/os/install/lrd-install" --help >/dev/null; }
+assert_ok "Universal bare-metal installer exists and supports --help" test_lrd_install
 assert_ok "GitHub Actions CI workflow exists" test -f "$CI_WORKFLOW"
 
 # Test CI Workflow Configuration Structure

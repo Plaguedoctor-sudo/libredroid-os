@@ -38,7 +38,7 @@ viable() {
 if [ -f "$VARIANTS" ]; then
   mapfile -t ALL < <(grep -vE '^\s*(#|$)' "$VARIANTS" | awk '{print $1}')
 else
-  ALL=(drm-atomic drm-legacy hwc2-egl hwc2-sw fbdev)
+  ALL=(drm-atomic drm-legacy drm-pixman hwc2-egl hwc2-sw fbdev)
 fi
 
 FEASIBLE=(); for v in "${ALL[@]}"; do viable "$v" && FEASIBLE+=("$v"); done
@@ -66,6 +66,7 @@ renderer=gles2; backend=drm
 case "$VARIANT" in
   drm-atomic) renderer=gles2; backend=drm ;;
   drm-legacy) renderer=gles2; backend=drm ;;
+  drm-pixman) renderer=pixman; backend=drm ;;
   hwc2-egl)   renderer=gles2; backend=android ;;
   hwc2-sw)    renderer=pixman; backend=android ;;
   fbdev)      renderer=pixman; backend=fbdev ;;
@@ -81,6 +82,7 @@ ENVF=/etc/environment.d/51-lrd-display.conf
       echo "WLR_BACKENDS=drm"
       echo "WLR_DRM_DEVICES=$(IFS=:; echo "${cards[*]}")"
       [ "$VARIANT" = drm-legacy ] && echo "WLR_DRM_NO_ATOMIC=1"
+      [ "$VARIANT" = drm-pixman ] && echo "LIBGL_ALWAYS_SOFTWARE=1"
       echo "WLR_NO_HARDWARE_CURSORS=1"
       ;;
     android)

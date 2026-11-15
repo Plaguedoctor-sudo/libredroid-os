@@ -3,6 +3,7 @@
 #  name        renderer  backend   notes
 drm-atomic    gles2     drm       atomic modesetting, preferred
 drm-legacy    gles2     drm       no atomic, for older msm/mtk
+drm-pixman    pixman    drm       CPU software render on DRM KMS dumb-buffer
 hwc2-egl      gles2     android   vendor hwcomposer + hybris EGL
 hwc2-sw       pixman    android   hwcomposer with software render (blob debug)
 fbdev         pixman    fbdev     no GPU, proves the kernel only

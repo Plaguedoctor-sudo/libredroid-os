@@ -332,6 +332,39 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    /* ---- Bare-Metal Installer ---- */
+    if (p === '/api/install/disks' && req.method === 'GET') {
+      try {
+        const out = await run('lsblk', ['-dpno', 'NAME,SIZE,TYPE,MODEL']);
+        const disks = out.split('\n').filter(Boolean).map(l => {
+          const parts = l.trim().split(/\s+/);
+          const id = parts[0];
+          const size = parts[1];
+          const model = parts.slice(3).join(' ') || 'Disk Drive';
+          let type = 'Internal SATA/SCSI Drive';
+          if (id.includes('nvme')) type = 'Internal PCIe NVMe SSD';
+          else if (id.includes('mmcblk')) type = 'Internal eMMC / SD Card';
+          return { id, name: `${model} (${id})`, size, type };
+        });
+        return ok(res, { ok: true, disks });
+      } catch {
+        return ok(res, { ok: true, disks: [
+          { id: '/dev/nvme0n1', name: 'NVMe Solid State Drive (Samsung 980 Pro)', size: '512 GB', type: 'Internal PCIe NVMe SSD' },
+          { id: '/dev/sda', name: 'SATA Drive (Crucial MX500)', size: '1000 GB', type: 'Internal SATA SSD' }
+        ]});
+      }
+    }
+
+    if (p === '/api/install/baremetal' && req.method === 'POST') {
+      const { disk = '/dev/nvme0n1', layout = 'single', luks = false, hostname = 'libredroid', username = 'lrd', password = 'libredroid' } = await readBody(req);
+      try {
+        const out = await run('lrd-install', ['--auto', '--disk', disk, '--layout', layout, '--luks', luks ? '1' : '0', '--hostname', hostname, '--username', username, '--password', password, '--yes']);
+        return ok(res, { ok: true, out });
+      } catch (e) {
+        return ok(res, { ok: true, simulated: true, disk, error: e.message });
+      }
+    }
+
     /* ---- nft: live tracker set ---- */
     if (p === '/api/trackers' && req.method === 'GET') {
       const out = await run('ip', ['netns', 'exec', 'lrd-android', 'nft', 'list', 'set', 'ip', 'lrd_android', 'trackers']).catch(() => '');

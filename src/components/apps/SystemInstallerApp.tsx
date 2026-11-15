@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   HardDrive, 
   Cpu, 
@@ -34,11 +34,25 @@ export const SystemInstallerApp: React.FC = () => {
   const [flashLogs, setFlashLogs] = useState<string[]>([]);
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
 
-  const pcDisks = [
+  const [pcDisks, setPcDisks] = useState([
     { id: '/dev/nvme0n1', name: 'NVMe Solid State Drive (Samsung 980 Pro)', size: '512 GB', type: 'Internal PCIe NVMe SSD' },
     { id: '/dev/sda', name: 'SATA Drive (Crucial MX500)', size: '1000 GB', type: 'Internal SATA SSD' },
     { id: '/dev/sdb', name: 'USB Flash Live Installer (SanDisk Extreme)', size: '64 GB', type: 'Removable USB 3.2 Drive' },
-  ];
+  ]);
+
+  useEffect(() => {
+    fetch('/api/install/disks')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok && Array.isArray(data.disks) && data.disks.length > 0) {
+          setPcDisks(data.disks);
+          if (!data.disks.some((d: any) => d.id === selectedDisk)) {
+            setSelectedDisk(data.disks[0].id);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const androidTargets = [
     { 
@@ -111,6 +125,19 @@ export const SystemInstallerApp: React.FC = () => {
     setFlashProgress(5);
     const steps = getLogSteps();
     setFlashLogs([steps[0]]);
+
+    if (deviceType === 'pc') {
+      fetch('/api/install/baremetal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          disk: selectedDisk,
+          layout: installMode === 'clean' ? 'single' : 'dualboot',
+          hostname: 'libredroid',
+          username: 'lrd'
+        }),
+      }).catch(() => {});
+    }
 
     let current = 0;
     const interval = setInterval(() => {
