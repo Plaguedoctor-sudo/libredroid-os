@@ -38,6 +38,29 @@ sudo dd if=libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress con
 
 ## 3. Booting the Live Media
 
+### Prerequisites
+1. **Disable Secure Boot**: The v0.1 live ISO is currently unsigned. Secure Boot must be disabled in target UEFI settings.
+2. **Flash USB with Verification**:
+   ```bash
+   sha256sum -c dist/iso.sha256
+   sudo dd if=out/libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress conv=fsync
+   # Spot verify USB block device write
+   sudo dd if=/dev/sdX bs=4M count=100 iflag=count_bytes | sha256sum
+   ```
+
+### Boot Menu Options
+1. **LibreDroid Live (safe mode)**:
+   Passes `nomodeset systemd.unit=multi-user.target`. Use this option on initial boot to verify hardware initialization without graphics crashes.
+   - Reaches text console `login:` on `tty1` / `ttyS0`.
+   - Inspect GPU kernel driver binding: `lspci -k | grep -A3 -E 'VGA|3D|Display'`
+   - Inspect firmware loading status: `dmesg | grep -iE 'firmware|drm|i915|amdgpu|nouveau' | head -30`
+   - Inspect Wi-Fi / Ethernet status: `ip link`
+2. **LibreDroid Live**:
+   Standard production boot.
+   - Graphical kiosk session launches on `tty7` (`cage` + `chromium`).
+   - Debug consoles remain accessible via `tty1` (Ctrl+Alt+F1) and serial `ttyS0`.
+   - Health check gate ensures bridge responds on port 3001 before Chromium is launched.
+
 Insert the USB drive into target hardware and select it from the BIOS/UEFI boot menu (F11 / F12 / Del).
 
 ### Live GRUB2 Boot Menu Options:

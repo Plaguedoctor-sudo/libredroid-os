@@ -16,23 +16,24 @@ bash os/build/05-iso.sh
 
 ### Stage Summary
 1. `00-run.sh`: Maps root and subordinate UIDs (`unshare --map-auto --map-root-user --mount --pid --fork`).
-2. `01-bootstrap.sh`: Minimal Debian Trixie base via `mmdebstrap` using snapshot mirror `20251101T000000Z`, including DFSG-free packages plus non-free firmware (`firmware-iwlwifi`, `intel-microcode`, itemized in [docs/BLOBS.md](docs/BLOBS.md)). Output: `out/rootfs` (~1.5GB uncompressed).
-3. `02-overlay.sh`: Copies `/opt/libredroid` artifacts (Vite SPA `dist/`, bridge `server.js`) and enables `lrd-bridge.service`.
-4. `03-initramfs.sh`: Configures `MODULES=most` and `COMPRESS=gzip`, generating modular bootable initramfs.
+2. `01-bootstrap.sh`: Minimal Debian Trixie base via `mmdebstrap` using snapshot mirror `20251101T000000Z`, including DFSG-free packages plus non-free firmware (`firmware-iwlwifi`, `firmware-realtek`, `intel-microcode`, `amd64-microcode`, itemized in [docs/BLOBS.md](docs/BLOBS.md)). Output: `out/rootfs` (~1.5GB uncompressed).
+3. `02-overlay.sh`: Copies `/opt/libredroid` artifacts (Vite SPA `dist/`, bridge `server.js`), installs `lrd-shell-start` healthcheck gate, configures `tty7` kiosk session, and enables `lrd-bridge.service`.
+4. `03-initramfs.sh`: Configures `MODULES=most` and `COMPRESS=gzip`, generating modular bootable initramfs. Includes `9991-netbase-dir.sh` to ensure `/root/etc/network` is ready without shadowing Debian packages.
 5. `04-squashfs.sh`: Compresses rootfs into `out/iso/live/filesystem.squashfs` with `mksquashfs -comp zstd -Xcompression-level 19`.
 6. `05-iso.sh`: Builds hybrid BIOS + UEFI bootable ISO image (`out/libredroid-universal-x86_64.iso`) with `grub-mkrescue` and serial console output.
 7. `06-qemu-test.sh`: Automated QEMU VM boot verification runner (`-enable-kvm -cpu host -m 4096`).
 
-## CI Build Gate & Size Thresholds
+## CI Build Gate & Integrity Assertions
 The build gate is enforced by [.ci/build-gate.sh](.ci/build-gate.sh).
 
 ```bash
 bash .ci/build-gate.sh out/iso/live/filesystem.squashfs
 ```
 
-- **Threshold (`MIN_MB`):** `600 MB` (configurable via `GATE_MIN_MB`).
-- **Rationale:** The uncompressed rootfs is ~1.5 GB. Under `mksquashfs -comp zstd -Xcompression-level 19`, high-ratio zstd compression packs the entire system down to ~637 MB (636 MB). A failed, partial, or missing package bootstrap results in < 400 MB.
-- **Ownership Verification:**
+1. **Path Assertions:** Ensures `usr/bin/cage`, `usr/bin/chromium`, `usr/bin/node`, `usr/sbin/init`, `etc/shadow`, and `root` exist in the SquashFS image.
+2. **Package Database Sanity:** Verifies at least 250 packages installed in `/var/lib/dpkg/status` (current build contains 400+).
+3. **Size Regression Floor:** 600 MB floor prevents partial or aborted bootstraps (with zstd level 19 ultra-compression on 1.5GB rootfs, normal size is ~637 MB). This floor will be raised as OS features are added.
+4. **Ownership Verification:**
   - `unsquashfs -l out/iso/live/filesystem.squashfs | grep -cE '^squashfs-root/(root/|etc/credstore|var/lib/private)' >= 6`
   - `grep -c '^live:' <(unsquashfs -cat out/iso/live/filesystem.squashfs etc/shadow) == 1`
 

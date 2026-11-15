@@ -44,8 +44,8 @@ ln -sf /lib/systemd/system/graphical.target "$ROOT"/etc/systemd/system/default.t
 sed -i 's/^systemd-journal:x:\([0-9]*\):.*/systemd-journal:x:\1:live/' "$ROOT"/etc/group 2>/dev/null || true
 sed -i 's/^adm:x:\([0-9]*\):.*/adm:x:\1:live/' "$ROOT"/etc/group 2>/dev/null || true
 
-# Strip pam_lastlog to ensure zero PAM dlopen warnings
-sed -i '/pam_lastlog\.so/d' "$ROOT"/etc/pam.d/* 2>/dev/null || true
+# Clean any deprecated pam_lastlog.so references precisely without touching comments or pam_lastlog2
+sed -i '/^[[:space:]]*session[[:space:]].*pam_lastlog\.so/d' "$ROOT"/etc/pam.d/login "$ROOT"/etc/pam.d/common-session 2>/dev/null || true
 
 if [ ! -L "$ROOT/etc/systemd/system/multi-user.target.wants/lrd-bridge.service" ]; then
   mkdir -p "$ROOT/etc/systemd/system/multi-user.target.wants" 2>/dev/null || true

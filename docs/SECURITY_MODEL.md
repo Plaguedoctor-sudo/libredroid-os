@@ -32,3 +32,17 @@ The LibreDroid kernel builds enforce the Kernel Self Protection Project (KSPP) s
 1. **Camera**: Libcamera hardware shutter intercept with synthetic color bar/noise feed injection when physical camera access is restricted.
 2. **Audio**: PulseAudio/PipeWire virtual null-sinks preventing unauthorized microphone eavesdropping.
 3. **Sensors**: Hardware sensor daemon (`lrd-sensord`) providing synthetic zero-jitter gyroscope/accelerometer streams to prevent acoustic side-channel eavesdropping.
+
+---
+
+## 4. Live Image Session & Identity Constraints (v0.1)
+
+1. **User Privilege Model:**
+   The default `live` user belongs to `video`, `render`, `audio`, `netdev`, `input`, `tty`, `adm`, and `systemd-journal`. The inclusion of `adm` (reading `/var/log` including system logs) and `systemd-journal` is an intentional live-medium convenience allowing unprivileged session diagnostics and service inspection without requiring root privilege escalations.
+2. **Ephemeral Browser Sandbox:**
+   Chromium's profile lives entirely inside `/home/live` atop the volatile memory tmpfs overlay (`live-boot`). All cookies, cache, browser history, IndexedDB state, and local storage are zeroed and discarded at power-off by design. Persistent user storage must only occur via explicit encrypted FreeStack user vaults.
+3. **Safe Mode Diagnostic Target:**
+   Safe Mode passes `nomodeset systemd.unit=multi-user.target`. By design, this prevents Cage and Chromium from launching on `tty7`, leaving the console at `tty1` and `ttyS0` for kernel, firmware, and `lspci -k` diagnostic inspection.
+4. **Boot Integrity & Secure Boot:**
+   The v0.1 live ISO is generated via `grub-mkrescue` and is currently unsigned by Microsoft 3rd Party UEFI CA or custom MOK. Secure Boot must be disabled in target machine UEFI firmware settings prior to booting. Signed shim integration is planned for subsequent milestones.
+

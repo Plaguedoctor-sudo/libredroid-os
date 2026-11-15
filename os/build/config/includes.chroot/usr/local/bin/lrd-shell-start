@@ -1,9 +1,11 @@
 #!/bin/sh
 set -eu
+ok=0
 for _ in $(seq 1 100); do
-  curl -fsS -m1 http://127.0.0.1:3001/ >/dev/null 2>&1 && break
+  if curl -fsS -m1 http://127.0.0.1:3001/ >/dev/null 2>&1; then ok=1; break; fi
   sleep 0.3
 done
+[ "$ok" = 1 ] || { echo "bridge never answered on 3001" >&2; exit 69; }
 exec /usr/bin/cage -- /usr/bin/chromium --kiosk --no-first-run \
   --no-default-browser-check --disable-features=Translate \
   --app=http://127.0.0.1:3001

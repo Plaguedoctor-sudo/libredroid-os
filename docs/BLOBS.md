@@ -6,7 +6,7 @@ This document provides a transparent, itemized disclosure of non-free binary fir
 
 ## 1. Blob Tier Policy
 
-In accordance with [ADR 0004](file:///home/nitin/fkgugal/docs/adr/0004-v0.1-debian-glibc-stack.md) and FreeStack trust tiering:
+In accordance with [ADR 0004](docs/adr/0004-v0.1-debian-glibc-stack.md) and FreeStack trust tiering:
 1. **Quarantine:** Firmware blobs are passive binary data loaded into peripheral controllers and CPU execution units; they do not execute as native host CPU operating system code.
 2. **Honesty & Itemization:** Every binary package sourced from `non-free-firmware` is explicitly tracked, cataloged, and justified.
 3. **No Hidden Telemetry:** Firmware blobs are forbidden from network egress and confined to their device controller boundaries.
@@ -18,7 +18,9 @@ In accordance with [ADR 0004](file:///home/nitin/fkgugal/docs/adr/0004-v0.1-debi
 | Component | Source Component | Package | Purpose / Hardware Target | Status |
 |---|---|---|---|---|
 | **Intel Wi-Fi Firmware** | Debian `non-free-firmware` | `firmware-iwlwifi` | Provides binary microcode for Intel Wireless WiFi adapters (AX200, AX210, BE200, 7265, 8260, 9260, 9560, etc.) required for wireless networking on modern laptops. | **Active (v0.1)** |
+| **Realtek Wireless & Ethernet** | Debian `non-free-firmware` | `firmware-realtek` | Provides binary microcode for Realtek RTL8821CU (USB `0bda:c820`), RTL8821CE, RTL8822CE, RTL8852AE/BE, RTL8125, and RTL8111 family network controllers. Essential for bare-metal Wi-Fi on target machines. | **Active (v0.1)** |
 | **Intel CPU Microcode** | Debian `non-free-firmware` | `intel-microcode` | Processor microcode patches loaded during early boot (`initramfs`) to patch CPU errata, speculative execution vulnerabilities (Spectre/Meltdown/Downfall), and system stability bugs on Intel processors. | **Active (v0.1)** |
+| **AMD CPU Microcode** | Debian `non-free-firmware` | `amd64-microcode` | Processor microcode updates for AMD Zen / Ryzen / EPYC / Athlon processors loaded via early initramfs to patch CPU errata and hardware vulnerabilities. | **Active (v0.1)** |
 
 ---
 
