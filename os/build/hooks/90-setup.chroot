@@ -1,10 +1,21 @@
 #!/bin/sh
 set -e
-useradd -m -s /bin/bash -G video,render,audio,netdev,input,tty live
+useradd -m -s /bin/bash -G video,render,audio,netdev,input,tty,systemd-journal,adm live
 passwd -d live
 echo 'live ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/live
 
-# autologin on serial console ttyS0
+# Strip pam_lastlog to ensure clean PAM sessions on modern Debian (lastlog2/wtmpdb)
+sed -i '/pam_lastlog\.so/d' /etc/pam.d/* 2>/dev/null || true
+
+# autologin on tty1 (debug console)
+mkdir -p /etc/systemd/system/getty@tty1.service.d
+cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin live --noclear %I $TERM
+EOF
+
+# autologin on serial console ttyS0 (debug console)
 mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d
 cat > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf <<'EOF'
 [Service]
@@ -12,29 +23,34 @@ ExecStart=
 ExecStart=-/sbin/agetty --autologin live --noclear 115200 %I $TERM
 EOF
 
-# autologin fallback on tty2
-mkdir -p /etc/systemd/system/getty@tty2.service.d
-cat > /etc/systemd/system/getty@tty2.service.d/autologin.conf <<'EOF'
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin live --noclear %I $TERM
+# startup script for shell ensuring bridge is listening before Chromium launches
+cat > /usr/local/bin/lrd-shell-start <<'EOF'
+#!/bin/sh
+set -eu
+for _ in $(seq 1 100); do
+  curl -fsS -m1 http://127.0.0.1:3001/ >/dev/null 2>&1 && break
+  sleep 0.3
+done
+exec /usr/bin/cage -- /usr/bin/chromium --kiosk --no-first-run \
+  --no-default-browser-check --disable-features=Translate \
+  --app=http://127.0.0.1:3001
 EOF
+chmod 0755 /usr/local/bin/lrd-shell-start
 
-# kiosk session
+# kiosk session on tty7 (separate from debug consoles tty1 and ttyS0)
 cat > /etc/systemd/system/lrd-shell.service <<'EOF'
 [Unit]
 Description=LibreDroid shell
 After=network.target graphical.target lrd-bridge.service
-Wants=lrd-bridge.service
-Conflicts=getty@tty1.service
+Requires=lrd-bridge.service
 
 [Service]
 User=live
 PAMName=login
+TTYPath=/dev/tty7
 Environment=XDG_RUNTIME_DIR=/run/user/1000
-ExecStart=/usr/bin/cage -- /usr/bin/chromium --ozone-platform-hint=auto --kiosk --no-first-run --app=http://127.0.0.1:3001
+ExecStart=/usr/local/bin/lrd-shell-start
 Restart=always
-RestartSec=1
 
 [Install]
 WantedBy=graphical.target

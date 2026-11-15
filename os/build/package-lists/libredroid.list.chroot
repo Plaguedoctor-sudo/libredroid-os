@@ -9,4 +9,5 @@ squashfs-tools xorriso grub-efi-amd64-bin grub-pc-bin
 firmware-linux-free
 ca-certificates curl less vim-tiny sudo locales tzdata
 fonts-dejavu fonts-liberation2
+libpam-modules
 memtest86+
