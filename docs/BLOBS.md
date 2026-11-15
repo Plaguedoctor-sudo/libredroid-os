@@ -15,16 +15,27 @@ In accordance with [ADR 0004](docs/adr/0004-v0.1-debian-glibc-stack.md) and Free
 
 ## 2. Itemized Blob Inventory (v0.1 x86_64)
 
-| Component | Source Component | Package | Purpose / Hardware Target | Status |
+| Component | Source Package | Active Target Firmware Files | Hardware Target / Justification | Status |
 |---|---|---|---|---|
-| **Intel Wi-Fi Firmware** | Debian `non-free-firmware` | `firmware-iwlwifi` | Provides binary microcode for Intel Wireless WiFi adapters (AX200, AX210, BE200, 7265, 8260, 9260, 9560, etc.) required for wireless networking on modern laptops. | **Active (v0.1)** |
-| **Realtek Wireless & Ethernet** | Debian `non-free-firmware` | `firmware-realtek` | Provides binary microcode for Realtek RTL8821CU (USB `0bda:c820`), RTL8821CE, RTL8822CE, RTL8852AE/BE, RTL8125, and RTL8111 family network controllers. Essential for bare-metal Wi-Fi on target machines. | **Active (v0.1)** |
-| **Intel CPU Microcode** | Debian `non-free-firmware` | `intel-microcode` | Processor microcode patches loaded during early boot (`initramfs`) to patch CPU errata, speculative execution vulnerabilities (Spectre/Meltdown/Downfall), and system stability bugs on Intel processors. | **Active (v0.1)** |
-| **AMD CPU Microcode** | Debian `non-free-firmware` | `amd64-microcode` | Processor microcode updates for AMD Zen / Ryzen / EPYC / Athlon processors loaded via early initramfs to patch CPU errata and hardware vulnerabilities. | **Active (v0.1)** |
+| **Realtek Wi-Fi Firmware** | Debian `firmware-realtek` | `/usr/lib/firmware/rtw88/rtw8821c_fw.bin` (137 KB) | Specifically required by the in-tree kernel module `rtw88_8821cu` for the USB Realtek RTL8821CU 802.11ac NIC (`0bda:c820`). Note: Debian package currently ships ~10 MB of unrelated Realtek blobs; v1.0 target will isolate `rtw8821c_fw.bin` exclusively. | **Active (v0.1)** |
+| **Intel CPU Microcode** | Debian `intel-microcode` | Early initramfs microcode cpio archive | Processor microcode patches loaded during early boot (`initramfs`) to patch CPU errata, speculative execution vulnerabilities (Spectre/Meltdown/Downfall), and stability bugs on Intel processors (including host i3-8100T). | **Active (v0.1)** |
+| **Intel Wi-Fi Firmware** | Debian `firmware-iwlwifi` | `/usr/lib/firmware/iwlwifi-*.ucode` | Provides binary microcode for Intel Wireless WiFi adapters (AX200, AX210, 7265, 8260, 9260, 9560, etc.) for general laptop wireless support. | **Active (v0.1)** |
 
 ---
 
-## 3. Free Software Alternatives & Migration Plan
+## 3. Explicit Hardware Firmware Decisions
+
+### Intel i915 Graphics (Coffee Lake GT2 UHD 630)
+- **Decision:** `firmware-misc-nonfree` (Intel i915 GuC/HuC/DMC) is **omitted**.
+- **Impact:** Modesetting (KMS) works fully through kernel DRM without non-free blobs, enabling Cage and Chromium on `tty7`. Hardware-accelerated media video decode (HuC/GuC) is disabled; software rendering and CPU video rasterization are utilized for v0.1.
+
+### CPU Microcode Alignment
+- **Decision:** `amd64-microcode` is **omitted**.
+- **Rationale:** The deployment target hardware runs Intel Core (i3-8100T). Sourcing AMD microcode on an Intel hardware baseline introduces unnecessary artifact bloat and inaccurate inventory tracking.
+
+---
+
+## 4. Free Software Alternatives & Migration Plan
 
 - **Free Firmware Tier:** LibreDroid includes `firmware-linux-free` in the core image for devices that function with fully open, reverse-engineered microcode.
 - **v1.0 Roadmap:** Future releases will provide a strictly pure 100% blob-free image variant (`libredroid-libre-x86_64.iso`) with an explicit opt-in flag (`--allow-blobs`) for users requiring proprietary wireless or GPU microcode.

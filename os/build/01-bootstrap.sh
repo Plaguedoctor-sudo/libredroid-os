@@ -51,7 +51,7 @@ if [ -n "$SEC_ARG" ]; then
     --arch="$ARCH" \
     --variant=minbase \
     --components="main,contrib,non-free-firmware" \
-    --include="$INCLUDE,firmware-iwlwifi,firmware-realtek,intel-microcode,amd64-microcode" \
+    --include="$INCLUDE,firmware-iwlwifi,firmware-realtek,intel-microcode" \
     --aptopt='Acquire::Check-Valid-Until "false"' \
     --aptopt='APT::Install-Recommends "false"' \
     --aptopt='APT::Install-Suggests "false"' \
@@ -64,7 +64,7 @@ else
     --arch="$ARCH" \
     --variant=minbase \
     --components="main,contrib,non-free-firmware" \
-    --include="$INCLUDE,firmware-iwlwifi,firmware-realtek,intel-microcode,amd64-microcode" \
+    --include="$INCLUDE,firmware-iwlwifi,firmware-realtek,intel-microcode" \
     --aptopt='Acquire::Check-Valid-Until "false"' \
     --aptopt='APT::Install-Recommends "false"' \
     --aptopt='APT::Install-Suggests "false"' \

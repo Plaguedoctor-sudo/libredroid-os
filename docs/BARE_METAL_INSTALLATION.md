@@ -40,13 +40,17 @@ sudo dd if=libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress con
 
 ### Prerequisites
 1. **Disable Secure Boot**: The v0.1 live ISO is currently unsigned. Secure Boot must be disabled in target UEFI settings.
-2. **Flash USB with Verification**:
+2. **Flash USB with Full Readback Verification**:
    ```bash
-   sha256sum -c dist/iso.sha256
-   sudo dd if=out/libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress conv=fsync
-   # Spot verify USB block device write
-   sudo dd if=/dev/sdX bs=4M count=100 iflag=count_bytes | sha256sum
+   ISO="out/libredroid-universal-x86_64.iso"
+   sha256sum "$ISO"
+   sudo dd if="$ISO" of=/dev/sdX bs=4M status=progress conv=fsync
+   sync
+
+   # Verify write integrity across exact byte length of the ISO
+   sudo head -c "$(stat -c%s "$ISO")" /dev/sdX | sha256sum
    ```
+   Both SHA256 hashes must match byte-for-byte.
 
 ### Boot Menu Options
 1. **LibreDroid Live (safe mode)**:
