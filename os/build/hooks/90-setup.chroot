@@ -1,0 +1,47 @@
+#!/bin/sh
+set -e
+useradd -m -s /bin/bash -G video,render,audio,netdev,input,tty live
+passwd -d live
+echo 'live ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/live
+
+# autologin on serial console ttyS0
+mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d
+cat > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf <<'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin live --noclear 115200 %I $TERM
+EOF
+
+# autologin fallback on tty2
+mkdir -p /etc/systemd/system/getty@tty2.service.d
+cat > /etc/systemd/system/getty@tty2.service.d/autologin.conf <<'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin live --noclear %I $TERM
+EOF
+
+# kiosk session
+cat > /etc/systemd/system/lrd-shell.service <<'EOF'
+[Unit]
+Description=LibreDroid shell
+After=network.target graphical.target lrd-bridge.service
+Wants=lrd-bridge.service
+Conflicts=getty@tty1.service
+
+[Service]
+User=live
+PAMName=login
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/usr/bin/cage -- /usr/bin/chromium --ozone-platform-hint=auto --kiosk --no-first-run --app=http://127.0.0.1:3001
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=graphical.target
+EOF
+
+systemctl enable lrd-shell.service
+systemctl set-default graphical.target
+systemctl disable systemd-timesyncd.service || true
+apt-get clean
+rm -rf /var/lib/apt/lists/*

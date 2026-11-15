@@ -16,6 +16,23 @@ KERNEL_IMAGE="${LRD_KERNEL:-}"
 INITRD_IMAGE="${LRD_INITRD:-}"
 
 # Parse command line options
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [options]
+
+LibreDroid OS Live ISO Image Builder (x86_64 UEFI + BIOS Dual Bootable).
+
+Options:
+  --version <ver>    Set OS release version (default: 1.0.0)
+  --out <path>       Target output ISO file path
+  --kernel <path>    Explicit path to vmlinuz kernel binary
+  --initrd <path>    Explicit path to initrd.img archive
+  --key <key-id>     GPG Key ID for signing the ISO checksum
+  --help, -h         Show this help message
+EOF
+  exit 0
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --version) VERSION="$2"; shift 2 ;;
@@ -23,6 +40,7 @@ while [ $# -gt 0 ]; do
     --kernel) KERNEL_IMAGE="$2"; shift 2 ;;
     --initrd) INITRD_IMAGE="$2"; shift 2 ;;
     --out) ISO_NAME="$2"; shift 2 ;;
+    --help|-h) usage ;;
     *) shift ;;
   esac
 done
@@ -77,6 +95,14 @@ fi
 if [ -f "${REPO_ROOT}/os/desktop/lrd-doctor" ]; then
   cp "${REPO_ROOT}/os/desktop/lrd-doctor" "${ROOTFS_DIR}/usr/local/bin/lrd-doctor"
   chmod 0755 "${ROOTFS_DIR}/usr/local/bin/lrd-doctor"
+fi
+if [ -f "${REPO_ROOT}/os/settings/print/lrd-print" ]; then
+  cp "${REPO_ROOT}/os/settings/print/lrd-print" "${ROOTFS_DIR}/usr/local/bin/lrd-print"
+  chmod 0755 "${ROOTFS_DIR}/usr/local/bin/lrd-print"
+fi
+if [ -f "${REPO_ROOT}/os/telemetry/lrd-telemetry" ]; then
+  cp "${REPO_ROOT}/os/telemetry/lrd-telemetry" "${ROOTFS_DIR}/usr/local/bin/lrd-telemetry"
+  chmod 0755 "${ROOTFS_DIR}/usr/local/bin/lrd-telemetry"
 fi
 
 # Merge live-build chroot overlay files if present
@@ -144,7 +170,7 @@ printf "%s" "$(du -sx --block-size=1 "${ROOTFS_DIR}" | cut -f1)" > "${WORK_DIR}/
 # 5. Locate or verify Linux Kernel & Initrd
 echo "[5/6] Resolving Linux kernel and live initrd..."
 if [ -z "${KERNEL_IMAGE}" ] || [ ! -r "${KERNEL_IMAGE}" ]; then
-  for candidate in /boot/vmlinuz-6* /boot/vmlinuz* /boot/efi/vmlinuz*; do
+  for candidate in /boot/vmlinuz-6* /boot/vmlinuz* /boot/efi/vmlinuz* "${REPO_ROOT}/application/build/out/kernel/x86_64/bzImage"; do
     if [ -r "$candidate" ] && [ ! -d "$candidate" ] && [ -s "$candidate" ]; then
       KERNEL_IMAGE="$candidate"
       break

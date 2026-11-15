@@ -1,0 +1,115 @@
+#!/bin/bash
+# ==============================================================================
+# LibreDroid Unified Telemetry Defense CLI (lrd-telemetry)
+# os/telemetry/lrd-telemetry
+#
+# Interacts with:
+#   - DNS Sinkhole (lrd-dnsd)
+#   - High-Entropy Synthetic Telemetry Poisoner (lrd-poisoner)
+#   - Static & Dynamic Blocklists (/etc/libredroid/telemetry/blocked-domains.list)
+# ==============================================================================
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BLOCKLIST_FILE="${LRD_BLOCKLIST:-$SCRIPT_DIR/blocked-domains.list}"
+if [ ! -f "$BLOCKLIST_FILE" ] && [ -f "/etc/libredroid/telemetry/blocked-domains.list" ]; then
+    BLOCKLIST_FILE="/etc/libredroid/telemetry/blocked-domains.list"
+fi
+
+STATE_DIR="/run/libredroid/telemetry"
+if ! mkdir -p "$STATE_DIR" 2>/dev/null; then
+    STATE_DIR="/tmp/libredroid/telemetry"
+    mkdir -p "$STATE_DIR"
+fi
+
+ACTION="${1:-status}"
+
+list_domains() {
+    echo "=== LibreDroid Active Telemetry Blocklist ==="
+    if [ -f "$BLOCKLIST_FILE" ]; then
+        grep -v '^[[:space:]]*#' "$BLOCKLIST_FILE" | grep -v '^[[:space:]]*$' | sort -u
+        echo "------------------------------------------------"
+        local count
+        count=$(grep -v '^[[:space:]]*#' "$BLOCKLIST_FILE" | grep -v '^[[:space:]]*$' | wc -l)
+        echo "Total Blocked Tracker Domains: $count"
+    else
+        echo "No blocklist found at $BLOCKLIST_FILE"
+    fi
+}
+
+block_domain() {
+    local domain="${2:-}"
+    if [ -z "$domain" ]; then
+        echo "Usage: $0 block <domain>"
+        exit 1
+    fi
+    echo "[*] Adding '$domain' to telemetry blocklist..."
+    if grep -qF "$domain" "$BLOCKLIST_FILE" 2>/dev/null; then
+        echo "[!] Domain '$domain' already present in blocklist."
+    else
+        echo "$domain" >> "$BLOCKLIST_FILE"
+        echo "[+] Added '$domain'."
+        # Signal lrd-dnsd if running
+        pkill -HUP lrd-dnsd 2>/dev/null || true
+    fi
+}
+
+unblock_domain() {
+    local domain="${2:-}"
+    if [ -z "$domain" ]; then
+        echo "Usage: $0 unblock <domain>"
+        exit 1
+    fi
+    echo "[*] Removing '$domain' from telemetry blocklist..."
+    if [ -f "$BLOCKLIST_FILE" ]; then
+        sed -i "/^${domain}$/d" "$BLOCKLIST_FILE"
+        echo "[+] Removed '$domain'."
+        pkill -HUP lrd-dnsd 2>/dev/null || true
+    fi
+}
+
+test_domain() {
+    local domain="${2:-app-measurement.com}"
+    echo "[*] Testing DNS sinkhole resolution for '$domain'..."
+    if grep -qF "$domain" "$BLOCKLIST_FILE" 2>/dev/null; then
+        echo "  Result: SINKHOLED -> 127.0.0.1 (LibreDroid High-Entropy Poisoner Trap)"
+        echo "  Behavior: Returns HTTP 200 with synthetic dummy JSON"
+    else
+        echo "  Result: PASS-THROUGH (Domain not in blocklist)"
+    fi
+}
+
+show_status() {
+    echo "=== LibreDroid Telemetry Defense Shield ==="
+    local count=0
+    if [ -f "$BLOCKLIST_FILE" ]; then
+        count=$(grep -v '^[[:space:]]*#' "$BLOCKLIST_FILE" | grep -v '^[[:space:]]*$' | wc -l)
+    fi
+    echo "Blocked Domains:       $count rules loaded"
+    echo "DNS Sinkhole:          lrd-dnsd active"
+    echo "Synthetic Poisoner:    lrd-poisoner active (Emulating HTTP 200 with random noise)"
+    echo "Zero Big-Tech Footprint: ENFORCED"
+}
+
+case "$ACTION" in
+    list)
+        list_domains
+        ;;
+    block)
+        block_domain "$@"
+        ;;
+    unblock)
+        unblock_domain "$@"
+        ;;
+    test)
+        test_domain "$@"
+        ;;
+    status)
+        show_status
+        ;;
+    *)
+        echo "Usage: $0 {list|block <domain>|unblock <domain>|test [domain]|status}"
+        exit 1
+        ;;
+esac

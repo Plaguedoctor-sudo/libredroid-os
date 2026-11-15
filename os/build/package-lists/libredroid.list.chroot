@@ -1,0 +1,12 @@
+systemd systemd-sysv udev dbus
+linux-image-amd64 initramfs-tools live-boot live-boot-initramfs-tools
+cage chromium nodejs seatd
+mesa-vulkan-drivers libgl1-mesa-dri libglx-mesa0 libegl-mesa0
+pipewire pipewire-pulse wireplumber
+network-manager
+cryptsetup-bin cryptsetup-initramfs e2fsprogs parted dosfstools mtools
+squashfs-tools xorriso grub-efi-amd64-bin grub-pc-bin
+firmware-linux-free
+ca-certificates curl less vim-tiny sudo locales tzdata
+fonts-dejavu fonts-liberation2
+memtest86+

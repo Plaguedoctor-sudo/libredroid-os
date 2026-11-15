@@ -1,44 +1,11 @@
-# ── session: compositor + browser engine ──
-cage labwc wayvnc websockify novnc
-wlr-randr wl-clipboard grim slurp
-chromium nodejs python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1
-
-# ── hardware acceleration (Mesa DRI & Vulkan) ──
-libgl1-mesa-dri mesa-vulkan-drivers mesa-va-drivers libva-wayland2
-
-# ── isolation & containers ──
-systemd-container bubblewrap flatpak apparmor apparmor-utils
-
-# ── network + anonymity ──
-tor torsocks nftables network-manager wpasupplicant
-
-# ── cellular telephony & VoLTE ──
-modemmanager libqmi-utils libmbim-utils mobile-broadband-provider-info
-
-# ── android container runtime & ARM translation ──
-waydroid binfmt-support qemu-user-static
-
-# ── mobile input & virtual keyboard ──
-wvkbd squeekboard fcitx5
-
-# ── hardware & power management ──
-upower brightnessctl pipewire wireplumber pipewire-pulse libcamera-tools
-iio-sensor-proxy geoclue-2.0 bluez rfkill alsa-utils
-
-# ── free bare-metal firmware (100% DFSG / FSDG compliant) ──
-# Note: For proprietary Intel/AMD microcode and non-free Wi-Fi/BT firmware,
-# see firmware-nonfree.list.chroot.optional
+systemd systemd-sysv udev dbus
+linux-image-amd64 initramfs-tools live-boot live-boot-initramfs-tools
+cage chromium nodejs seatd
+mesa-vulkan-drivers libgl1-mesa-dri libglx-mesa0 libegl-mesa0
+pipewire pipewire-pulse wireplumber
+network-manager
+cryptsetup-bin cryptsetup-initramfs e2fsprogs parted dosfstools mtools
+squashfs-tools xorriso grub-efi-amd64-bin grub-pc-bin
 firmware-linux-free
-
-# ── storage & partitioning tools ──
-cryptsetup lvm2 gdisk dosfstools e2fsprogs nvme-cli zram-tools
-
-# ── biometric authentication & timesync ──
-fprintd libpam-fprintd systemd-timesyncd
-
-# ── uefi secure boot & tpm2 hardware encryption ──
-shim-signed grub-efi-amd64-signed tpm2-tools
-
-# ── base plumbing & fonts ──
-dbus dbus-user-session curl ca-certificates sudo rsync busybox-static
-fonts-inter fonts-noto-color-emoji
+ca-certificates curl less vim-tiny sudo locales tzdata
+fonts-dejavu fonts-liberation2

@@ -15,12 +15,14 @@ WIFI_BIN="$SCRIPT_DIR/net/lrd-wifi"
 BT_BIN="$SCRIPT_DIR/bluetooth/lrd-bluetooth"
 DISPLAY_BIN="$SCRIPT_DIR/display/lrd-display"
 SECURITY_BIN="$SCRIPT_DIR/security/lrd-security"
+PRINT_BIN="$SCRIPT_DIR/print/lrd-print"
 
 # Fallback to system path
 if [ -x "/usr/bin/lrd-wifi" ]; then WIFI_BIN="/usr/bin/lrd-wifi"; fi
 if [ -x "/usr/bin/lrd-bluetooth" ]; then BT_BIN="/usr/bin/lrd-bluetooth"; fi
 if [ -x "/usr/bin/lrd-display" ]; then DISPLAY_BIN="/usr/bin/lrd-display"; fi
 if [ -x "/usr/bin/lrd-security" ]; then SECURITY_BIN="/usr/bin/lrd-security"; fi
+if [ -x "/usr/bin/lrd-print" ]; then PRINT_BIN="/usr/bin/lrd-print"; fi
 
 case "$MODULE" in
     wifi)
@@ -39,6 +41,10 @@ case "$MODULE" in
         shift
         "$SECURITY_BIN" "$@"
         ;;
+    print)
+        shift
+        "$PRINT_BIN" "$@"
+        ;;
     status)
         echo "=== LibreDroid Unified Settings Suite ==="
         "$WIFI_BIN" status
@@ -48,9 +54,11 @@ case "$MODULE" in
         "$DISPLAY_BIN" status
         echo ""
         "$SECURITY_BIN" status
+        echo ""
+        "$PRINT_BIN" status
         ;;
     *)
-        echo "Usage: $0 {wifi|bluetooth|display|security|status} [args...]"
+        echo "Usage: $0 {wifi|bluetooth|display|security|print|status} [args...]"
         exit 1
         ;;
 esac
