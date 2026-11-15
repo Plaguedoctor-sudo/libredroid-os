@@ -2,11 +2,43 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -euo pipefail
 
-SQUASHFS="${1:-out/iso/live/filesystem.squashfs}"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ ! -f "$SQUASHFS" ]; then
-  echo "FAIL: SquashFS not found at $SQUASHFS" >&2
+# Stage 0: Artifact naming lint
+echo "[0/3] Checking artifact naming conventions..."
+bash "$DIR/check-artifact-names.sh"
+
+TARGET="${1:-out/iso/live/filesystem.squashfs}"
+
+if [ ! -f "$TARGET" ]; then
+  echo "FAIL: Target file not found at $TARGET" >&2
   exit 1
+fi
+
+SQUASHFS="$TARGET"
+TEMP_DIR=""
+trap 'if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then rm -rf "$TEMP_DIR"; fi' EXIT
+
+if [[ "$TARGET" =~ \.iso$ ]]; then
+  ISO_SIZE_BYTES=$(wc -c < "$TARGET")
+  ISO_SIZE_MB=$((ISO_SIZE_BYTES / 1024 / 1024))
+  echo "Inspecting ISO image: $TARGET (${ISO_SIZE_MB} MB)"
+  
+  if command -v isoinfo >/dev/null 2>&1; then
+    vol=$(isoinfo -d -i "$TARGET" | grep 'Volume id:' | awk '{print $3}')
+    if [ "$vol" != "LIBREDROID" ]; then
+      echo "FAIL: Expected ISO volume id LIBREDROID, got $vol" >&2
+      exit 1
+    fi
+  fi
+
+  if [ -f "out/iso/live/filesystem.squashfs" ]; then
+    SQUASHFS="out/iso/live/filesystem.squashfs"
+  else
+    TEMP_DIR=$(mktemp -d)
+    7z e "$TARGET" live/filesystem.squashfs -o"$TEMP_DIR" >/dev/null
+    SQUASHFS="$TEMP_DIR/filesystem.squashfs"
+  fi
 fi
 
 # Get size in bytes using wc -c (portable across all Linux/BSD)
@@ -43,5 +75,5 @@ if [ "$SIZE_MB" -lt "$MIN_MB" ]; then
   exit 1
 fi
 
-echo "PASS: All SquashFS integrity, package count ($pkgs), and size checks passed."
+echo "PASS: All build gate checks passed."
 exit 0

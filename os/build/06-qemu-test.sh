@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ISO="${1:-out/libredroid-universal-x86_64.iso}"
+. "$(dirname "$0")/lib/artifact-name.sh"
+ISO="${1:-out/$(lrd_iso x86_64)}"
 ACCEL=""
 CPU_OPT=""
 if [ -e /dev/kvm ]; then

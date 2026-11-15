@@ -526,7 +526,7 @@ class OSAutomationHarness:
     # --------------------------------------------------------------------------
     # SUITE 4: Universal Installer Multi-Device End-to-End Simulation
     # --------------------------------------------------------------------------
-    async def test_universal_installer_flow(self):
+    async def test_installer_flow(self):
         print("\n=== RUNNING TEST SUITE 4: Universal Installer End-to-End Multi-Device Flow ===")
 
         # 1. Open System Installer
@@ -664,7 +664,7 @@ class OSAutomationHarness:
         await self.test_navigation_and_overlays()
         await self.test_device_switcher()
         await self.test_all_system_apps()
-        await self.test_universal_installer_flow()
+        await self.test_installer_flow()
         await self.test_penetration_lab()
 
         # Print summary

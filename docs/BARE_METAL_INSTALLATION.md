@@ -1,5 +1,7 @@
 # LibreDroid OS — Bare-Metal Installation Guide
 
+> Scope: x86_64 only. This will not boot an Android phone.
+
 This document describes how to deploy, partition, boot, and install **LibreDroid OS** directly onto bare-metal hardware without host dependencies or hypervisors.
 
 ---
@@ -10,8 +12,8 @@ This document describes how to deploy, partition, boot, and install **LibreDroid
 |---|---|---|---|
 | **x86_64** | UEFI (SecureBoot / Open) | Laptops, Desktops, Appliances, Intel/AMD Workstations | **Production Ready** |
 | **x86_64** | Legacy BIOS (MBR) | Older x86_64 PC hardware | **Production Ready** |
-| **ARM64** | Extlinux / U-Boot | PinePhone Pro, MNT Reform, Raspberry Pi 5 | **Production Ready** |
-| **ARM64** | Android Fastboot / Halium | Project Treble GSI (MT6789, SDM845, SM8150) | **Production Ready** |
+| **ARM64** | Extlinux / U-Boot | PinePhone Pro, MNT Reform, Raspberry Pi 5 | *Planned (v1.0)* |
+| **ARM64** | Android Fastboot / Halium | Project Treble GSI (MT6789, SDM845, SM8150) | *Planned (v1.0)* |
 
 ---
 
@@ -20,7 +22,7 @@ This document describes how to deploy, partition, boot, and install **LibreDroid
 ### A. Compile the Hybrid Live ISO (x86_64)
 Run the automated image builder from repository root:
 ```bash
-./installer/build-iso.sh --version 1.0.0 --out libredroid-universal-x86_64.iso
+./installer/build-iso.sh --version 1.0.0 --out libredroid-x86_64-0.1.0.iso
 ```
 The resulting ISO is a hybrid bootable medium conforming to ISO 9660 + El Torito + GPT/MBR hybrid boot specifications.
 
@@ -31,7 +33,7 @@ Write the image directly to a block device (e.g. `/dev/sdX`):
 lsblk -o NAME,SIZE,MODEL,TRAN
 
 # Write raw image with sync
-sudo dd if=libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=libredroid-x86_64-0.1.0.iso of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
 ---
@@ -42,7 +44,7 @@ sudo dd if=libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress con
 1. **Disable Secure Boot**: The v0.1 live ISO is currently unsigned. Secure Boot must be disabled in target UEFI settings.
 2. **Flash USB with Full Readback Verification**:
    ```bash
-   ISO="out/libredroid-universal-x86_64.iso"
+   ISO="out/libredroid-x86_64-0.1.0.iso"
    sha256sum "$ISO"
    sudo dd if="$ISO" of=/dev/sdX bs=4M status=progress conv=fsync
    sync
@@ -68,11 +70,11 @@ sudo dd if=libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress con
 Insert the USB drive into target hardware and select it from the BIOS/UEFI boot menu (F11 / F12 / Del).
 
 ### Live GRUB2 Boot Menu Options:
-1. **LibreDroid OS Universal (Live Session - Try without installing)**:
+1. **LibreDroid OS x86_64 (Live Session - Try without installing)**:
    - Mounts compressed SquashFS rootfs to RAM via overlayfs.
    - Preserves underlying hard drives untouched.
    - Spawns Wayland compositor and sovereign shell.
-2. **LibreDroid OS Universal (Copy to RAM - Fast Live Mode)**:
+2. **LibreDroid OS x86_64 (Copy to RAM - Fast Live Mode)**:
    - Copies SquashFS entire image into physical RAM (`toram`).
    - Allows unplugging USB stick post-boot.
 3. **Install LibreDroid OS to Hard Disk (Guided Installer)**:

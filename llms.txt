@@ -1,6 +1,6 @@
 # LibreDroid OS (omni-android-system)
 
-> LibreDroid OS is an independent, non-monopolistic universal operating environment for phones, foldables, tablets, and desktops. It runs a React 18 + TypeScript compositor with Qubes-style multi-OS hypervisor domain isolation, hardened Linux sandboxing, telemetry poisoning, adaptive persona engine, and native Waydroid/host Linux hardware integration.
+> LibreDroid OS is an independent, non-monopolistic operating environment for x86_64 systems. It runs a React 18 + TypeScript compositor with Qubes-style multi-OS hypervisor domain isolation, hardened Linux sandboxing, telemetry poisoning, adaptive persona engine, and native Waydroid/host Linux hardware integration.
 
 ## Full AI Codebase Export
 - [APPLICATION_CODE_FOR_AI.md](APPLICATION_CODE_FOR_AI.md): Complete unabridged source code for all 88 files across React/TypeScript, Vite server plugin, native installers, test suites, and configuration files, preceded by full architecture diagrams and inventory tables.

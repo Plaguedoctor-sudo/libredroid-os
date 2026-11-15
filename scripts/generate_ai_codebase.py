@@ -16,7 +16,7 @@ OUTPUT_FILE = os.path.join(ROOT_DIR, "APPLICATION_CODE_FOR_AI.md")
 
 # Files to exclude from the code export
 EXCLUDED_EXTENSIONS = {".iso", ".png", ".jpg", ".jpeg", ".webp", ".ico", ".svg", ".lock", ".img", ".deb", ".tgz", ".zip", ".gz", ".bin"}
-EXCLUDED_FILES = {"package-lock.json", "APPLICATION_CODE_FOR_AI.md", "libredroid-universal-x86_64.iso", "OnePlus_Pad_Go_OPD2304_MT6789_EX_11_A.30_231025_MXML.zip"}
+EXCLUDED_FILES = {"package-lock.json", "APPLICATION_CODE_FOR_AI.md", "libredroid-x86_64-0.1.0.iso", "OnePlus_Pad_Go_OPD2304_MT6789_EX_11_A.30_231025_MXML.zip"}
 EXCLUDED_DIRS = {"node_modules", ".git", "dist", ".gemini", "brain", "out-pad-go", "adapt-out", "lrd-backups", "build_tmp", "os-build-out", "libredroid-os-out"}
 
 # Order of files to present logically to an AI
@@ -132,7 +132,7 @@ def generate_ai_documentation(files):
 
 ## 1. Executive System Overview
 
-**LibreDroid OS** (`omni-android-system`) is an independent, non-monopolistic universal operating environment running across smartphones, foldables, tablets, and desktop workstations.
+**LibreDroid OS** (`omni-android-system`) is an independent, non-monopolistic operating environment for x86_64 systems.
 
 ### Core Pillars
 1. **Universal Form Factor Responsiveness:**

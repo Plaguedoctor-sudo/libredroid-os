@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ISO="${1:-out/libredroid-universal-x86_64.iso}"
+. "$(dirname "$0")/lib/artifact-name.sh"
+ISO="${1:-out/$(lrd_iso x86_64)}"
 ROOT="${ROOT:-out/rootfs}"
 mkdir -p out/iso/live
 for m in "$ROOT/boot/memtest86+.bin" "$ROOT/boot/memtest86+.elf" "$ROOT/boot/memtest86+" "$ROOT/usr/lib/memtest86+/memtest.bin" /usr/lib/memtest86+/memtest.bin; do

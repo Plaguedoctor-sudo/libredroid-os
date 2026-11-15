@@ -1,10 +1,17 @@
-# LibreDroid OS - Sovereign Universal Operating Environment
+# LibreDroid OS - Sovereign Operating Environment
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
-**LibreDroid OS** is an independent, non-monopolistic universal operating environment designed to run across smartphones, foldables, tablets, and desktops. It eliminates proprietary Big Tech lock-in (zero Google Play Services / tracking dependencies) while providing an intuitive, unified interface backed by a **hardened Linux security stack**, containerized **Waydroid AOSP** runtime, and a **Qubes-style domain-isolated interface**.
+**LibreDroid OS** is an independent, non-monopolistic operating environment for x86_64 systems. It eliminates proprietary Big Tech lock-in (zero Google Play Services / tracking dependencies) while providing an intuitive, unified interface backed by a **hardened Linux security stack**, containerized **Waydroid AOSP** runtime, and a **Qubes-style domain-isolated interface**.
+
+## What this runs on
+
+x86_64 laptops and tablets with UEFI or BIOS boot. That is the whole list.
+
+Android phones need an arm64 `boot.img`, a device tree, and a mainline or Halium
+kernel. None of that exists yet. See `devices/README.md`.
 
 ---
 
@@ -125,7 +132,7 @@ LibreDroid inspects underlying hardware dynamically and adjusts operating parame
 
 ---
 
-## ⚡ Universal Cross-Platform App Execution (Android + Apple OS)
+## ⚡ Cross-Platform App Execution (Android + Apple OS)
 
 LibreDroid incorporates a unified binary runtime engine capable of executing both **Android (.apk)** and **Apple iOS/macOS (.ipa / .app)** application packages without proprietary vendor lock-in:
 

@@ -9,7 +9,7 @@ The `installer/` directory provides production deployment tools for flashing and
 ### 1. Bare-Metal x86_64 Installation
 | Script | Description |
 |---|---|
-| [`build-iso.sh`](build-iso.sh) | Assembles the hybrid UEFI + BIOS dual-bootable live ISO (`libredroid-universal-x86_64.iso`) with SquashFS rootfs, Linux kernel, and GRUB2 bootloader. |
+| [`build-iso.sh`](build-iso.sh) | Assembles the hybrid UEFI + BIOS dual-bootable live ISO (`libredroid-x86_64-0.1.0.iso`) with SquashFS rootfs, Linux kernel, and GRUB2 bootloader. |
 | [`bare-metal-safety-guard.sh`](bare-metal-safety-guard.sh) | Hardware safety validator: checks battery reserves, validates CPU architecture, performs pre-flash partition backups, and guarantees anti-rollback (ARB) safety. |
 | [`emergency-restore.sh`](emergency-restore.sh) | Disaster recovery and unbrick utility to revert any device to baseline stock firmware. |
 
@@ -38,13 +38,13 @@ The `installer/` directory provides production deployment tools for flashing and
 
 ### Step 1: Build the Hybrid Live ISO
 ```bash
-./installer/build-iso.sh --version 1.0.0 --out libredroid-universal-x86_64.iso
+./installer/build-iso.sh --version 1.0.0 --out libredroid-x86_64-0.1.0.iso
 ```
 
 ### Step 2: Write to USB Installation Drive
 ```bash
 # Verify target drive node carefully (e.g. /dev/sdX)
-sudo dd if=libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=libredroid-x86_64-0.1.0.iso of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
 ### Step 3: Boot on Target Machine

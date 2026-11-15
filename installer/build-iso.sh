@@ -9,7 +9,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="${LRD_WORK_DIR:-/tmp/libredroid-iso-build}"
 ROOTFS_DIR="${LRD_ROOTFS_DIR:-/tmp/libredroid-rootfs-stage}"
-ISO_NAME="${LRD_ISO_NAME:-${REPO_ROOT}/libredroid-universal-x86_64.iso}"
+ISO_NAME="${LRD_ISO_NAME:-${REPO_ROOT}/libredroid-x86_64-0.1.0.iso}"
 VERSION="${LRD_VERSION:-1.0.0}"
 SIGN_KEY="${LRD_SIGN_KEY:-}"
 KERNEL_IMAGE="${LRD_KERNEL:-}"

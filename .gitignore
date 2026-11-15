@@ -49,6 +49,7 @@ public/*.iso
 
 # Logs and system dumps
 *.log
+l4-dmesg.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

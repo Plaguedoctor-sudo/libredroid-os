@@ -1110,7 +1110,7 @@ export const SettingsApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
             <div>
               <h2 className="text-lg font-bold">About LibreDroid OS</h2>
               <p className="text-xs text-neutral-400 mt-1">
-                The independent, non-monopolistic universal operating platform.
+                The independent, non-monopolistic operating platform.
               </p>
             </div>
 

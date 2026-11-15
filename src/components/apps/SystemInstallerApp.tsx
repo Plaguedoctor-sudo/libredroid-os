@@ -465,8 +465,8 @@ export const SystemInstallerApp: React.FC = () => {
                 </div>
               </div>
               <a
-                href="/libredroid-universal-x86_64.iso"
-                download="libredroid-universal-x86_64.iso"
+                href="/libredroid-x86_64-0.1.0.iso"
+                download="libredroid-x86_64-0.1.0.iso"
                 className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg flex items-center gap-1 transition-colors"
               >
                 <Download size={12} />
@@ -584,10 +584,10 @@ export const SystemInstallerApp: React.FC = () => {
                 <div className="space-y-1.5">
                   <div className="text-[11px] text-neutral-400">Flash to USB Flash Drive:</div>
                   <div
-                    onClick={() => copyToClipboard('sudo dd if=libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress && sync')}
+                    onClick={() => copyToClipboard('sudo dd if=libredroid-x86_64-0.1.0.iso of=/dev/sdX bs=4M status=progress && sync')}
                     className="bg-black p-2 rounded-xl font-mono text-[11px] text-purple-300 break-all border border-neutral-800 cursor-pointer flex justify-between items-center hover:border-purple-600"
                   >
-                    <span>sudo dd if=libredroid-universal-x86_64.iso of=/dev/sdX bs=4M status=progress && sync</span>
+                    <span>sudo dd if=libredroid-x86_64-0.1.0.iso of=/dev/sdX bs=4M status=progress && sync</span>
                     <Copy size={13} className="shrink-0 ml-2 text-neutral-400" />
                   </div>
                 </div>
@@ -630,10 +630,10 @@ export const SystemInstallerApp: React.FC = () => {
                 <div className="space-y-1.5">
                   <div className="text-[11px] text-neutral-400">Launch in QEMU with 3D acceleration:</div>
                   <div
-                    onClick={() => copyToClipboard('qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cdrom libredroid-universal-x86_64.iso -vga virtio')}
+                    onClick={() => copyToClipboard('qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cdrom libredroid-x86_64-0.1.0.iso -vga virtio')}
                     className="bg-black p-2 rounded-xl font-mono text-[11px] text-purple-300 break-all border border-neutral-800 cursor-pointer flex justify-between items-center hover:border-purple-600"
                   >
-                    <span>qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cdrom libredroid-universal-x86_64.iso -vga virtio</span>
+                    <span>qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cdrom libredroid-x86_64-0.1.0.iso -vga virtio</span>
                     <Copy size={13} className="shrink-0 ml-2 text-neutral-400" />
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 {
   "name": "LibreDroid OS - Sovereign Universal Platform",
   "short_name": "LibreDroid",
-  "description": "Independent universal operating system platform with native Android APK execution and zero big-tech monopoly locks.",
+  "description": "Independent operating system platform with native Android APK execution and zero big-tech monopoly locks.",
   "start_url": "/",
   "display": "fullscreen",
   "background_color": "#0d0d11",

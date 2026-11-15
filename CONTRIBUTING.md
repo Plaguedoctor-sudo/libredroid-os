@@ -1,6 +1,6 @@
 # Contributing to LibreDroid OS
 
-Thank you for your interest in contributing to **LibreDroid OS**! LibreDroid is a sovereign, non-monopolistic universal operating environment designed to run seamlessly across smartphones, foldables, tablets, and desktops.
+Thank you for your interest in contributing to **LibreDroid OS**! LibreDroid is a sovereign, non-monopolistic operating environment for x86_64 systems.
 
 By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
 

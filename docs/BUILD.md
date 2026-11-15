@@ -20,7 +20,7 @@ bash os/build/05-iso.sh
 3. `02-overlay.sh`: Copies `/opt/libredroid` artifacts (Vite SPA `dist/`, bridge `server.js`), installs `lrd-shell-start` healthcheck gate, configures `tty7` kiosk session, and enables `lrd-bridge.service`.
 4. `03-initramfs.sh`: Configures `MODULES=most` and `COMPRESS=gzip`, generating modular bootable initramfs. Includes `9991-netbase-dir.sh` to ensure `/root/etc/network` is ready without shadowing Debian packages.
 5. `04-squashfs.sh`: Compresses rootfs into `out/iso/live/filesystem.squashfs` with `mksquashfs -comp zstd -Xcompression-level 19`.
-6. `05-iso.sh`: Builds hybrid BIOS + UEFI bootable ISO image (`out/libredroid-universal-x86_64.iso`) with `grub-mkrescue` and serial console output.
+6. `05-iso.sh`: Builds hybrid BIOS + UEFI bootable ISO image (`out/libredroid-x86_64-0.1.0.iso`) with `grub-mkrescue` and serial console output.
 7. `06-qemu-test.sh`: Automated QEMU VM boot verification runner (`-enable-kvm -cpu host -m 4096`).
 
 ## CI Build Gate & Integrity Assertions

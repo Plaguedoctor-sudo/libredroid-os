@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lrd-install — universal bare-metal installer for LibreDroid OS
+# lrd-install — bare-metal installer for LibreDroid OS
 # Supports UEFI (x86_64, aarch64), Legacy BIOS (MBR), A/B dm-verity, and single partition layouts.
 set -Eeuo pipefail
 

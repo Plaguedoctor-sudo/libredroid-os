@@ -121,7 +121,7 @@ The script will:
 
 ```bash
 qemu-system-x86_64 -enable-kvm -m 6144 -smp 4 \
-  -drive file=os/build/libredroid-amd64.hybrid.iso,format=raw \
+  -drive file=out/libredroid-x86_64-0.1.0.iso,format=raw \
   -vga virtio -device virtio-net-pci \
   -display gtk
 ```
@@ -129,7 +129,7 @@ qemu-system-x86_64 -enable-kvm -m 6144 -smp 4 \
 ### Flashing to USB
 
 ```bash
-sudo dd if=os/build/libredroid-amd64.hybrid.iso of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=out/libredroid-x86_64-0.1.0.iso of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
 ---

@@ -29,7 +29,7 @@ export const PlayStoreApp: React.FC = () => {
       rating: 4.8,
       reviews: '24M',
       installed: true,
-      desc: 'Fast, secure, universal web browser with built-in sync.',
+      desc: 'Fast, secure web browser with built-in sync.',
     },
     {
       id: 'terminal',
@@ -94,7 +94,7 @@ export const PlayStoreApp: React.FC = () => {
         appId: app.id,
         appName: 'Play Store',
         title: `${app.name} Installed`,
-        body: 'The app is now ready to run across all your universal devices.',
+        body: 'The app is now ready to run across all your devices.',
       });
     }, 1200);
   };
