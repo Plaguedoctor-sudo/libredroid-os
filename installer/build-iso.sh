@@ -59,8 +59,8 @@ fi
 
 # Copy web shell and Node.js bridge server
 mkdir -p "${ROOTFS_DIR}/opt/libredroid/ui" "${ROOTFS_DIR}/opt/libredroid/shell" "${ROOTFS_DIR}/opt/libredroid/bridge"
-cp -r "${REPO_ROOT}/dist/"* "${ROOTFS_DIR}/opt/libredroid/ui/"
-cp -r "${REPO_ROOT}/dist/"* "${ROOTFS_DIR}/opt/libredroid/shell/"
+find "${REPO_ROOT}/dist" -mindepth 1 -maxdepth 1 ! -name "*.iso" -exec cp -r {} "${ROOTFS_DIR}/opt/libredroid/ui/" \;
+find "${REPO_ROOT}/dist" -mindepth 1 -maxdepth 1 ! -name "*.iso" -exec cp -r {} "${ROOTFS_DIR}/opt/libredroid/shell/" \;
 if [ -f "${REPO_ROOT}/server.js" ]; then
   cp "${REPO_ROOT}/server.js" "${ROOTFS_DIR}/opt/libredroid/server.js"
   cp "${REPO_ROOT}/server.js" "${ROOTFS_DIR}/opt/libredroid/bridge/server.js"

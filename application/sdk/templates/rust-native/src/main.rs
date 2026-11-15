@@ -9,7 +9,7 @@ fn main() {
     println!("Operating mode: Zero Ambient Authority");
 
     // Verify display capability token passed by the Sovereign Compositor
-    let dummy_handle = CapHandle {
+    let surface_handle = CapHandle {
         id: [1u8; 32],
         resource_id: "sap://display/surface".to_string(),
         permissions: PERM_READ | PERM_WRITE,
@@ -19,7 +19,7 @@ fn main() {
         expires_at_ns: 0,
     };
 
-    match CapVerifier::verify_access(&dummy_handle, "sap://display/surface", PERM_WRITE, 2000) {
+    match CapVerifier::verify_access(&surface_handle, "sap://display/surface", PERM_WRITE, 2000) {
         Ok(_) => println!("Display capability verified: UI rendering permitted."),
         Err(e) => eprintln!("Capability denied: {}", e),
     }

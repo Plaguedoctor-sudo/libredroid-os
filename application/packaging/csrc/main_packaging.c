@@ -68,9 +68,15 @@ int main(int argc, char* argv[]) {
 
     char binary_path[256];
     snprintf(binary_path, sizeof(binary_path), "%s/bin/gallery_app", app_dir);
-    FILE* bf = fopen(binary_path, "w");
+    FILE* bf = fopen(binary_path, "wb");
     assert(bf != NULL);
-    fprintf(bf, "ELF_STANDALONE_BINARY_MOCK_PAYLOAD\n");
+    const unsigned char elf_hdr[] = {
+        0x7f, 'E', 'L', 'F', 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        2, 0, 0x3e, 0, 1, 0, 0, 0, 0x78, 0x00, 0x40, 0, 0, 0, 0, 0,
+        0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 64, 0, 56, 0, 1, 0, 0, 0, 0, 0, 0, 0
+    };
+    fwrite(elf_hdr, 1, sizeof(elf_hdr), bf);
     fclose(bf);
     chmod(binary_path, 0755);
 
