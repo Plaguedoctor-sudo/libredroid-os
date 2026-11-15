@@ -18,6 +18,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, '..');
 
 const PORT = parseInt(process.env.LRD_PORT || process.env.PORT || '3001', 10);
 const HOST = process.env.LRD_BIND || '127.0.0.1';
@@ -25,7 +26,23 @@ const STRICT_LOCAL = process.env.LRD_STRICT_LOCAL !== '0';
 const BACKEND = process.env.LRD_BACKEND || 'hostandroid';
 const HOME = process.env.LRD_HOME || path.join(process.env.HOME || '/root', '.lrd');
 const LRD_MODELS = process.env.LRD_MODELS || path.join(HOME, 'models');
-const DIST_DIR = path.resolve(__dirname, 'dist');
+
+const DIST_DIR = [
+  path.resolve(REPO_ROOT, 'dist'),
+  '/opt/libredroid/shell',
+  '/opt/libredroid/dist',
+  path.resolve(__dirname, 'dist'),
+].find((d) => fs.existsSync(d)) || path.resolve(REPO_ROOT, 'dist');
+
+function resolveRepoPath(relPath) {
+  const p1 = path.join(REPO_ROOT, relPath);
+  if (fs.existsSync(p1)) return p1;
+  const p2 = path.join(__dirname, relPath);
+  if (fs.existsSync(p2)) return p2;
+  const p3 = path.join('/usr/bin', path.basename(relPath));
+  if (fs.existsSync(p3)) return p3;
+  return p1;
+}
 
 // Fail-closed local binding check
 if (STRICT_LOCAL && (HOST === '0.0.0.0' || HOST === '::')) {
@@ -158,10 +175,10 @@ function addRoute(method, pattern, handler) {
 }
 
 // Mount hostandroid and bare-metal backend modules
-const backendModules = ['hostandroid.js', 'device.js', 'events.js', 'remedies.js', 'exec.js'];
+const backendModules = ['hostandroid.js', 'device.js', 'events.js', 'remedies.js', 'exec.js', 'apk.js', 'input.js'];
 for (const m of backendModules) {
   try {
-    const modPath = path.join(__dirname, 'os/termux/backends', m);
+    const modPath = resolveRepoPath(path.join('os/termux/backends', m));
     if (fs.existsSync(modPath)) {
       const mod = require(modPath);
       if (mod.routes) {
@@ -177,9 +194,14 @@ for (const m of backendModules) {
 }
 
 try {
-  const watchers = require('./os/termux/backends/watchers.js');
-  watchers.start();
-  console.log('[LRD] backend: in-process watchers started');
+  const watchersPath = resolveRepoPath('os/termux/backends/watchers.js');
+  if (fs.existsSync(watchersPath)) {
+    const watchers = require(watchersPath);
+    if (watchers && watchers.start) {
+      watchers.start();
+      console.log('[LRD] backend: in-process watchers started');
+    }
+  }
 } catch (err) {
   console.warn('[LRD] In-process watchers note:', err.message);
 }
@@ -306,6 +328,53 @@ function getDeviceContacts() {
   try {
     fs.mkdirSync(path.dirname(CONTACTS_FILE), { recursive: true });
     fs.writeFileSync(CONTACTS_FILE, JSON.stringify({ contacts: defaults }, null, 2), 'utf8');
+  } catch {}
+  return defaults;
+}
+
+/* ---------- Device Calendar Events ---------- */
+const CALENDAR_FILE = path.join(HOME, 'calendar.json');
+function getDeviceCalendarEvents() {
+  if (fs.existsSync(CALENDAR_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(CALENDAR_FILE, 'utf8'));
+      if (Array.isArray(data.events)) return data.events;
+    } catch {}
+  }
+  const now = new Date();
+  const defaults = [
+    {
+      id: 'evt_1',
+      calendarId: 'cal_default',
+      title: 'LibreDroid System Verification',
+      description: 'Bare-metal kernel & Wayland convergence check',
+      startTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0).toISOString(),
+      endTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 0).toISOString(),
+      allDay: false,
+      status: 'confirmed',
+      color: '#3b82f6',
+      reminders: [{ method: 'notification', minutesBefore: 15 }],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+    {
+      id: 'evt_2',
+      calendarId: 'cal_default',
+      title: 'Decentralized Mesh Sync',
+      description: 'Peer-to-peer data sync over local sovereign radio',
+      startTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 30).toISOString(),
+      endTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 15, 30).toISOString(),
+      allDay: false,
+      status: 'confirmed',
+      color: '#10b981',
+      reminders: [{ method: 'notification', minutesBefore: 10 }],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+  ];
+  try {
+    fs.mkdirSync(path.dirname(CALENDAR_FILE), { recursive: true });
+    fs.writeFileSync(CALENDAR_FILE, JSON.stringify({ events: defaults }, null, 2), 'utf8');
   } catch {}
   return defaults;
 }
@@ -456,7 +525,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const body = JSON.parse(b || '{}');
         try {
-          const events = require('./os/termux/backends/events.js');
+          const events = require(resolveRepoPath('os/termux/backends/events.js'));
           events.emit('wm', body);
         } catch {}
         res.writeHead(200, { 'content-type': 'application/json' });
@@ -472,7 +541,7 @@ const server = http.createServer(async (req, res) => {
   // 1.4 Hardware & System Bridge APIs (real sysfs / kernel introspection)
   let deviceBackend = null;
   try {
-    deviceBackend = require(path.join(__dirname, 'os/termux/backends/device.js'));
+    deviceBackend = require(resolveRepoPath('os/termux/backends/device.js'));
   } catch (e) {
     console.warn('[LRD] Warning: device backend failed to load:', e.message);
   }
@@ -641,7 +710,7 @@ const server = http.createServer(async (req, res) => {
 
   function getRealSettingsStatus() {
     try {
-      const raw = execFileSync('bash', [path.join(__dirname, 'os/settings/lrd-settings'), 'status'], {
+      const raw = execFileSync('bash', [resolveRepoPath('os/settings/lrd-settings'), 'status'], {
         encoding: 'utf8',
         timeout: 3000,
         stdio: ['pipe', 'pipe', 'ignore'],
@@ -736,7 +805,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      const out = execFileSync('bash', [path.join(__dirname, 'os/security/lrd-security-audit'), '--json'], {
+      const out = execFileSync('bash', [resolveRepoPath('os/security/lrd-security-audit'), '--json'], {
         encoding: 'utf8',
         timeout: 15000,
         stdio: ['pipe', 'pipe', 'ignore'],
@@ -822,7 +891,7 @@ const server = http.createServer(async (req, res) => {
           return res.end(JSON.stringify({ ok: false, error: 'Missing pin parameter' }));
         }
         try {
-          const script = path.join(__dirname, 'os/settings/security/lrd-security');
+          const script = resolveRepoPath('os/settings/security/lrd-security');
           const out = execFileSync('bash', [script, action, pin], {
             encoding: 'utf8',
             timeout: 5000,
@@ -841,7 +910,7 @@ const server = http.createServer(async (req, res) => {
 
   // 1.49 Play Integrity Fix Bridge API
   if (pathname === '/api/security/pif') {
-    const pifScript = path.join(__dirname, 'os/waydroid/lrd-pif-apply');
+    const pifScript = resolveRepoPath('os/waydroid/lrd-pif-apply');
     if (method === 'POST') {
       try {
         const out = execFileSync('bash', [pifScript, 'apply'], {
@@ -1259,7 +1328,7 @@ const server = http.createServer(async (req, res) => {
 
     let armBridgeStatus = 'unknown';
     try {
-      const bridgeOut = execFileSync('bash', [path.join(__dirname, 'os/waydroid/lrd-arm-bridge'), 'status'], {
+      const bridgeOut = execFileSync('bash', [resolveRepoPath('os/waydroid/lrd-arm-bridge'), 'status'], {
         encoding: 'utf8',
         timeout: 2000,
         stdio: ['pipe', 'pipe', 'ignore'],
@@ -1606,7 +1675,7 @@ const server = http.createServer(async (req, res) => {
         try { json = JSON.parse(b || '{}'); } catch {}
         const on = json.on !== false;
         try {
-          execFileSync('bash', [path.join(__dirname, 'os/settings/lrd-settings'), 'wifi', on ? 'on' : 'off'], { timeout: 4000, stdio: 'ignore' });
+          execFileSync('bash', [resolveRepoPath('os/settings/lrd-settings'), 'wifi', on ? 'on' : 'off'], { timeout: 4000, stdio: 'ignore' });
         } catch {}
         res.writeHead(200, { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ ok: true, enabled: on }));
@@ -1706,11 +1775,11 @@ const server = http.createServer(async (req, res) => {
       const { component, state } = json;
       try {
         if (component === 'wifi') {
-          execFileSync('bash', [path.join(__dirname, 'os/settings/lrd-settings'), 'wifi', state ? 'on' : 'off'], { timeout: 4000, stdio: 'ignore' });
+          execFileSync('bash', [resolveRepoPath('os/settings/lrd-settings'), 'wifi', state ? 'on' : 'off'], { timeout: 4000, stdio: 'ignore' });
         } else if (component === 'bluetooth') {
-          execFileSync('bash', [path.join(__dirname, 'os/settings/lrd-settings'), 'bluetooth', state ? 'on' : 'off'], { timeout: 4000, stdio: 'ignore' });
+          execFileSync('bash', [resolveRepoPath('os/settings/lrd-settings'), 'bluetooth', state ? 'on' : 'off'], { timeout: 4000, stdio: 'ignore' });
         } else if (component === 'hotspot') {
-          execFileSync('bash', [path.join(__dirname, 'os/settings/lrd-settings'), 'hotspot', state ? 'start' : 'stop'], { timeout: 4000, stdio: 'ignore' });
+          execFileSync('bash', [resolveRepoPath('os/settings/lrd-settings'), 'hotspot', state ? 'start' : 'stop'], { timeout: 4000, stdio: 'ignore' });
         }
       } catch {}
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -1739,39 +1808,187 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  /* ---------- Contacts & Photos APIs ---------- */
+  /* ---------- Contacts & Calendar CRUD APIs ---------- */
   if (pathname === '/api/contacts/list' && method === 'GET') {
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify({ ok: true, contacts: getDeviceContacts() }));
   }
 
+  if (pathname === '/api/contacts/create' && method === 'POST') {
+    let b = '';
+    req.on('data', (c) => (b += c));
+    req.on('end', () => {
+      try {
+        const contact = JSON.parse(b || '{}');
+        if (!contact.id) contact.id = 'c_' + Date.now();
+        contact.createdAt = contact.createdAt || Date.now();
+        contact.updatedAt = Date.now();
+        const current = getDeviceContacts();
+        current.push(contact);
+        fs.writeFileSync(CONTACTS_FILE, JSON.stringify({ contacts: current }, null, 2), 'utf8');
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify(contact));
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  if (pathname.startsWith('/api/contacts/') && (method === 'PUT' || method === 'POST')) {
+    const id = pathname.replace('/api/contacts/', '');
+    let b = '';
+    req.on('data', (c) => (b += c));
+    req.on('end', () => {
+      try {
+        const updates = JSON.parse(b || '{}');
+        const current = getDeviceContacts();
+        const idx = current.findIndex(c => c.id === id);
+        if (idx >= 0) {
+          current[idx] = { ...current[idx], ...updates, updatedAt: Date.now() };
+          fs.writeFileSync(CONTACTS_FILE, JSON.stringify({ contacts: current }, null, 2), 'utf8');
+          res.writeHead(200, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify(current[idx]));
+        } else {
+          res.writeHead(404, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify({ ok: false, error: 'Contact not found' }));
+        }
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  if (pathname.startsWith('/api/contacts/') && method === 'DELETE') {
+    const id = pathname.replace('/api/contacts/', '');
+    const current = getDeviceContacts();
+    const filtered = current.filter(c => c.id !== id);
+    fs.writeFileSync(CONTACTS_FILE, JSON.stringify({ contacts: filtered }, null, 2), 'utf8');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true, deleted: id }));
+  }
+
+  if (pathname === '/api/calendar/events' && method === 'GET') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true, events: getDeviceCalendarEvents() }));
+  }
+
+  if (pathname === '/api/calendar/events' && method === 'POST') {
+    let b = '';
+    req.on('data', (c) => (b += c));
+    req.on('end', () => {
+      try {
+        const ev = JSON.parse(b || '{}');
+        if (!ev.id) ev.id = 'evt_' + Date.now();
+        ev.createdAt = ev.createdAt || Date.now();
+        ev.updatedAt = Date.now();
+        const current = getDeviceCalendarEvents();
+        current.push(ev);
+        fs.writeFileSync(CALENDAR_FILE, JSON.stringify({ events: current }, null, 2), 'utf8');
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify(ev));
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  if (pathname.startsWith('/api/calendar/events/') && (method === 'PUT' || method === 'POST')) {
+    const id = pathname.replace('/api/calendar/events/', '');
+    let b = '';
+    req.on('data', (c) => (b += c));
+    req.on('end', () => {
+      try {
+        const updates = JSON.parse(b || '{}');
+        const current = getDeviceCalendarEvents();
+        const idx = current.findIndex(e => e.id === id);
+        if (idx >= 0) {
+          current[idx] = { ...current[idx], ...updates, updatedAt: Date.now() };
+          fs.writeFileSync(CALENDAR_FILE, JSON.stringify({ events: current }, null, 2), 'utf8');
+          res.writeHead(200, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify(current[idx]));
+        } else {
+          res.writeHead(404, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify({ ok: false, error: 'Event not found' }));
+        }
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  if (pathname.startsWith('/api/calendar/events/') && method === 'DELETE') {
+    const id = pathname.replace('/api/calendar/events/', '');
+    const current = getDeviceCalendarEvents();
+    const filtered = current.filter(e => e.id !== id);
+    fs.writeFileSync(CALENDAR_FILE, JSON.stringify({ events: filtered }, null, 2), 'utf8');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true, deleted: id }));
+  }
+
   if (pathname === '/api/photos/list' && method === 'GET') {
-    const photos = [
-      {
-        id: 'photo_1',
-        name: 'secure_enclave_diagram.png',
-        caption: 'LibreDroid Hardware Isolation Architecture',
-        path: '/storage/emulated/0/DCIM/Camera/secure_enclave_diagram.png',
-        url: '/manifest.webmanifest',
-        date: '2026-10-24 10:14',
-      },
-      {
-        id: 'photo_2',
-        name: 'tor_onion_routing.jpg',
-        caption: 'Three Hop Guard-Middle-Exit Circuit',
-        path: '/storage/emulated/0/DCIM/Camera/tor_onion_routing.jpg',
-        url: '/manifest.webmanifest',
-        date: '2026-10-23 22:30',
-      },
-      {
-        id: 'photo_3',
-        name: 'open_hardware_board.png',
-        caption: 'Open Hardware RISC-V Reference Board',
-        path: '/storage/emulated/0/DCIM/Camera/open_hardware_board.png',
-        url: '/manifest.webmanifest',
-        date: '2026-10-22 17:45',
-      },
+    const photoDirs = [
+      '/storage/emulated/0/DCIM/Camera',
+      path.join(HOME, 'pictures'),
+      path.join(REPO_ROOT, 'public'),
     ];
+    let photos = [];
+    for (const dir of photoDirs) {
+      if (fs.existsSync(dir)) {
+        try {
+          const files = fs.readdirSync(dir);
+          for (const f of files) {
+            if (/\.(png|jpe?g|webp|svg)$/i.test(f)) {
+              const fullP = path.join(dir, f);
+              const st = fs.statSync(fullP);
+              photos.push({
+                id: 'p_' + Buffer.from(f).toString('hex').slice(0, 10),
+                name: f,
+                caption: f.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '),
+                path: fullP,
+                url: '/manifest.webmanifest',
+                date: st.mtime.toISOString().slice(0, 16).replace('T', ' '),
+              });
+            }
+          }
+        } catch {}
+      }
+    }
+    if (photos.length === 0) {
+      photos = [
+        {
+          id: 'photo_1',
+          name: 'secure_enclave_diagram.png',
+          caption: 'LibreDroid Hardware Isolation Architecture',
+          path: '/storage/emulated/0/DCIM/Camera/secure_enclave_diagram.png',
+          url: '/manifest.webmanifest',
+          date: '2026-10-24 10:14',
+        },
+        {
+          id: 'photo_2',
+          name: 'tor_onion_routing.jpg',
+          caption: 'Three Hop Guard-Middle-Exit Circuit',
+          path: '/storage/emulated/0/DCIM/Camera/tor_onion_routing.jpg',
+          url: '/manifest.webmanifest',
+          date: '2026-10-23 22:30',
+        },
+        {
+          id: 'photo_3',
+          name: 'open_hardware_board.png',
+          caption: 'Open Hardware RISC-V Reference Board',
+          path: '/storage/emulated/0/DCIM/Camera/open_hardware_board.png',
+          url: '/manifest.webmanifest',
+          date: '2026-10-22 17:45',
+        },
+      ];
+    }
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify({ ok: true, photos }));
   }
@@ -1820,7 +2037,7 @@ const server = http.createServer(async (req, res) => {
         stdio: ['pipe', 'pipe', 'ignore'],
       });
     } catch {
-      const listFile = path.join(__dirname, 'os/telemetry/blocked-domains.list');
+      const listFile = resolveRepoPath('os/telemetry/blocked-domains.list');
       if (fs.existsSync(listFile)) {
         raw = fs.readFileSync(listFile, 'utf8');
       } else {
@@ -1898,7 +2115,7 @@ const server = http.createServer(async (req, res) => {
   /* ---------- Audio Matrix APIs ---------- */
   if (pathname === '/api/audio' && method === 'GET') {
     try {
-      const raw = execFileSync('bash', [path.join(__dirname, 'os/audio/lrd-audio'), 'status'], {
+      const raw = execFileSync('bash', [resolveRepoPath('os/audio/lrd-audio'), 'status'], {
         encoding: 'utf8',
         timeout: 3000,
         stdio: ['pipe', 'pipe', 'ignore'],
@@ -1935,7 +2152,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/manifest.webmanifest') {
     const mPath = fs.existsSync(path.join(DIST_DIR, 'manifest.webmanifest'))
       ? path.join(DIST_DIR, 'manifest.webmanifest')
-      : path.join(__dirname, 'os/termux/etc/manifest.webmanifest');
+      : resolveRepoPath('os/termux/etc/manifest.webmanifest');
     return serveFile(res, mPath, 'application/manifest+json');
   }
 

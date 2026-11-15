@@ -177,6 +177,13 @@ class PlayIntegrityEngine {
       this.status.activeProfileId = profileId;
       this.status.lastVerifiedAt = new Date().toISOString();
       this.saveConfig();
+      try {
+        fetch('/api/security/pif', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile: this.getActiveProfile() }),
+        }).catch(() => {});
+      } catch {}
     }
   }
 

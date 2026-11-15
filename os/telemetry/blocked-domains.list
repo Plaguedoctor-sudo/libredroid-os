@@ -1,0 +1,53 @@
+# LibreDroid Sovereign Telemetry Blocklist
+# Network-level DNS sinkhole & default-deny tracker domains
+
+# Alphabet / Google Analytics & AdMob
+app-measurement.com
+admob.google.com
+doubleclick.net
+crashlytics.com
+firebase-settings.crashlytics.com
+pagead2.googlesyndication.com
+google-analytics.com
+ssl.google-analytics.com
+telemetry.google.com
+
+# Meta / Facebook Graph & Analytics
+graph.facebook.com
+analytics.facebook.com
+pixel.facebook.com
+b-graph.facebook.com
+graph.instagram.com
+
+# AdTech & Mobile Attribution Beacons
+app.adjust.com
+adjust.com
+api2.appsflyer.com
+t.appsflyer.com
+control.kochava.com
+api.kochava.com
+api.mixpanel.com
+api.amplitude.com
+telemetry.sdk.inmobi.com
+flurry.com
+data.flurry.com
+branch.io
+api2.branch.io
+scorecardresearch.com
+quantserve.com
+chartbeat.net
+criteo.com
+outbrain.com
+taboola.com
+
+# Apple Telemetry (if queried from Darwin bridge)
+metrics.apple.com
+diagnostics.apple.com
+xp.apple.com
+smoot.apple.com
+
+# Microsoft Telemetry
+telemetry.microsoft.com
+v10.events.data.microsoft.com
+browser.pipe.aria.microsoft.com
+watson.telemetry.microsoft.com
