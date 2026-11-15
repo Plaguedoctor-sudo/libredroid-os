@@ -18,7 +18,10 @@ cards=(); for c in /dev/dri/card*; do [ -e "$c" ] && cards+=("$c"); done
 drm_ok=0; [ "${#cards[@]}" -gt 0 ] && drm_ok=1
 connectors=(); for s in /sys/class/drm/card*-*; do
   [ -e "$s/status" ] || continue
-  [ "$(cat "$s/status" 2>/dev/null)" = connected ] && connectors+=("$(basename "$s")")
+  st="$(cat "$s/status" 2>/dev/null || true)"
+  if [ "$st" = "connected" ] || [ "$st" = "unknown" ]; then
+    connectors+=("$(basename "$s")")
+  fi
 done
 hwc_path=""; for d in /vendor/lib64/hw /odm/lib64/hw /vendor/lib/hw; do
   for f in "$d"/hwcomposer.*.so "$d"/hwcomposer.so; do [ -e "$f" ] && { hwc_path="$f"; break 2; }; done
@@ -28,7 +31,7 @@ fb_ok=0; for f in /dev/fb* /dev/graphics/fb*; do [ -e "$f" ] && fb_ok=1; done
 # --- candidate variants, filtered by feasibility ---
 viable() {
   case "$1" in
-    drm-*)  [ "$drm_ok" = 1 ] && [ "${#connectors[@]}" -gt 0 ] ;;
+    drm-*)  [ "$drm_ok" = 1 ] ;;
     hwc2-*) [ -n "$hwc_path" ] ;;
     fbdev)  [ "$fb_ok" = 1 ] ;;
     *) return 1 ;;

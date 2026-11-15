@@ -15,7 +15,12 @@ mkdir -p /var/lib/lrd /run/lrd
 
 log() { echo "[lrd-cage-run] $*"; logger -t lrd-cage "$*" 2>/dev/null || true; }
 
-variants() { jq -r '.feasible[]?' "$STATE" 2>/dev/null; }
+variants() {
+  if [ ! -f "$STATE" ]; then
+    /usr/lib/lrd/adapt/apply-display >/dev/null 2>&1 || true
+  fi
+  jq -r '.feasible[]?' "$STATE" 2>/dev/null
+}
 
 # does a live output exist? prefer wlr-randr, fall back to the socket + cage liveness
 prove_live() {

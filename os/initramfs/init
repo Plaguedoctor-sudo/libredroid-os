@@ -29,7 +29,16 @@ die() {
   reboot -f 2>/dev/null || busybox reboot -f 2>/dev/null || poweroff -f 2>/dev/null || exit 1
 }
 
-for m in overlay loop ext4 dm-mod dm-crypt dm-verity; do modprobe "$m" 2>/dev/null; done
+for m in nvme ahci vmd sd_mod mmc_core mmc_block sdhci sdhci_pci sdhci_acpi uas usb_storage usb-storage xhci_pci ehci_pci overlay loop ext4 dm-mod dm-crypt dm-verity; do
+  modprobe "$m" 2>/dev/null || true
+done
+
+# Wait for bare-metal storage controllers & block devices to settle
+for i in $(seq 1 20); do
+  [ -d /sys/block ] && [ "$(ls -A /sys/block 2>/dev/null | wc -l)" -gt 0 ] && break
+  sleep 0.5
+done
+mdev -s 2>/dev/null || true
 
 # --- vendor partitions stay where the blobs expect them ---
 for p in vendor odm product; do
@@ -66,15 +75,55 @@ enter_recovery() {
 [ -f /lrdstore/ENTER_RECOVERY ] && enter_recovery
 [ -f /lrdstore/FORCE_RECOVERY ] && enter_recovery
 
-# --- pick the rootfs for THIS slot ---
+# --- pick the rootfs for THIS slot (supports bare metal disks, partitions, and store images) ---
+ROOTARG="$(get root)"
+[ -z "$ROOTARG" ] && ROOTARG="$(get lrd.root)"
+
+resolve_dev() {
+  local target="$1"
+  case "$target" in
+    UUID=*)
+      local u="${target#UUID=}"
+      blkid -U "$u" 2>/dev/null || find /dev/disk/by-uuid -name "$u" 2>/dev/null | head -1
+      ;;
+    PARTUUID=*)
+      local pu="${target#PARTUUID=}"
+      find /dev/disk/by-partuuid -name "$pu" 2>/dev/null | head -1
+      ;;
+    LABEL=*)
+      local l="${target#LABEL=}"
+      blkid -L "$l" 2>/dev/null
+      ;;
+    /dev/*)
+      [ -b "$target" ] && echo "$target"
+      ;;
+  esac
+}
+
 ROOTIMG=""
-[ -n "$SLOTC" ] && [ -f "/lrdstore/lrd-rootfs_${SLOTC}.raw" ] && ROOTIMG="/lrdstore/lrd-rootfs_${SLOTC}.raw"
-[ -z "$ROOTIMG" ] && for f in /lrdstore/lrd-rootfs_a.raw /lrdstore/lrd-rootfs_b.raw; do
-  [ -f "$f" ] && { ROOTIMG="$f"; break; }
+for i in $(seq 1 20); do
+  mdev -s 2>/dev/null || true
+  if [ -n "$ROOTARG" ]; then
+    ROOTIMG="$(resolve_dev "$ROOTARG")"
+    [ -n "$ROOTIMG" ] && break
+  fi
+  if [ -n "$SLOTC" ]; then
+    [ -f "/lrdstore/lrd-rootfs_${SLOTC}.raw" ] && { ROOTIMG="/lrdstore/lrd-rootfs_${SLOTC}.raw"; break; }
+    ROOTIMG="$(blkid -L "LRD-ROOT-${SLOTC^^}" 2>/dev/null || blkid -L "LRD-ROOT-${SLOTC}" 2>/dev/null)"
+    [ -n "$ROOTIMG" ] && break
+  fi
+  for f in /lrdstore/lrd-rootfs_a.raw /lrdstore/lrd-rootfs_b.raw; do
+    [ -f "$f" ] && { ROOTIMG="$f"; break 2; }
+  done
+  ROOTIMG="$(blkid -L LRD-ROOT 2>/dev/null || blkid -L LRDROOT 2>/dev/null || blkid -L LRD-ROOT-A 2>/dev/null || blkid -L sap_root_a 2>/dev/null)"
+  [ -n "$ROOTIMG" ] && break
+  ROOTIMG="$(find /dev/block -name "system${SLOT}" 2>/dev/null | head -1)"
+  [ -n "$ROOTIMG" ] && break
+  ROOTIMG="$(find /dev/block -name "system" 2>/dev/null | head -1)"
+  [ -n "$ROOTIMG" ] && break
+  sleep 0.5
 done
-[ -z "$ROOTIMG" ] && ROOTIMG="$(find /dev/block -name "system${SLOT}" 2>/dev/null | head -1)"
-[ -z "$ROOTIMG" ] && ROOTIMG="$(blkid -L LRDROOT 2>/dev/null)"
-[ -n "$ROOTIMG" ] || die "no rootfs found (store=$STORE slot=$SLOTC)"
+[ -n "$ROOTIMG" ] || die "no rootfs found (store=$STORE slot=$SLOTC rootarg=${ROOTARG:-none})"
 
 # ---- replace the plain mount with a verified open ----
 if [ -f /sbin/verity-open.sh ]; then
@@ -105,15 +154,24 @@ mkdir -p /lower
 mount -o ro "$ROOTDEV" /lower || die "rootfs mount failed"
 
 mkdir -p /overlay/upper /overlay/work
-if [ -f /lrdstore/lrd-overlay_${SLOTC}.img ]; then
+OV=""
+OVERLAY_DEV="$(blkid -L LRD-OVERLAY 2>/dev/null || blkid -L LRDOVERLAY 2>/dev/null)"
+if [ -n "$OVERLAY_DEV" ]; then
+  mount -o rw "$OVERLAY_DEV" /overlay 2>/dev/null && OV="$OVERLAY_DEV" && log "persistent LRD-OVERLAY partition mounted"
+elif [ -f /lrdstore/lrd-overlay_${SLOTC}.img ]; then
   OV="$(losetup -f)"; losetup "$OV" "/lrdstore/lrd-overlay_${SLOTC}.img" && \
-    mount -o rw "$OV" /overlay && log "persistent overlay"
+    mount -o rw "$OV" /overlay && log "persistent overlay image"
 else
   mount -t tmpfs -o size=70% none /overlay && log "tmpfs overlay (ephemeral)"
 fi
+mkdir -p /overlay/upper /overlay/work
 
 mkdir -p /newroot
-mount -t overlay overlay -o "lowerdir=/lower,upperdir=/overlay/upper,workdir=/overlay/work" /newroot || die "overlay failed"
+if ! mount -t overlay overlay -o "lowerdir=/lower,upperdir=/overlay/upper,workdir=/overlay/work" /newroot 2>/dev/null; then
+  log "overlayfs mount failed or unsupported — mounting rootfs directly to /newroot"
+  umount /lower 2>/dev/null || true
+  mount -o ro "$ROOTDEV" /newroot || die "direct rootfs mount failed"
+fi
 
 for d in dev proc sys run; do mkdir -p "/newroot/$d"; mount --move "/$d" "/newroot/$d" 2>/dev/null; done
 mkdir -p /newroot/lrdstore /newroot/vendor /newroot/odm

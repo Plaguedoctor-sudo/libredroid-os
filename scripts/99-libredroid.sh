@@ -44,10 +44,11 @@ mount -o bind /vendor /data/lrd_root/vendor 2>/dev/null || true
 mount -o bind /odm /data/lrd_root/odm 2>/dev/null || true
 mount -o bind /vendor_dlkm /data/lrd_root/vendor_dlkm 2>/dev/null || true
 
-# 4. Configure DNS
+# 4. Configure DNS (Sovereign Local + Quad9 Privacy)
 mkdir -p /data/lrd_root/etc /data/lrd_root/var/log
-echo "nameserver 8.8.8.8" > /data/lrd_root/etc/resolv.conf
-echo "nameserver 1.1.1.1" >> /data/lrd_root/etc/resolv.conf
+echo "nameserver 127.0.0.1" > /data/lrd_root/etc/resolv.conf
+echo "nameserver 9.9.9.9" >> /data/lrd_root/etc/resolv.conf
+echo "nameserver 194.242.2.2" >> /data/lrd_root/etc/resolv.conf
 
 # 5. Start LibreDroid Dropbear SSH server on port 2222
 chroot /data/lrd_root /bin/busybox sh -c "

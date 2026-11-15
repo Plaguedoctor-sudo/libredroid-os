@@ -1664,6 +1664,7 @@ const server = http.createServer(async (req, res) => {
       const password = json.password || 'libredroid';
 
       const installerBin = [
+        path.join(__dirname, '../os/install/lrd-install'),
         path.join(__dirname, 'os/install/lrd-install'),
         '/opt/libredroid/bin/lrd-install',
         '/usr/local/bin/lrd-install',

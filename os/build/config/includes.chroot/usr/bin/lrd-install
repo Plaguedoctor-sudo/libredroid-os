@@ -336,8 +336,15 @@ if [ "$ARCH" = "x86_64" ]; then
       break
     fi
   done
+  for d in /target/usr/lib/systemd/boot/efi /usr/lib/systemd/boot/efi; do
+    if [ -f "$d/systemd-bootia32.efi" ]; then
+      cp -f "$d/systemd-bootia32.efi" /target/boot/efi/EFI/BOOT/BOOTIA32.EFI
+      break
+    fi
+  done
   if command -v grub-install >/dev/null 2>&1; then
     grub-install --target=x86_64-efi --efi-directory=/target/boot/efi --boot-directory=/target/boot --removable 2>/dev/null || true
+    grub-install --target=i386-efi --efi-directory=/target/boot/efi --boot-directory=/target/boot --removable 2>/dev/null || true
   fi
 elif [ "$ARCH" = "aarch64" ]; then
   for d in /target/usr/lib/systemd/boot/efi /usr/lib/systemd/boot/efi; do
@@ -356,6 +363,18 @@ if command -v grub-install >/dev/null 2>&1; then
   say "installing GRUB for Legacy BIOS boot compatibility"
   grub-install --target=i386-pc --boot-directory=/target/boot --recheck "$DISK" 2>/dev/null || true
 fi
+
+# 6c. Generate /etc/default/grub defaults
+mkdir -p /target/etc/default
+cat > /target/etc/default/grub <<EOF
+# LibreDroid OS Default GRUB Configuration
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="LibreDroid"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+GRUB_CMDLINE_LINUX="$ROOTARG"
+GRUB_DISABLE_OS_PROBER=false
+EOF
 
 # 6c. Generate systemd-boot configuration
 cat > /target/boot/efi/loader/loader.conf <<EOF
@@ -449,11 +468,19 @@ cat > /target/etc/modules-load.d/baremetal.conf <<EOF
 # Core storage controllers
 nvme
 ahci
+vmd
 sd_mod
 usb_storage
 uas
 xhci_pci
 ehci_pci
+
+# eMMC Flash & SD card controllers (laptops, convertibles, SBCs)
+mmc_core
+mmc_block
+sdhci
+sdhci_pci
+sdhci_acpi
 
 # Filesystem and device mapper
 ext4
@@ -471,10 +498,13 @@ virtio_scsi
 virtio_net
 virtio_gpu
 
-# Input devices
+# Input devices & touchscreens
 hid_generic
 usbhid
 i2c_hid
+i2c_hid_acpi
+i2c_designware_platform
+hid_multitouch
 atkbd
 psmouse
 
@@ -484,8 +514,19 @@ snd_usb_audio
 
 # Wired network
 e1000e
-r8169
+e1000
+igb
 igc
+r8169
+tg3
+alx
+
+# Wireless network
+iwlwifi
+rtw88_core
+rtw89_core
+ath9k
+ath10k_core
 EOF
 
 # Udev permissions for bare metal GPU and input

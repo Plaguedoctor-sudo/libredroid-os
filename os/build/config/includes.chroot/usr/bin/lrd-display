@@ -22,10 +22,20 @@ CONFIG_FILE="$STATE_DIR/config.json"
 
 get_output_name() {
     if command -v wlr-randr >/dev/null 2>&1; then
-        wlr-randr | grep -m1 "^[A-Za-z0-9-]" | awk '{print $1}' || echo "DSI-1"
-    else
-        echo "DSI-1"
+        local wlr_out
+        wlr_out=$(wlr-randr 2>/dev/null | grep -m1 "^[A-Za-z0-9-]" | awk '{print $1}')
+        if [ -n "$wlr_out" ]; then
+            echo "$wlr_out"
+            return 0
+        fi
     fi
+    for s in /sys/class/drm/card*-*; do
+        if [ -e "$s/status" ] && [ "$(cat "$s/status" 2>/dev/null)" = "connected" ]; then
+            basename "$s" | sed -E 's/^card[0-9]+-//'
+            return 0
+        fi
+    done
+    echo "eDP-1"
 }
 
 set_scale() {

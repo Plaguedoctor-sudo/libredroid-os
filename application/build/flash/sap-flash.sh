@@ -83,9 +83,38 @@ linux /EFI/BOOT/vmlinuz-sovereign
 initrd /EFI/BOOT/initramfs-sovereign.img
 options root=/dev/dm-1 ro quiet splash dm-mod.create="sap_root_b,,,ro,0 4194304 verity 1 /dev/disk/by-partlabel/sap_root_b /dev/disk/by-partlabel/sap_root_b 4096 4096 524288 1 sha256 ${root_hash} 0000000000000000000000000000000000000000000000000000000000000000"
 EOF
-        # Prefer real kernel / initramfs binaries if available, else generate minimal boot descriptors
+
+        # Generate GRUB configuration for EFI boot
+        cat > "${stage_dir}/EFI/BOOT/grub.cfg" <<EOF
+set default="0"
+set timeout=3
+insmod efi_gop
+insmod efi_uga
+insmod font
+insmod ext2
+insmod part_gpt
+
+menuentry "Sovereign Application Platform (Slot A - dm-verity)" {
+    linux /EFI/BOOT/vmlinuz-sovereign root=/dev/dm-0 ro quiet splash dm-mod.create="sap_root_a,,,ro,0 4194304 verity 1 /dev/disk/by-partlabel/sap_root_a /dev/disk/by-partlabel/sap_root_a 4096 4096 524288 1 sha256 ${root_hash} 0000000000000000000000000000000000000000000000000000000000000000"
+    initrd /EFI/BOOT/initramfs-sovereign.img
+}
+
+menuentry "Sovereign Application Platform (Slot B - dm-verity fallback)" {
+    linux /EFI/BOOT/vmlinuz-sovereign root=/dev/dm-1 ro quiet splash dm-mod.create="sap_root_b,,,ro,0 4194304 verity 1 /dev/disk/by-partlabel/sap_root_b /dev/disk/by-partlabel/sap_root_b 4096 4096 524288 1 sha256 ${root_hash} 0000000000000000000000000000000000000000000000000000000000000000"
+    initrd /EFI/BOOT/initramfs-sovereign.img
+}
+EOF
+
+        # Prefer real signed bootloader binaries if available, else generate minimal boot descriptors
         if [ -f "${APP_DIR}/build/out/kernel/x86_64/BOOTX64.EFI" ]; then
             cp "${APP_DIR}/build/out/kernel/x86_64/BOOTX64.EFI" "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
+        elif [ -f /usr/lib/shim/shimx64.efi ]; then
+            cp /usr/lib/shim/shimx64.efi "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
+            [ -f /usr/lib/grub/x86_64-efi-signed/grubx64.efi.signed ] && cp /usr/lib/grub/x86_64-efi-signed/grubx64.efi.signed "${stage_dir}/EFI/BOOT/grubx64.efi"
+            [ -f /usr/lib/shim/mmx64.efi ] && cp /usr/lib/shim/mmx64.efi "${stage_dir}/EFI/BOOT/mmx64.efi"
+            [ -f /usr/lib/shim/fbx64.efi ] && cp /usr/lib/shim/fbx64.efi "${stage_dir}/EFI/BOOT/fbx64.efi"
+        elif [ -f /usr/lib/systemd/boot/efi/systemd-bootx64.efi ]; then
+            cp /usr/lib/systemd/boot/efi/systemd-bootx64.efi "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
         else
             echo "MZ_SOVEREIGN_UEFI_BOOTX64_STUB" > "${stage_dir}/EFI/BOOT/BOOTX64.EFI"
         fi
