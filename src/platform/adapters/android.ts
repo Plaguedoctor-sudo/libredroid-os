@@ -3,7 +3,7 @@ import { hasWebGPU } from '../detect';
 
 type Caps = Partial<Record<CapId, { tier: any; detail?: string }>>;
 
-let bridgeToken: string | null = null;
+let bridgeToken: string | null = (typeof window !== 'undefined' && (window as any).__LRD_BRIDGE_TOKEN__) || null;
 
 const J = async (path: string, init?: RequestInit) => {
   const headers: Record<string, string> = {

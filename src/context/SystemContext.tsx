@@ -78,7 +78,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).get('kiosk') === '1';
   });
-  const [deviceMode, setDeviceMode] = useState<DeviceMode>('auto');
+  const [deviceMode, setDeviceMode] = useState<DeviceMode>('desktop');
   const [interfaceMode, setInterfaceModeState] = useState<InterfaceMode>(() => {
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('kiosk') === '1') {
       return 'standard_android';
@@ -325,13 +325,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const actualDevice: 'phone' | 'tablet' | 'foldable' | 'desktop' = 
     deviceMode !== 'auto' 
       ? (deviceMode as 'phone' | 'tablet' | 'foldable' | 'desktop')
-      : isTouchDevice
-        ? (windowWidth < 640 ? 'phone' : 'tablet')
-        : windowWidth < 640 
-          ? 'phone' 
-          : windowWidth < 1024 
-            ? 'tablet' 
-            : 'desktop';
+      : 'desktop';
 
   const toggleQuickSetting = (key: keyof QuickSettingsState) => {
     setQuickSettings((prev) => {

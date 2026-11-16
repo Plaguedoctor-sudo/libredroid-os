@@ -87,13 +87,16 @@ export interface WaydroidApp {
   name: string;
 }
 
-let bridgeToken: string | null = null;
+let bridgeToken: string | null = (typeof window !== 'undefined' && (window as any).__LRD_BRIDGE_TOKEN__) || null;
 
 export function setBridgeToken(token: string | null) {
   bridgeToken = token;
 }
 
 export function getBridgeToken(): string | null {
+  if (!bridgeToken && typeof window !== 'undefined' && (window as any).__LRD_BRIDGE_TOKEN__) {
+    bridgeToken = (window as any).__LRD_BRIDGE_TOKEN__;
+  }
   return bridgeToken;
 }
 

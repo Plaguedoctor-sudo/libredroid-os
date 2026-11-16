@@ -1,12 +1,13 @@
-systemd systemd-sysv udev dbus
+systemd systemd-sysv udev dbus iproute2 procps
 linux-image-amd64 initramfs-tools live-boot live-boot-initramfs-tools
 cage chromium nodejs seatd
 mesa-vulkan-drivers libgl1-mesa-dri libglx-mesa0 libegl-mesa0
-pipewire pipewire-pulse wireplumber
-network-manager
-cryptsetup-bin cryptsetup-initramfs e2fsprogs parted dosfstools mtools
-squashfs-tools xorriso grub-efi-amd64-bin grub-pc-bin
-firmware-linux-free
+pipewire pipewire-pulse wireplumber alsa-utils
+network-manager wpasupplicant rfkill
+cryptsetup-bin cryptsetup-initramfs e2fsprogs parted dosfstools mtools gdisk rsync jq efibootmgr
+squashfs-tools xorriso grub-efi-amd64-bin grub-pc-bin grub2-common systemd-boot systemd-boot-efi
+brightnessctl upower tlp acpid bluez pciutils usbutils
+firmware-linux-free intel-microcode amd64-microcode firmware-misc-nonfree firmware-amd-graphics firmware-sof-signed firmware-iwlwifi firmware-realtek firmware-atheros
 ca-certificates curl less vim-tiny sudo locales tzdata
 fonts-dejavu fonts-liberation2
 libpam-modules

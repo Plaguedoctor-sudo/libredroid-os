@@ -321,13 +321,8 @@ function routes() {
   });
 
   add('GET', '/api/host/caps', async (req, res) => {
-    let tok = null;
-    const origin = req.headers.origin || '';
-    const isLoopback = !origin || origin.includes('localhost') || origin.includes('127.0.0.1');
-    if (isLoopback) {
-      try { tok = fs.readFileSync('/etc/lrd/bridge.token', 'utf8').trim(); } catch {}
-    }
-    j(res, { ...caps(), ...(tok ? { token: tok } : {}), ok: true });
+    // Security: Do NOT disclose administrative bearer tokens over public discovery endpoints
+    j(res, { ...caps(), ok: true });
   });
   add('GET', '/api/host/health', async (req, res) => j(res, {
     ok: true, backend: 'hostandroid', uptime: process.uptime(),

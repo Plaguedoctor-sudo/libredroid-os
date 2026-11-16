@@ -1,0 +1,9 @@
+# LibreDroid OS Network Policy Configuration
+[policy]
+version=1
+mode=sovereign-desktop
+egress=default-allow
+tor_gateway=10.152.152.10
+dns_override=quad9
+anti_fingerprinting=enabled
+telemetry_shield=active

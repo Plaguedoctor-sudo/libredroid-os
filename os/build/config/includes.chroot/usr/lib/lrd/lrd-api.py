@@ -161,7 +161,11 @@ def handle_rpc_call(method, params):
         return {"ok": True, "launched": pkg}
 
     elif method == "shell.exec":
-        # Strictly limited to /usr/bin/lrd-* or /usr/local/bin/lrd-* with tokenized arguments
+        # Strictly limited to safe diagnostic & control tools with tokenized arguments
+        SAFE_LRD_TOOLS = {
+            "lrd-doctor", "lrd-verify", "lrd-settings", "lrd-power",
+            "lrd-sensors", "lrd-telemetry-defense", "lrd-audio", "lrd-pstore"
+        }
         args = params.get("args")
         if not args:
             raw_cmd = params.get("command", "").strip()
@@ -169,8 +173,11 @@ def handle_rpc_call(method, params):
         if not args:
             return {"ok": False, "error": "empty command"}
         bin_base = os.path.basename(args[0])
-        if not bin_base.startswith("lrd-"):
-            return {"ok": False, "error": f"unauthorized binary: {bin_base}. Only lrd-* tools allowed."}
+        if bin_base not in SAFE_LRD_TOOLS:
+            return {
+                "ok": False,
+                "error": f"unauthorized tool: '{bin_base}'. Allowed maintenance tools: {', '.join(sorted(SAFE_LRD_TOOLS))}"
+            }
         full_bin = None
         for candidate in [f"/usr/local/bin/{bin_base}", f"/usr/bin/{bin_base}", f"/opt/libredroid/bin/{bin_base}"]:
             if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
@@ -187,6 +194,19 @@ def handle_rpc_call(method, params):
     return {"ok": False, "error": f"unknown method: {method}"}
 
 
+def get_expected_token():
+    for p in ("/etc/lrd/bridge.token", "/run/lrd/bridge.token"):
+        if os.path.isfile(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    tok = f.read().strip()
+                    if tok:
+                        return tok
+            except Exception:
+                pass
+    return None
+
+
 class APIHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
@@ -199,8 +219,6 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         origin = self.headers.get("Origin")
         if origin in ALLOWED_ORIGINS:
             self.send_header("Access-Control-Allow-Origin", origin)
-        else:
-            self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:3001")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-LRD-Token")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.end_headers()
@@ -211,8 +229,6 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         origin = self.headers.get("Origin")
         if origin in ALLOWED_ORIGINS:
             self.send_header("Access-Control-Allow-Origin", origin)
-        else:
-            self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:3001")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-LRD-Token")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.end_headers()
@@ -231,6 +247,27 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         global READY
         parsed = urlparse(self.path)
+
+        # DNS rebinding check
+        host = self.headers.get("Host", "").split(":")[0]
+        if host not in ("127.0.0.1", "localhost", "::1"):
+            self.send_json(421, {"ok": False, "error": f"Invalid Host: {host}"})
+            return
+
+        # Origin check
+        origin = self.headers.get("Origin")
+        if origin and origin not in ALLOWED_ORIGINS:
+            self.send_json(403, {"ok": False, "error": f"Disallowed origin: {origin}"})
+            return
+
+        # Fail-closed authentication check
+        expected_tok = get_expected_token()
+        if expected_tok:
+            got_tok = self.headers.get("X-LRD-Token")
+            if not got_tok or got_tok != expected_tok:
+                self.send_json(401, {"ok": False, "error": "unauthorized: valid X-LRD-Token header required"})
+                return
+
         length = int(self.headers.get("Content-Length", 0))
         data = self.rfile.read(length) if length > 0 else b"{}"
         try:

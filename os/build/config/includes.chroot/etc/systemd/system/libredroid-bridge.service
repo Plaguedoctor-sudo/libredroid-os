@@ -13,6 +13,13 @@ RestartSec=2
 # runs as root: it drives systemctl, reads /sys, and proxies unix sockets
 AmbientCapabilities=
 ProtectSystem=full
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
 ReadWritePaths=/var/lib/libredroid /run/libredroid /etc/nftables.d
 
 [Install]

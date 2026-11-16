@@ -8,4 +8,4 @@ done
 [ "$ok" = 1 ] || { echo "bridge never answered on 3001" >&2; exit 69; }
 exec /usr/bin/cage -- /usr/bin/chromium --kiosk --no-first-run \
   --no-default-browser-check --disable-features=Translate \
-  --app=http://127.0.0.1:3001
+  --app="http://127.0.0.1:3001/?kiosk=1"

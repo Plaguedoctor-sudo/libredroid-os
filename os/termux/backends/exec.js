@@ -213,50 +213,62 @@ function routes() {
 
   const ALLOWED_BINARIES = new Set([
     'waydroid', 'nmcli', 'wpctl', 'pactl', 'brightnessctl',
-    'fastboot', 'adb', 'systemctl', 'loginctl', 'pkg', 'apt',
+    'fastboot', 'adb', 'systemctl', 'loginctl',
     'am', 'pm', 'getprop', 'setprop', 'logcat', 'v4l2-ctl',
     'ls', 'cat', 'df', 'free', 'uname', 'echo', 'ps', 'top',
     'grep', 'tail', 'head', 'date', 'uptime', 'id', 'whoami',
-    'wc', 'pwd', 'mkdir', 'rm', 'cp', 'mv', 'curl', 'sv',
-    'find', 'sh', 'bash', 'ip', 'dmesg', 'tar', 'gzip', 'ping', 'for'
+    'wc', 'pwd', 'mkdir', 'cp', 'mv', 'ip', 'dmesg', 'ping'
   ]);
 
   add('POST', '/api/host/exec', async (req, res, q) => {
     const b = await body(req);
     let cmd = b.cmd || (Array.isArray(b.argv) ? b.argv.map(shq).join(' ') : null);
-    if (!cmd) return J(res, { ok: false, error: 'cmd or argv required' }, 400);
+    if (!cmd && !b.interactive) return J(res, { ok: false, error: 'cmd or argv required' }, 400);
 
-    // Security Hardening: Validate first executable in command against safe whitelist
-    const rawTokens = cmd.trim().split(/\s+/);
-    const firstBin = path.basename(rawTokens[0] || '');
-    const isLrdTool = firstBin.startsWith('lrd-');
-    const isAllowed = isLrdTool || ALLOWED_BINARIES.has(firstBin);
+    const isApp = !!req.headers['x-lrd-app-id'];
+    const scope = b.scope || 'read';
 
-    if (!isAllowed) {
+    // HARDENING: Arbitrary root execution through exec bridge is completely forbidden
+    if (b.root || scope === 'root') {
       return J(res, {
         ok: false,
-        error: `Permission denied: binary '${firstBin}' is not permitted by LibreDroid security policy.`
+        error: 'Permission denied: Arbitrary root escalation is prohibited by LibreDroid security policy.'
       }, 403);
     }
 
-    const scope = b.scope || 'read';
-    const isApp = !!req.headers['x-lrd-app-id'];
-    if (b.root || scope === 'root') {
-      if (isApp) return J(res, { ok: false, error: 'permission denied: app cannot request root scope' }, 403);
-      if (process.getuid && process.getuid() === 0) {
-        // already root
-      } else if (fs.existsSync('/system/bin/su') || fs.existsSync('/sbin/su')) {
-        cmd = `su -c ${shq(cmd)}`;
-      } else {
-        // Non-root host environment without su: use non-interactive sudo for allowed tools only
-        cmd = `sudo -n ${cmd} 2>/dev/null || ${cmd}`;
+    // Support interactive user shell session for TerminalApp (unprivileged only)
+    if (b.interactive) {
+      if (isApp) return J(res, { ok: false, error: 'Apps cannot open interactive user shells' }, 403);
+      cmd = '/bin/bash';
+    } else {
+      // Validate command binary against strict whitelist
+      const rawTokens = cmd.trim().split(/\s+/);
+      const firstBin = path.basename(rawTokens[0] || '');
+      const isLrdTool = firstBin.startsWith('lrd-') && !firstBin.includes('..') && !firstBin.includes('/');
+      const isAllowed = isLrdTool || ALLOWED_BINARIES.has(firstBin);
+
+      if (!isAllowed) {
+        return J(res, {
+          ok: false,
+          error: `Permission denied: binary '${firstBin}' is not permitted by LibreDroid security policy.`
+        }, 403);
+      }
+
+      // Prohibit shell command injection / chaining operators in non-interactive exec
+      const dangerousPatterns = /[;&|><`$]/;
+      if (dangerousPatterns.test(cmd)) {
+        return J(res, {
+          ok: false,
+          error: 'Permission denied: Command chaining, redirection, and subshell syntax are forbidden.'
+        }, 403);
       }
     }
+
     if (b.cwd && !fs.existsSync(b.cwd)) return J(res, { ok: false, error: 'no such cwd' }, 400);
 
     const job = run({
       cmd, pty: b.pty !== false, cwd: b.cwd, env: b.env,
-      timeoutMs: b.timeoutMs, root: (b.root || scope === 'root') && !isApp,
+      timeoutMs: b.timeoutMs, root: false,
     });
     J(res, { ok: true, id: job.id, pid: job.pid, pty: job.pty, state: job.state, cmd: job.cmd, scope });
   });

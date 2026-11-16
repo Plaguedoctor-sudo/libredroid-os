@@ -5,6 +5,21 @@ ROOT="${ROOT:-out/rootfs}"
 rsync -aHAX --numeric-ids os/build/config/includes.chroot/ "$ROOT/"
 rsync -aHAX --numeric-ids dist/ "$ROOT"/opt/libredroid/dist/
 install -Dm644 server.js "$ROOT"/opt/libredroid/server.js
+
+# Install backend modules into /opt/libredroid
+mkdir -p "$ROOT"/opt/libredroid/os/termux/backends "$ROOT"/opt/libredroid/backends
+rsync -aHAX os/termux/backends/ "$ROOT"/opt/libredroid/os/termux/backends/
+rsync -aHAX os/termux/backends/ "$ROOT"/opt/libredroid/backends/
+
+# Install verification and acceptance tools into /usr/bin
+install -Dm755 os/verify/lrd-verify "$ROOT"/usr/bin/lrd-verify
+install -Dm755 os/desktop/lrd-doctor "$ROOT"/usr/bin/lrd-doctor
+install -Dm755 os/install/lrd-install "$ROOT"/usr/bin/lrd-install
+mkdir -p "$ROOT"/usr/share/lrd
+install -Dm644 os/desktop/doctor-checks.tsv "$ROOT"/usr/share/lrd/doctor-checks.tsv
+
+# Ensure strict system directory permissions
+chmod 0755 "$ROOT"/usr/sbin "$ROOT"/usr/local/bin "$ROOT"/usr/local/sbin 2>/dev/null || true
 rm -f "$ROOT"/etc/systemd/system/lrd-bridge.service
 cat > "$ROOT"/etc/systemd/system/lrd-bridge.service <<'EOF'
 [Unit]
@@ -15,6 +30,14 @@ User=live
 WorkingDirectory=/opt/libredroid
 ExecStart=/usr/bin/node server.js
 Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -40,9 +63,10 @@ EOF
 # Ensure graphical.target is default
 ln -sf /lib/systemd/system/graphical.target "$ROOT"/etc/systemd/system/default.target
 
-# Ensure live user is in systemd-journal and adm for unprivileged journal access
-sed -i 's/^systemd-journal:x:\([0-9]*\):.*/systemd-journal:x:\1:live/' "$ROOT"/etc/group 2>/dev/null || true
-sed -i 's/^adm:x:\([0-9]*\):.*/adm:x:\1:live/' "$ROOT"/etc/group 2>/dev/null || true
+# Ensure live user is in required hardware and system groups
+for grp in audio video render input sudo systemd-journal adm plugdev netdev; do
+  sed -i "s/^${grp}:x:\([0-9]*\):.*/&,live/; s/:,live/:live/" "$ROOT"/etc/group 2>/dev/null || true
+done
 
 # Clean any deprecated pam_lastlog.so references precisely without touching comments or pam_lastlog2
 sed -i '/^[[:space:]]*session[[:space:]].*pam_lastlog\.so/d' "$ROOT"/etc/pam.d/login "$ROOT"/etc/pam.d/common-session 2>/dev/null || true

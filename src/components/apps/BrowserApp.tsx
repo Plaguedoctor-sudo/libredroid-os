@@ -376,7 +376,7 @@ export const BrowserApp: React.FC<Props> = ({ intent, params, paramSeq }) => {
               title={activeTab.title}
               onLoad={() => setIsLoading(false)}
               onError={() => setIsLoading(false)}
-              sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+              sandbox="allow-scripts allow-forms allow-popups allow-modals"
             />
           </div>
         )}

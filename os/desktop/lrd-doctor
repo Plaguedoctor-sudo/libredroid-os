@@ -37,6 +37,12 @@ while IFS=$'\t' read -r id cat weight mode needs check fix hint; do
   [ -n "$CAT" ] && [ "$cat" != "$CAT" ] && continue
   [ "$MODE" = gate ] && [ "$mode" != gate ] && continue
 
+  # strip surrounding quotes from TSV fields if present
+  check="${check#\"}"
+  check="${check%\"}"
+  fix="${fix#\"}"
+  fix="${fix%\"}"
+
   # a failed dependency means skip, not a cascade of noise
   if [ -n "$needs" ] && [ "$needs" != "-" ]; then
     dep_ok=1

@@ -35,13 +35,18 @@ const DIST_DIR = [
 ].find((d) => fs.existsSync(d)) || path.resolve(REPO_ROOT, 'dist');
 
 function resolveRepoPath(relPath) {
-  const p1 = path.join(REPO_ROOT, relPath);
-  if (fs.existsSync(p1)) return p1;
-  const p2 = path.join(__dirname, relPath);
-  if (fs.existsSync(p2)) return p2;
-  const p3 = path.join('/usr/bin', path.basename(relPath));
-  if (fs.existsSync(p3)) return p3;
-  return p1;
+  const candidates = [
+    path.join(REPO_ROOT, relPath),
+    path.join(__dirname, relPath),
+    path.join('/opt/libredroid', relPath),
+    path.join(__dirname, 'backends', path.basename(relPath)),
+    path.join('/opt/libredroid/backends', path.basename(relPath)),
+    path.join('/usr/bin', path.basename(relPath)),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return path.join(REPO_ROOT, relPath);
 }
 
 // Fail-closed local binding check
@@ -72,9 +77,67 @@ const MIME_TYPES = {
 const routes = [];
 
 /* ---------- auth: token, Origin, Host ---------- */
-function getAuthToken() {
-  try { return fs.readFileSync('/etc/lrd/bridge.token', 'utf8').trim(); } catch { return null; }
+const TOKEN_PATHS = [
+  '/etc/lrd/bridge.token',
+  '/run/lrd/bridge.token',
+  path.join(HOME, '.lrd', 'bridge.token')
+];
+
+let ACTIVE_BRIDGE_TOKEN = null;
+
+function loadOrCreateBridgeToken() {
+  if (ACTIVE_BRIDGE_TOKEN) return ACTIVE_BRIDGE_TOKEN;
+  for (const p of TOKEN_PATHS) {
+    try {
+      if (fs.existsSync(p)) {
+        const val = fs.readFileSync(p, 'utf8').trim();
+        if (val) {
+          ACTIVE_BRIDGE_TOKEN = val;
+          return val;
+        }
+      }
+    } catch {}
+  }
+
+  // Generate cryptographically secure 256-bit token
+  const generated = crypto.randomBytes(32).toString('hex');
+  let saved = false;
+  for (const p of TOKEN_PATHS) {
+    try {
+      fs.mkdirSync(path.dirname(p), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(p, generated, { encoding: 'utf8', mode: 0o600 });
+      saved = true;
+      console.log(`[LRD-SECURITY] Provisioned new bridge token at ${p}`);
+      break;
+    } catch {}
+  }
+  if (!saved) {
+    console.warn('[LRD-SECURITY] Warning: Could not persist token to disk; using ephemeral session token.');
+  }
+  ACTIVE_BRIDGE_TOKEN = generated;
+  return generated;
 }
+
+ACTIVE_BRIDGE_TOKEN = loadOrCreateBridgeToken();
+
+function getAuthToken() {
+  return ACTIVE_BRIDGE_TOKEN || loadOrCreateBridgeToken();
+}
+
+function safeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+// MedScript-Grade Perimeter IDS, Canary Tripwires, and Exploit Heuristics
+const HONEY_PATHS = ['/.env', '/.git', '/wp-admin', '/wp-login.php', '/phpmyadmin', '/.aws', '/config.json', '/actuator', '/admin_debug_override', '/id_rsa'];
+const TRAVERSAL_REGEX = /(\.\.[\/\\]|\/etc\/(passwd|shadow|hosts)|boot\.ini|win\.ini|%2e%2e[\/\\]|\/proc\/self)/i;
+const APT_C2_REGEX = /(\b(\/activity|\/submit\.php\?id=|\/j\.ad|\/pixel|\/ca|\/a|\/dpixel|\/text\/beacon|cs_beacon|stager_payload|meterpreter|\/dev\/tcp\/\d|socat\s+exec:|nc(\.traditional)?\s+-[el]|bash\s+-i\s+>&|mkfifo\s+\/tmp\/)\b)/i;
+const MEMORY_EXTRACTION_REGEX = /(\/proc\/(self|\d+)\/(mem|maps|environ|kcore)|procdump|gcore|mimikatz|lsass(\.dmp)?|\/etc\/ld\.so\.preload)/i;
+
 const ALLOW_ORIGINS = (process.env.LRD_ALLOW_ORIGINS || '')
   .split(',').map((s) => s.trim()).filter(Boolean);
 const ALLOW_HOSTS = ['127.0.0.1', 'localhost', '[::1]'];
@@ -84,7 +147,23 @@ function authCheck(req, url) {
   const host = (req.headers.host || '').split(':')[0];
   if (!ALLOW_HOSTS.includes(host)) return { ok: false, code: 421, why: `bad host ${host}` };
 
-  // Origin: any page could POST to localhost before this existed
+  const rawUrl = req.url || '';
+  let decodedUrl = rawUrl;
+  try { decodedUrl = decodeURIComponent(rawUrl); } catch {}
+
+  // Canary honeypot tripwire check across URL and query
+  if (HONEY_PATHS.some((h) => decodedUrl.startsWith(h) || decodedUrl.includes(h))) {
+    console.warn(`[SECURITY TRIPWIRE] Canary honeypot path accessed: ${decodedUrl}`);
+    return { ok: false, code: 403, why: 'Intrusion Sentinel: Canary honeypot tripped' };
+  }
+
+  // Pre-routing IDS heuristics: Traversal & Exploit injection across full URL & Query
+  if (TRAVERSAL_REGEX.test(decodedUrl) || APT_C2_REGEX.test(decodedUrl) || MEMORY_EXTRACTION_REGEX.test(decodedUrl)) {
+    console.warn(`[SECURITY IDS] Exploit/Traversal signature intercepted: ${decodedUrl}`);
+    return { ok: false, code: 403, why: 'Intrusion Sentinel: Exploit payload detected' };
+  }
+
+  // Origin: defeat CSRF
   const origin = req.headers.origin;
   if (origin) {
     let ohost = '';
@@ -95,14 +174,15 @@ function authCheck(req, url) {
     if (!allowed) return { ok: false, code: 403, why: `bad origin ${origin}` };
   }
 
-  // Token: required for anything that can change state
+  // Token: FAIL-CLOSED on mutating endpoints and sensitive operations with constant-time comparison
   const mutating = req.method !== 'GET' && req.method !== 'HEAD';
-  const exempt = url.pathname === '/healthz' || url.pathname === '/api/events';
+  const exempt = url.pathname === '/healthz' || url.pathname === '/api/events' || url.pathname === '/api/shell/health';
   if (mutating && !exempt) {
     const token = getAuthToken();
-    if (!token) return { ok: true, why: 'no token configured' };
     const got = req.headers['x-lrd-token'] || url.searchParams.get('token');
-    if (got !== token) return { ok: false, code: 401, why: 'bad token' };
+    if (!token || !got || !safeCompare(got, token)) {
+      return { ok: false, code: 401, why: 'unauthorized: valid x-lrd-token required' };
+    }
   }
   return { ok: true };
 }
@@ -214,19 +294,49 @@ function serveFile(res, filePath, contentType) {
     }
     const ext = path.extname(filePath).toLowerCase();
     const mime = contentType || MIME_TYPES[ext] || 'application/octet-stream';
+
+    setSecurityHeaders(res);
+
+    // Secure token bootstrapping for SPA shell
+    if (ext === '.html') {
+      fs.readFile(filePath, 'utf8', (readErr, html) => {
+        if (readErr) {
+          res.writeHead(500, { 'content-type': 'text/plain' });
+          return res.end('Error loading page');
+        }
+        const token = ACTIVE_BRIDGE_TOKEN || loadOrCreateBridgeToken();
+        const injection = `<script>window.__LRD_BRIDGE_TOKEN__=${JSON.stringify(token)};</script>`;
+        const modified = html.includes('</head>')
+          ? html.replace('</head>', `${injection}</head>`)
+          : injection + html;
+        const buf = Buffer.from(modified, 'utf8');
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'content-length': buf.length,
+          'cache-control': 'no-cache, no-store, must-revalidate',
+        });
+        res.end(buf);
+      });
+      return;
+    }
+
     res.writeHead(200, {
       'content-type': mime,
       'content-length': stats.size,
-      'cache-control': ext === '.html' ? 'no-cache' : 'public, max-age=86400',
+      'cache-control': 'public, max-age=86400',
     });
     fs.createReadStream(filePath).pipe(res);
   });
 }
 
 function setSecurityHeaders(res) {
-  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self' http://127.0.0.1:3002; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'");
+  try { res.removeHeader('X-Powered-By'); } catch {}
+  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self' http://127.0.0.1:3002 ws://127.0.0.1:3001; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'");
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
 }
 
 /* ---------- Storage & File Subsystem ---------- */
@@ -283,6 +393,13 @@ function resolveStoragePath(inputPath) {
   if (inputPath.startsWith('/') && fs.existsSync(inputPath)) {
     const allowedPrefixes = [os.homedir(), '/tmp', '/etc/libredroid', __dirname, '/run/libredroid'];
     const resolved = path.resolve(inputPath);
+    // Security: Block access to dotfiles/sensitive dirs inside user home
+    if (resolved.startsWith(os.homedir())) {
+      const relToHome = path.relative(os.homedir(), resolved);
+      if (relToHome.startsWith('.') || relToHome.includes('/.')) {
+        return EMULATED_ROOT;
+      }
+    }
     if (allowedPrefixes.some(pref => resolved.startsWith(pref))) return resolved;
   }
   const safeRel = inputPath.replace(/^\/+/, '');
@@ -384,6 +501,13 @@ const server = http.createServer(async (req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
   const method = req.method.toUpperCase();
+
+  // MedScript-aligned Anti-Caching Policy for API responses
+  if (pathname.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
 
   if (method === 'OPTIONS') {
     cors(req, res);
@@ -1725,11 +1849,53 @@ const server = http.createServer(async (req, res) => {
     req.on('end', () => {
       let json = {};
       try { json = JSON.parse(b || '{}'); } catch {}
+
+      // Security Check 1: Explicit human confirmation token required to prevent automated drive destruction
+      if (json.confirm !== 'YES_INSTALL_LIBREDROID') {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({
+          ok: false,
+          error: 'Explicit confirmation required: json must include { "confirm": "YES_INSTALL_LIBREDROID" }'
+        }));
+      }
+
+      // Security Check 2: Refuse baremetal installation if already booted on an installed production disk
+      const isLiveBoot = fs.existsSync('/run/live') ||
+        fs.existsSync('/lib/live/mount') ||
+        (() => { try { return fs.readFileSync('/proc/cmdline', 'utf8').includes('boot=live'); } catch { return false; } })();
+
+      if (!isLiveBoot && process.env.LRD_DEV_INSTALL !== '1') {
+        res.writeHead(403, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({
+          ok: false,
+          error: 'Security Policy Violation: Baremetal installer is strictly disabled on an already installed system.'
+        }));
+      }
+
       const disk = json.disk || '/dev/nvme0n1';
+
+      // Security Check 3: Validate block device path
+      if (!/^\/dev\/(nvme[0-9]+n[0-9]+|sd[a-z]|vd[a-z]|mmcblk[0-9]+)$/.test(disk)) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, error: 'Invalid or forbidden block device format' }));
+      }
+
+      // Security Check 4: Refuse target device if currently mounted as root
+      try {
+        const rootSource = execFileSync('findmnt', ['-n', '-o', 'SOURCE', '/'], { encoding: 'utf8', timeout: 2000 }).trim();
+        if (rootSource && (rootSource === disk || rootSource.startsWith(disk))) {
+          res.writeHead(403, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify({
+            ok: false,
+            error: `Security Policy Violation: Target drive ${disk} is currently mounted as root (${rootSource}). Refusing to overwrite running system.`
+          }));
+        }
+      } catch {}
+
       const layout = json.layout || 'single';
       const luks = json.luks ? '1' : '0';
-      const hostname = json.hostname || 'libredroid';
-      const username = json.username || 'lrd';
+      const hostname = (json.hostname || 'libredroid').replace(/[^a-zA-Z0-9-]/g, '');
+      const username = (json.username || 'lrd').replace(/[^a-z0-9_-]/g, '');
       const password = json.password || 'libredroid';
 
       const installerBin = [
@@ -2089,16 +2255,33 @@ const server = http.createServer(async (req, res) => {
     const m = pathname.match(/^\/api\/processes\/(\d+)\/kill$/);
     if (m) {
       const pid = parseInt(m[1], 10);
-      if (pid <= 1 || pid === process.pid) {
+      if (pid <= 100 || pid === process.pid || pid === process.ppid) {
         res.writeHead(403, { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ ok: false, error: 'Cannot kill system core process' }));
       }
+
+      // Check comm to protect display and desktop services
+      try {
+        const comm = fs.readFileSync(`/proc/${pid}/comm`, 'utf8').trim();
+        const PROTECTED = new Set(['systemd', 'lrd-bridge', 'cage', 'weston', 'dbus-daemon', 'Xwayland']);
+        if (PROTECTED.has(comm)) {
+          res.writeHead(403, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify({ ok: false, error: `Protected system daemon '${comm}' cannot be terminated.` }));
+        }
+      } catch {}
+
       let b = '';
       req.on('data', (c) => (b += c));
       req.on('end', () => {
         let json = {};
         try { json = JSON.parse(b || '{}'); } catch {}
         const sig = json.signal || 'SIGTERM';
+        const ALLOWED_SIGNALS = new Set(['SIGTERM', 'SIGINT', 'SIGHUP', 'SIGSTOP', 'SIGCONT', 'SIGKILL']);
+        if (!ALLOWED_SIGNALS.has(sig)) {
+          res.writeHead(400, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify({ ok: false, error: `Signal '${sig}' not permitted` }));
+        }
+
         try {
           process.kill(pid, sig);
           res.writeHead(200, { 'content-type': 'application/json' });

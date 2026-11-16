@@ -18,7 +18,12 @@ const gp = (k) => {
 
 /* ---------- identity / boot chain ---------- */
 function device() {
-  const abis = (gp('ro.product.cpu.abilist') || gp('ro.product.cpu.abi') || '').split(',').filter(Boolean);
+  const dmiVendor = rd('/sys/class/dmi/id/sys_vendor') || rd('/sys/devices/virtual/dmi/id/sys_vendor');
+  const dmiProduct = rd('/sys/class/dmi/id/product_name') || rd('/sys/devices/virtual/dmi/id/product_name');
+  const dmiFamily = rd('/sys/class/dmi/id/product_family') || rd('/sys/devices/virtual/dmi/id/product_family');
+  const dmiBoard = rd('/sys/class/dmi/id/board_name') || rd('/sys/devices/virtual/dmi/id/board_name');
+
+  const abis = (gp('ro.product.cpu.abilist') || gp('ro.product.cpu.abi') || sh('uname', ['-m']) || 'x86_64').split(',').filter(Boolean);
   const unlockedRaw = gp('ro.boot.flash.locked');       // '0' means unlocked
   const slot = gp('ro.boot.slot_suffix') || null;
   const drm = glob('/sys/class/drm', /^card\d+-(HDMI|DP|DSI|eDP)/).map((n) => ({
@@ -31,25 +36,29 @@ function device() {
   })).filter((u) => u.id !== ':');
 
   return {
-    model: gp('ro.product.model'), manufacturer: gp('ro.product.manufacturer'),
-    product: gp('ro.product.name'), device: gp('ro.product.device'),
+    model: dmiProduct || gp('ro.product.model') || 'PC/Laptop',
+    manufacturer: dmiVendor || gp('ro.product.manufacturer') || 'Generic',
+    product: dmiFamily || gp('ro.product.name') || 'LibreDroid PC',
+    device: dmiBoard || gp('ro.product.device') || 'x86_64',
     sdk: parseInt(gp('ro.build.version.sdk') || '0', 10),
-    abis, kernel: sh('uname', ['-r']), hostname: sh('uname', ['-n']) || 'android',
+    abis, kernel: sh('uname', ['-r']), hostname: sh('uname', ['-n']) || 'libredroid',
     unlocked: unlockedRaw === '' ? null : unlockedRaw === '0',
     slot, verifiedBoot: gp('ro.boot.verifiedbootstate') || null,
     verity: gp('ro.boot.veritymode') || null,
     dynamicPartitions: gp('ro.boot.dynamic_partitions') === 'true',
     external: drm, usb,
-    fingerprint: gp('ro.build.fingerprint'),
+    fingerprint: gp('ro.build.fingerprint') || `LibreDroid/x86_64/${sh('uname', ['-r'])}`,
   };
 }
 
 /* ---------- power / thermal ---------- */
 function batteryDir() {
-  for (const n of ['battery', 'Battery', 'bms', 'main']) {
+  for (const n of ['BAT0', 'BAT1', 'battery', 'Battery', 'bms', 'main']) {
     const p = `/sys/class/power_supply/${n}`;
     if (fs.existsSync(p)) return p;
   }
+  const bats = glob('/sys/class/power_supply', /^BAT\d+$/);
+  if (bats.length > 0) return `/sys/class/power_supply/${bats[0]}`;
   return null;
 }
 function thermalZones() {
@@ -65,23 +74,22 @@ function power() {
   const b = batteryDir();
   const zones = thermalZones();
   const hottest = zones[0] ?? null;
-  const soc = rn('/sys/class/power_supply/battery/capacity', rn(`${b}/capacity`));
-  const ac = glob('/sys/class/power_supply', /^(AC|ac|mains|USB|usb|usb_port)/)
+  const soc = b ? rn(`${b}/capacity`, rn('/sys/class/power_supply/battery/capacity')) : null;
+  const ac = glob('/sys/class/power_supply', /^(AC|ac|mains|ADP|ADP1|ACAD|USB|usb|usb_port)/)
     .some((n) => rd(`/sys/class/power_supply/${n}/online`) === '1');
-  // Android exposes throttle state through the thermal framework
   const throttled = glob('/sys/class/thermal', /^cooling_device\d+$/)
     .some((c) => rn(`/sys/class/thermal/${c}/cur_state`, 0) > 0);
   const thermal = hottest ? Math.min(1, Math.max(0, (hottest.c - 35) / 45)) : 0;
   return {
     present: soc !== null,
     percent: soc ?? 100,
-    charging: /Charging|Full/i.test(rd(`${b}/status`)),
+    charging: b ? /Charging|Full/i.test(rd(`${b}/status`)) : ac,
     ac, usb: ac,
-    currentMa: rn(`${b}/current_now`) !== null ? Math.round(rn(`${b}/current_now`) / 1000) : null,
-    voltageMv: rn(`${b}/voltage_now`) !== null ? Math.round(rn(`${b}/voltage_now`) / 1000) : null,
-    tempC: rn(`${b}/temp`) !== null ? rn(`${b}/temp`) / 10 : null,
-    health: rd(`${b}/health`) || null,
-    cycles: rn(`${b}/cycle_count`),
+    currentMa: b && rn(`${b}/current_now`) !== null ? Math.round(rn(`${b}/current_now`) / 1000) : null,
+    voltageMv: b && rn(`${b}/voltage_now`) !== null ? Math.round(rn(`${b}/voltage_now`) / 1000) : null,
+    tempC: b && rn(`${b}/temp`) !== null ? rn(`${b}/temp`) / 10 : null,
+    health: b ? rd(`${b}/health`) || 'Good' : null,
+    cycles: b ? rn(`${b}/cycle_count`) : null,
     thermal, throttling: throttled, hottestZone: hottest,
     zones,
   };
@@ -93,7 +101,7 @@ function display() {
   const bl = bls[0] ? `/sys/class/backlight/${bls[0]}` : null;
   const max = bl ? rn(`${bl}/max_brightness`) : null;
   const cur = bl ? rn(`${bl}/brightness`) : null;
-  const external = glob('/sys/class/drm', /^card\d+-(HDMI|DP)/).map((n) => ({
+  const external = glob('/sys/class/drm', /^card\d+-(HDMI|DP|eDP)/).map((n) => ({
     name: n, connected: rd(`/sys/class/drm/${n}/status`) === 'connected',
     modes: rd(`/sys/class/drm/${n}/modes`).split('\n').filter(Boolean).slice(0, 8),
   }));
@@ -102,7 +110,8 @@ function display() {
   return {
     brightness: max && cur !== null ? cur / max : 1, maxBrightness: max ?? 1,
     autoBrightness: null, refreshHz: hz, external,
-    docked: external.some((e) => e.connected), screenOn: rn(`${bl}/actual_brightness`, 1) !== 0,
+    docked: external.some((e) => e.connected && !e.name.includes('eDP')),
+    screenOn: bl ? rn(`${bl}/actual_brightness`, 1) !== 0 : true,
   };
 }
 
@@ -110,16 +119,26 @@ function display() {
 function net() {
   const ifaces = glob('/sys/class/net', /^(?!lo$).*/);
   const up = ifaces.filter((i) => rd(`/sys/class/net/${i}/operstate`) === 'up');
-  const wifi = up.find((i) => i.startsWith('wlan') || i.startsWith('wifi'));
+  const wifi = up.find((i) => i.startsWith('wl') || i.startsWith('wlan') || i.startsWith('wifi'));
   const cell = up.find((i) => /^(rmnet|ccmni|pdp|wwan)/.test(i));
-  const eth = up.find((i) => i.startsWith('eth') || i.startsWith('rndis') || i.startsWith('usb'));
+  const eth = up.find((i) => i.startsWith('eth') || i.startsWith('en') || i.startsWith('rndis') || i.startsWith('usb'));
   const vpn = up.find((i) => i.startsWith('tun') || i.startsWith('ppp'));
   const type = vpn ? 'vpn' : wifi ? 'wifi' : cell ? 'cellular' : eth ? 'ethernet' : up.length ? 'unknown' : 'none';
   const route = sh('ip', ['route', 'get', '1.1.1.1']) || '';
+
+  let ssid = null;
+  if (wifi) {
+    const nmSsid = sh('nmcli', ['-t', '-f', 'active,ssid', 'dev', 'wifi']);
+    const activeNmLine = nmSsid.split('\n').find((l) => l.startsWith('yes:'));
+    if (activeNmLine) ssid = activeNmLine.slice(4).trim();
+    if (!ssid) ssid = sh('iwgetid', ['-r']) || null;
+    if (!ssid) ssid = (sh('cmd', ['wifi', 'status']) || '').match(/SSID:\s*"?([^"\n]+)/)?.[1] ?? null;
+  }
+
   return {
     online: type !== 'none',
     type, metered: type === 'cellular',
-    ssid: wifi ? (sh('cmd', ['wifi', 'status']) || '').match(/SSID:\s*"?([^"\n]+)/)?.[1] ?? null : null,
+    ssid,
     operator: gp('gsm.operator.alpha') || null,
     ip: route.match(/src\s+([\d.]+)/)?.[1] ?? null,
     gateway: route.match(/via\s+([\d.]+)/)?.[1] ?? null,

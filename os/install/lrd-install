@@ -90,18 +90,8 @@ if [ -n "$OPT_DISK" ]; then
   [ -b "$OPT_DISK" ] || die "specified disk '$OPT_DISK' is not a valid block device"
   DISK="$OPT_DISK"
 elif [ "$AUTO" = 1 ]; then
-  # Auto-select the first disk >= 12GB
-  for d in "${DISKS[@]}"; do
-    cand="$(echo "$d" | awk '{print $1}')"
-    if [ -b "$cand" ]; then
-      sz_bytes=$(blockdev --getsize64 "$cand" 2>/dev/null || echo 0)
-      if [ "$sz_bytes" -ge 12000000000 ]; then
-        DISK="$cand"
-        break
-      fi
-    fi
-  done
-  [ -n "$DISK" ] || DISK="$(echo "${DISKS[0]}" | awk '{print $1}')"
+  # In automated mode, require explicit --disk to prevent accidental data destruction
+  die "automated mode (--auto) requires explicit target disk via --disk <path> (e.g. --disk /dev/nvme0n1)"
 else
   echo "Available storage disks:"
   for i in "${!DISKS[@]}"; do printf '  %2d) %s\n' "$i" "${DISKS[$i]}"; done
@@ -246,13 +236,28 @@ else
   rsync -aHAX --exclude={"/dev/*","/proc/*","/sys/*","/tmp/*","/run/*","/mnt/*","/media/*","/lost+found","/target/*","/target"} / /target/ 2>/dev/null || true
 fi
 
-mkdir -p /target/{boot/efi,store,overlay,data,proc,sys,dev,run,mnt,tmp}
+# Preserve any boot files extracted from rootfs before mounting dedicated boot partition
+mkdir -p /target/boot /target/store /target/overlay /target/data /target/proc /target/sys /target/dev /target/run /target/mnt /target/tmp
 chmod 1777 /target/tmp
-mount "$P_EFI" /target/boot/efi
+if [ -d /target/boot ] && [ -n "$(ls -A /target/boot 2>/dev/null || true)" ]; then
+  mkdir -p /target/boot-stage
+  cp -a /target/boot/* /target/boot-stage/ 2>/dev/null || true
+fi
 mount "$P_BOOT" /target/boot
+mkdir -p /target/boot/efi
+mount "$P_EFI" /target/boot/efi
+if [ -d /target/boot-stage ]; then
+  cp -a /target/boot-stage/* /target/boot/ 2>/dev/null || true
+  rm -rf /target/boot-stage
+fi
 mount "$(blkid -L LRD-STORE || part "$DISK" 4)" /target/store 2>/dev/null || true
 mount "$(blkid -L LRD-OVERLAY || part "$DISK" 5)" /target/overlay 2>/dev/null || true
 mount "$DATA" /target/data
+
+# Bind kernel and device nodes into target for chroot bootloader configuration
+mount --bind /dev /target/dev
+mount --bind /proc /target/proc
+mount --bind /sys /target/sys
 
 # ---------- 5. identity, fstab & crypttab ----------
 say "generating hardware identity and persistent fstab"
@@ -273,7 +278,7 @@ OVERUUID="$(blkid -s UUID -o value "$(blkid -L LRD-OVERLAY 2>/dev/null || echo "
 DATAUUID="$(blkid -s UUID -o value "$DATA" 2>/dev/null || echo "")"
 
 {
-  echo "UUID=$ROOTUUID  /          ext4  ro,noatime,errors=remount-ro 0 1"
+  echo "UUID=$ROOTUUID  /          ext4  rw,noatime,errors=remount-ro 0 1"
   echo "UUID=$BOOTUUID  /boot      ext4  defaults,noatime             0 2"
   echo "UUID=$EFIUUID   /boot/efi  vfat  umask=0077                   0 2"
   [ -n "$STOREUUID" ] && echo "UUID=$STOREUUID /store     ext4  defaults,noatime             0 2"
@@ -301,31 +306,27 @@ mkdir -p /target/boot/efi/EFI/BOOT \
          /target/boot/extlinux
 
 # Resolve kernel and initramfs binaries
-KIMG="$(ls /target/boot/vmlinuz-* 2>/dev/null | head -1)"
-if [ -z "$KIMG" ]; then
-  for cand in /run/live/vmlinuz /run/live/medium/live/vmlinuz /boot/vmlinuz-$(uname -r) /boot/vmlinuz /target/vmlinuz; do
-    if [ -r "$cand" ] && [ -s "$cand" ]; then
-      cp -f "$cand" /target/boot/vmlinuz
-      KIMG="/target/boot/vmlinuz"
-      break
-    fi
-  done
-fi
+KIMG=""
+for cand in /target/boot/vmlinuz-* /run/live/vmlinuz /run/live/medium/live/vmlinuz /boot/vmlinuz-$(uname -r) /boot/vmlinuz /target/vmlinuz; do
+  if [ -r "$cand" ] && [ -s "$cand" ]; then
+    cp -f "$cand" /target/boot/vmlinuz
+    KIMG="/target/boot/vmlinuz"
+    break
+  fi
+done
 
-INITRD_SRC="$(ls /target/boot/initrd.img-* /target/boot/initramfs*.img 2>/dev/null | head -1)"
-if [ -z "$INITRD_SRC" ]; then
-  for cand in /run/live/initrd.img /run/live/medium/live/initrd.img /boot/initrd.img-$(uname -r) /boot/initramfs-sovereign.img /target/initrd.img; do
-    if [ -r "$cand" ] && [ -s "$cand" ]; then
-      cp -f "$cand" /target/boot/initramfs.img
-      INITRD_SRC="/target/boot/initramfs.img"
-      break
-    fi
-  done
-fi
+INITRD_SRC=""
+for cand in /target/boot/initrd.img-* /target/boot/initramfs*.img /run/live/initrd.img /run/live/medium/live/initrd.img /boot/initrd.img-$(uname -r) /boot/initramfs-sovereign.img /target/initrd.img; do
+  if [ -r "$cand" ] && [ -s "$cand" ]; then
+    cp -f "$cand" /target/boot/initramfs.img
+    INITRD_SRC="/target/boot/initramfs.img"
+    break
+  fi
+done
 
-# Mirror kernel & initrd to /target/boot and /target/boot/efi for both GRUB & systemd-boot
-[ -n "$KIMG" ] && cp -f "$KIMG" /target/boot/vmlinuz 2>/dev/null && cp -f "$KIMG" /target/boot/efi/vmlinuz 2>/dev/null || true
-[ -n "$INITRD_SRC" ] && cp -f "$INITRD_SRC" /target/boot/initramfs.img 2>/dev/null && cp -f "$INITRD_SRC" /target/boot/efi/initramfs.img 2>/dev/null || true
+# Mirror kernel & initrd to /target/boot/efi for systemd-boot
+[ -n "$KIMG" ] && cp -f "$KIMG" /target/boot/efi/vmlinuz 2>/dev/null || true
+[ -n "$INITRD_SRC" ] && cp -f "$INITRD_SRC" /target/boot/efi/initramfs.img 2>/dev/null || true
 
 # 6a. Install UEFI bootloader binaries
 if [ "$ARCH" = "x86_64" ]; then
@@ -364,6 +365,9 @@ if command -v grub-install >/dev/null 2>&1; then
   grub-install --target=i386-pc --boot-directory=/target/boot --recheck "$DISK" 2>/dev/null || true
 fi
 
+ROOTARG="root=UUID=$ROOTUUID rw"
+[ "$LUKS" = 1 ] && ROOTARG="rd.luks.name=$DATAUUIDRAW=lrd-data root=UUID=$ROOTUUID rw"
+
 # 6c. Generate /etc/default/grub defaults
 mkdir -p /target/etc/default
 cat > /target/etc/default/grub <<EOF
@@ -371,7 +375,7 @@ cat > /target/etc/default/grub <<EOF
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=5
 GRUB_DISTRIBUTOR="LibreDroid"
-GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash console=tty1 console=ttyS0,115200n8"
 GRUB_CMDLINE_LINUX="$ROOTARG"
 GRUB_DISABLE_OS_PROBER=false
 EOF
@@ -384,24 +388,21 @@ console-mode max
 editor no
 EOF
 
-ROOTARG="root=UUID=$ROOTUUID ro"
-[ "$LUKS" = 1 ] && ROOTARG="rd.luks.name=$DATAUUIDRAW=lrd-data root=UUID=$ROOTUUID ro"
-
 cat > /target/boot/efi/loader/entries/libredroid.conf <<EOF
 title LibreDroid $VERSION
 linux /vmlinuz
 initrd /initramfs.img
-options $ROOTARG quiet splash lrd.root=UUID=$ROOTUUID
+options $ROOTARG console=tty1 console=ttyS0,115200n8 quiet splash lrd.root=UUID=$ROOTUUID
 
 title LibreDroid $VERSION (safe graphics nomodeset)
 linux /vmlinuz
 initrd /initramfs.img
-options $ROOTARG nomodeset
+options $ROOTARG console=tty1 console=ttyS0,115200n8 nomodeset
 
 title LibreDroid $VERSION (safe mode)
 linux /vmlinuz
 initrd /initramfs.img
-options $ROOTARG systemd.unit=lrd-safe.target
+options $ROOTARG console=tty1 console=ttyS0,115200n8 systemd.unit=lrd-safe.target
 EOF
 
 # 6d. Generate GRUB2 configuration (for both Legacy BIOS and GRUB-EFI)
@@ -409,8 +410,14 @@ cat > /target/boot/grub/grub.cfg <<EOF
 set default="0"
 set timeout=5
 
-insmod efi_gop
-insmod efi_uga
+serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1
+terminal_input --append serial
+terminal_output --append serial
+
+if [ "\$grub_platform" = "efi" ]; then
+    insmod efi_gop
+    insmod efi_uga
+fi
 insmod video_bochs
 insmod video_cirrus
 insmod all_video
@@ -423,19 +430,19 @@ set menu_color_highlight=black/light-gray
 
 menuentry "LibreDroid OS $VERSION" --class os {
     search --no-floppy --fs-uuid --set=root $BOOTUUID
-    linux /vmlinuz $ROOTARG quiet splash
+    linux /vmlinuz $ROOTARG console=tty1 console=ttyS0,115200n8 quiet splash
     initrd /initramfs.img
 }
 
 menuentry "LibreDroid OS $VERSION (Safe Graphics - nomodeset)" --class os {
     search --no-floppy --fs-uuid --set=root $BOOTUUID
-    linux /vmlinuz $ROOTARG nomodeset
+    linux /vmlinuz $ROOTARG console=tty1 console=ttyS0,115200n8 nomodeset
     initrd /initramfs.img
 }
 
 menuentry "LibreDroid OS $VERSION (Safe Mode Recovery)" --class os {
     search --no-floppy --fs-uuid --set=root $BOOTUUID
-    linux /vmlinuz $ROOTARG systemd.unit=lrd-safe.target
+    linux /vmlinuz $ROOTARG console=tty1 console=ttyS0,115200n8 systemd.unit=lrd-safe.target
     initrd /initramfs.img
 }
 EOF
@@ -562,7 +569,10 @@ echo "drm-atomic" > /target/var/lib/lrd/display.variant
 say "configuring user $USERNAME"
 chroot /target /usr/sbin/lrd-user create "$USERNAME" --admin --shell /bin/bash --autologin 2>/dev/null || \
   { chroot /target useradd -m -G sudo,audio,video,render,input "$USERNAME" 2>/dev/null || true; }
-echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /target/etc/sudoers.d/lrd-user
+cat > /target/etc/sudoers.d/lrd-user <<SUDO_EOF
+%sudo ALL=(ALL:ALL) ALL
+$USERNAME ALL=(ALL) NOPASSWD: /usr/bin/lrd-install, /usr/bin/lrd-reset, /usr/bin/systemctl, /usr/bin/journalctl, /sbin/reboot, /sbin/poweroff, /sbin/shutdown
+SUDO_EOF
 chmod 440 /target/etc/sudoers.d/lrd-user
 
 USER_PASS="${OPT_PASS:-$(head -c 12 /dev/urandom 2>/dev/null | base64 2>/dev/null || echo "libredroid")}"
@@ -579,8 +589,8 @@ fi
 # ---------- 10. synchronization and cleanup ----------
 say "synchronizing storage caches and finalizing"
 sync
-for m in /target/data /target/overlay /target/store /target/boot/efi /target/boot /target; do
-  umount "$m" 2>/dev/null || true
+for m in /target/dev /target/proc /target/sys /target/data /target/overlay /target/store /target/boot/efi /target/boot /target; do
+  umount -l "$m" 2>/dev/null || true
 done
 [ "$LUKS" = 1 ] && cryptsetup close lrd-data 2>/dev/null || true
 

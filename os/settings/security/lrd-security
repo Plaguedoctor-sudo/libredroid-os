@@ -11,24 +11,46 @@
 set -euo pipefail
 
 ACTION="${1:-status}"
-STATE_DIR="/run/libredroid/security"
+STATE_DIR="/var/lib/libredroid/security"
 if ! mkdir -p "$STATE_DIR" 2>/dev/null; then
-    STATE_DIR="/tmp/libredroid/security"
-    mkdir -p "$STATE_DIR"
+    STATE_DIR="/run/libredroid/security"
+    mkdir -p "$STATE_DIR" 2>/dev/null || STATE_DIR="${HOME:-/tmp}/.lrd/security"
+    mkdir -p "$STATE_DIR" 2>/dev/null || true
 fi
+chmod 0700 "$STATE_DIR" 2>/dev/null || true
 
-PIN_HASH_FILE="$STATE_DIR/pin.sha256"
+PIN_HASH_FILE="$STATE_DIR/pin.hash"
+PIN_SALT_FILE="$STATE_DIR/pin.salt"
 FPRINT_FILE="$STATE_DIR/fingerprint_enrolled"
 
 set_pin() {
     local pin="${2:-}"
-    if [ -z "$pin" ]; then
+    if [ -z "$pin" ] || [ ${#pin} -lt 4 ]; then
         echo "Usage: $0 set-pin <4-8 digit PIN>"
         exit 1
     fi
 
-    echo -n "$pin" | sha256sum | awk '{print $1}' > "$PIN_HASH_FILE"
-    echo "[+] Security PIN successfully set and hashed."
+    local entry
+    entry=$(python3 -c "
+import hashlib, os, sys
+pin = sys.argv[1]
+salt = os.urandom(16).hex()
+h = hashlib.scrypt(pin.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1).hex()
+print(f'scrypt:v1:{salt}:{h}')
+" "$pin" 2>/dev/null || true)
+
+    if [ -z "$entry" ]; then
+        # Fallback if python3 is unavailable
+        local salt
+        salt=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n' 2>/dev/null || date +%s%N)
+        local hash
+        hash=$(printf '%s:%s' "$salt" "$pin" | sha512sum | awk '{print $1}')
+        entry="sha512:v1:${salt}:${hash}"
+    fi
+
+    echo -n "$entry" > "$PIN_HASH_FILE"
+    chmod 0600 "$PIN_HASH_FILE" 2>/dev/null || true
+    echo "[+] Security PIN successfully set with memory-hard scrypt KDF (N=16384, r=8, p=1)."
 }
 
 verify_pin() {
@@ -39,17 +61,40 @@ verify_pin() {
     fi
 
     if [ ! -f "$PIN_HASH_FILE" ]; then
-        # Default dev PIN: 1234
-        echo -n "1234" | sha256sum | awk '{print $1}' > "$PIN_HASH_FILE"
+        echo "{\"status\":\"error\",\"authenticated\":false,\"message\":\"No PIN configured on this device.\"}"
+        exit 1
     fi
 
-    local current_hash
-    current_hash=$(cat "$PIN_HASH_FILE")
-    local input_hash
-    input_hash=$(echo -n "$pin" | sha256sum | awk '{print $1}')
+    local stored_entry
+    stored_entry=$(cat "$PIN_HASH_FILE" | tr -d '\r\n')
 
-    if [ "$current_hash" = "$input_hash" ]; then
-        echo "{\"status\":\"ok\",\"authenticated\":true,\"method\":\"pin\"}"
+    local matched=false
+    if [[ "$stored_entry" =~ ^scrypt:v1:([0-9a-fA-F]+):([0-9a-fA-F]+)$ ]]; then
+        local salt="${BASH_REMATCH[1]}"
+        local expected="${BASH_REMATCH[2]}"
+        local py_result
+        py_result=$(python3 -c "
+import hashlib, hmac, sys
+pin = sys.argv[1]
+salt = sys.argv[2]
+expected = sys.argv[3]
+try:
+    computed = hashlib.scrypt(pin.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1).hex()
+    print('1' if hmac.compare_digest(expected, computed) else '0')
+except Exception:
+    print('0')
+" "$pin" "$salt" "$expected" 2>/dev/null || echo "0")
+        if [ "$py_result" = "1" ]; then matched=true; fi
+    elif [[ "$stored_entry" =~ ^sha512:v1:([0-9a-fA-F]+):([0-9a-fA-F]+)$ ]]; then
+        local salt="${BASH_REMATCH[1]}"
+        local expected="${BASH_REMATCH[2]}"
+        local computed
+        computed=$(printf '%s:%s' "$salt" "$pin" | sha512sum | awk '{print $1}')
+        if [ "$expected" = "$computed" ]; then matched=true; fi
+    fi
+
+    if [ "$matched" = true ]; then
+        echo "{\"status\":\"ok\",\"authenticated\":true,\"method\":\"pin\",\"kdf\":\"scrypt\"}"
     else
         echo "{\"status\":\"error\",\"authenticated\":false,\"message\":\"Incorrect PIN\"}"
         exit 1
@@ -70,20 +115,29 @@ enroll_fingerprint() {
 
     if command -v fprintd-enroll >/dev/null 2>&1; then
         fprintd-enroll -f "$finger" 2>/dev/null || true
+        echo "$finger" > "$FPRINT_FILE"
+        chmod 0600 "$FPRINT_FILE" 2>/dev/null || true
+        echo "[+] Fingerprint '$finger' enrolled successfully (fprintd)."
+    else
+        echo "[-] Hardware biometric enrollment unavailable: fprintd daemon not installed."
+        exit 1
     fi
-
-    echo "$finger" > "$FPRINT_FILE"
-    echo "[+] Fingerprint '$finger' enrolled successfully (fprintd)."
 }
 
 verify_fingerprint() {
     echo "[*] Verifying biometric fingerprint..."
-    if [ -f "$FPRINT_FILE" ]; then
-        echo "{\"status\":\"ok\",\"authenticated\":true,\"method\":\"biometric_fingerprint\",\"enrolled_finger\":\"$(cat "$FPRINT_FILE")\"}"
-    else
-        echo "{\"status\":\"error\",\"authenticated\":false,\"message\":\"No fingerprints enrolled\"}"
-        exit 1
+    if command -v fprintd-verify >/dev/null 2>&1; then
+        local user="${USER:-live}"
+        if fprintd-verify "$user" 2>/dev/null; then
+            echo "{\"status\":\"ok\",\"authenticated\":true,\"method\":\"biometric_fingerprint\"}"
+            return 0
+        else
+            echo "{\"status\":\"error\",\"authenticated\":false,\"message\":\"Biometric verification failed or canceled\"}"
+            exit 1
+        fi
     fi
+    echo "{\"status\":\"error\",\"authenticated\":false,\"message\":\"No biometric fingerprint hardware available\"}"
+    exit 1
 }
 
 show_status() {
