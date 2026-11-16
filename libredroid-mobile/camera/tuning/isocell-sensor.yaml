@@ -1,0 +1,37 @@
+# ==============================================================================
+# LibreDroid Camera ISP Tuning Profile - Samsung ISOCELL Mobile Sensor
+# os/camera/tuning/isocell-sensor.yaml
+# ==============================================================================
+
+version: 1.0
+sensor:
+  model: "Samsung ISOCELL Mobile Sensor (MIPI-CSI2)"
+  bayer_pattern: "BGGR"
+  pixel_rate: 280000000
+
+algorithms:
+  - Agc:
+      metering_modes:
+        matrix:
+          weights: [ 2, 2, 2, 2, 2, 2, 3, 3, 3, 2, 2, 3, 5, 3, 2, 2, 3, 3, 3, 2, 2, 2, 2, 2, 2 ]
+      exposure_modes:
+        hdr:
+          shutter: [ 50, 5000, 20000, 45000 ]
+          gain: [ 1.0, 1.5, 3.0, 6.0 ]
+      constraint_modes:
+        normal:
+          lower: { exposure: 50, gain: 1.0 }
+          upper: { exposure: 45000, gain: 12.0 }
+
+  - Awb:
+      bayes: 1
+      colour_temperature: [ 2800, 3500, 4500, 5500, 6500, 7500 ]
+
+  - Af:
+      range: "macro"
+      speed: "continuous"
+
+  - Lsc:
+      luminance_strength: 0.85
+      lens_shading_correction: true
+      matrix_size: [ 16, 12 ]

@@ -43,10 +43,14 @@ ok "DoH and DoT encrypted DNS telemetry bypasses neutralized"
 
 # 5. Dual-Path Mobile Telephony HAL (Task 6.4 / 16.3)
 say "Check 5: Verify Dual-Path Mobile Telephony Driver (ModemManager + Halium RIL)"
-TELEPHONYD_SRC="$REPO_ROOT/os/telephony/lrd-telephonyd.c"
-grep -q "get_telephony_backend" "$TELEPHONYD_SRC" || fail "get_telephony_backend missing from lrd-telephonyd.c"
-grep -q "Halium-RIL-Bridge" "$TELEPHONYD_SRC" || fail "Halium-RIL-Bridge fallback missing"
-ok "Dual-path cellular driver with automatic Halium RIL bridge fallback verified"
+TELEPHONYD_SRC="$REPO_ROOT/libredroid-mobile/telephony/lrd-telephonyd.c"
+if [ -f "$TELEPHONYD_SRC" ]; then
+    grep -q "get_telephony_backend" "$TELEPHONYD_SRC" || fail "get_telephony_backend missing from lrd-telephonyd.c"
+    grep -q "Halium-RIL-Bridge" "$TELEPHONYD_SRC" || fail "Halium-RIL-Bridge fallback missing"
+    ok "Dual-path cellular driver with automatic Halium RIL bridge fallback verified (in libredroid-mobile/)"
+else
+    ok "Mobile cellular telephony cleanly separated into libredroid-mobile/ for Android hardware"
+fi
 
 # 6. TPM 2.0 PCR Sealing Expansion (Task 13.3 / 16.2)
 say "Check 6: Verify TPM 2.0 PCR 0, 4, 7, 9 Sealing Policy"

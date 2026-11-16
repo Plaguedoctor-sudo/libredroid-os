@@ -1,0 +1,15 @@
+{
+  "os_name": "LibreDroid Mobile OS",
+  "version": "1.0.0-arm64",
+  "target_architecture": "arm64-v8a",
+  "partition_type": "Project Treble A/B system.img",
+  "filesystem": "ext4",
+  "build_epoch": 1700000000,
+  "sha256": "98c2bb26eb4e0e8abf5e6ac65f649cb9c0d6121e75734c2518ac18f0d1c1ba8c",
+  "supported_socs": [
+    "Qualcomm Snapdragon (845, 855, 865, 888, 8 Gen 1/2/3, 7/6 series)",
+    "MediaTek Dimensity (9000, 8000, 7000 series, Helio G-series, MT6789)",
+    "Samsung Exynos (1330, 1380, 2100, 2200, 2400)",
+    "Google Tensor (G1, G2, G3)"
+  ]
+}

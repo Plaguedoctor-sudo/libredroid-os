@@ -1,0 +1,16 @@
+[Unit]
+Description=LibreDroid Mobile Sensor Daemon (IIO / Accelerometer / Proximity)
+After=systemd-udev-settle.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lrd-sensord
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+ProtectSystem=full
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

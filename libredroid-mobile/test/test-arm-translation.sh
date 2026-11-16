@@ -7,13 +7,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+MOBILE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-ARM_BRIDGE="$REPO_ROOT/os/waydroid/lrd-arm-bridge"
-PIF_APPLY="$REPO_ROOT/os/waydroid/lrd-pif-apply"
-PIF_JSON="$REPO_ROOT/os/waydroid/pif.json"
-SERVICE_FILE="$REPO_ROOT/os/build/config/includes.chroot/etc/systemd/system/lrd-arm-bridge.service"
-PKG_LIST="$REPO_ROOT/os/build/config/package-lists/libredroid.list.chroot"
+ARM_BRIDGE="$MOBILE_ROOT/waydroid/lrd-arm-bridge"
+PIF_APPLY="$MOBILE_ROOT/waydroid/lrd-pif-apply"
+PIF_JSON="$MOBILE_ROOT/waydroid/pif.json"
+SERVICE_FILE="$MOBILE_ROOT/waydroid/lrd-arm-bridge.service"
+PKG_LIST="$MOBILE_ROOT/packages/mobile-packages.list"
 
 PASSED=0
 FAILED=0

@@ -7,11 +7,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+MOBILE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-OSK_CTL="$REPO_ROOT/os/desktop/osk/lrd-osk"
-LAYOUT_DIR="$REPO_ROOT/os/desktop/osk/layouts"
-PKG_LIST="$REPO_ROOT/os/build/config/package-lists/libredroid.list.chroot"
+OSK_CTL="$MOBILE_ROOT/osk/lrd-osk"
+LAYOUT_DIR="$MOBILE_ROOT/osk/layouts"
+PKG_LIST="$MOBILE_ROOT/packages/mobile-packages.list"
 
 PASSED=0
 FAILED=0

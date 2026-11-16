@@ -1,0 +1,29 @@
+# LibreDroid Mobile OS — Core Package Manifest for ARM64 Android Hardware
+# (Smartphones, Tablets, Project Treble GSI & Halium Devices)
+
+# Core System & Init
+systemd systemd-sysv udev dbus iproute2 procps
+e2fsprogs parted dosfstools rsync jq ca-certificates curl sudo locales tzdata
+
+# Mobile Wayland Compositor & Virtual Keyboard Stack
+cage wvkbd squeekboard fcitx5 fcitx5-chinese-addons
+seatd libinput-bin
+
+# Mobile GPU Acceleration (Freedreno Qualcomm, Panfrost Mali, Panthor)
+mesa-vulkan-drivers libgl1-mesa-dri libglx-mesa0 libegl-mesa0
+
+# Mobile Audio Subsystem
+pipewire pipewire-pulse wireplumber alsa-utils
+
+# Cellular Telephony, VoLTE/VoNR, SMS & Mobile Data Stack
+modemmanager libqmi-utils libmbim-utils mobile-broadband-provider-info
+
+# Camera & Linux IIO Sensors
+libcamera-tools v4l-utils iio-sensor-proxy
+
+# Android Application Compatibility Layer (Waydroid rootless LXC container)
+lxc iptables dnsmasq binfmt-support qemu-user-static
+
+# Connectivity & Power
+network-manager wpasupplicant rfkill bluez upower
+fonts-dejavu fonts-liberation2

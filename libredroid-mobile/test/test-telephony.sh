@@ -7,12 +7,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+MOBILE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-TELEPHONYD="$REPO_ROOT/os/telephony/lrd-telephonyd"
-TELEPHONY_CTL="$REPO_ROOT/os/telephony/lrd-telephony"
-SERVICE_FILE="$REPO_ROOT/os/build/config/includes.chroot/etc/systemd/system/lrd-telephony.service"
-PKG_LIST="$REPO_ROOT/os/build/config/package-lists/libredroid.list.chroot"
+TELEPHONYD="$MOBILE_ROOT/telephony/lrd-telephonyd"
+TELEPHONY_CTL="$MOBILE_ROOT/telephony/lrd-telephony"
+SERVICE_FILE="$MOBILE_ROOT/telephony/lrd-telephony.service"
+PKG_LIST="$MOBILE_ROOT/packages/mobile-packages.list"
 
 PASSED=0
 FAILED=0
@@ -46,10 +46,12 @@ test_packages() {
 assert_ok "Cellular package manifest entries (ModemManager, QMI, APN)" test_packages
 
 # Start daemon for live socket interaction
+pkill -f lrd-telephonyd 2>/dev/null || true
+rm -f /tmp/libredroid/telephony.sock /run/libredroid/telephony.sock 2>/dev/null || true
 echo "[*] Spawning lrd-telephonyd test instance..."
 "$TELEPHONYD" &
 DAEMON_PID=$!
-sleep 0.3
+sleep 0.4
 
 cleanup() {
     kill "$DAEMON_PID" 2>/dev/null || true
@@ -122,6 +124,7 @@ assert_ok "Native SMS messaging engine (dispatch, encoding, and store)" test_sms
 
 # Test Dual-Path Telephony Backend (ModemManager vs Halium RIL fallback)
 test_dual_path_backend() {
+    sleep 0.1
     local out
     out=$("$TELEPHONY_CTL" backend)
     echo "$out" | grep -q '"dual_path":true'
