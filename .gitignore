@@ -44,8 +44,8 @@ application/ipc/csrc/sap_ipc_router
 application/sdk/cli/sapp
 os/arm/treble/build_tmp/
 os/arm/treble/output/*.img
-libredroid-mobile/**/build_tmp/
-libredroid-mobile/**/output/*.img
+android/**/build_tmp/
+android/**/output/*.img
 audit-out/
 public/*.iso
 

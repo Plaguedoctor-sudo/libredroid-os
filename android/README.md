@@ -3,7 +3,7 @@
 > **Target Platform:** ARM64-v8a Smartphones and Tablets (Project Treble A/B Devices)  
 > **Supported SoCs:** Qualcomm Snapdragon, MediaTek Dimensity / Helio, Samsung Exynos, Google Tensor  
 > **Architecture:** Pure GNU/Linux userspace over Treble Vendor HALs & Android BSP Linux Kernels  
-> **Repository Subdirectory:** [libredroid-mobile/](file:///home/nitin/fkgugal/libredroid-mobile)
+> **Repository Subdirectory:** [android/](file:///home/nitin/fkgugal/android)
 
 ---
 
@@ -13,7 +13,7 @@
 - **A sovereign, un-Googled replacement for the Android OS**: LibreDroid Mobile OS completely discards the bloated Android Java framework (Zygote, SystemServer, ART runtime, Google Play Services, and manufacturer OEM skins) which consumes 3–5 GB of RAM at idle.
 - **Pure C & Linux Userspace**: Replaces legacy Java daemons with ultra-lightweight C daemons (`lrd-telephonyd`, `lrd-sensord`, `lrd-wakelockd`) and a responsive Wayland touch compositor ([Cage](https://github.com/cage-kiosk/cage) / [Sway](https://github.com/swaywm/sway)).
 - **Project Treble GSI Compliance**: Boots universally across Android 8.0+ / 10 / 11 / 12 / 13 / 14 devices by preserving the vendor-specific Board Support Package (BSP), kernel (`/boot`), and proprietary HAL drivers (`/vendor`), replacing strictly the generic system partition (`system.img`).
-- **Optional Rootless Android App Compatibility**: Android apps run isolated inside a sandboxed Waydroid (LXC) container with hardware GPU acceleration via `gbm` and Play Integrity spoofing via [pif.json](file:///home/nitin/fkgugal/libredroid-mobile/waydroid/pif.json).
+- **Optional Rootless Android App Compatibility**: Android apps run isolated inside a sandboxed Waydroid (LXC) container with hardware GPU acceleration via `gbm` and Play Integrity spoofing via [pif.json](file:///home/nitin/fkgugal/android/waydroid/pif.json).
 
 ### What LibreDroid Mobile OS IS NOT
 - **It is NOT Google Android**: You will not find Google Play Store, Google Services Framework (GSF), or Google tracking daemons.
@@ -26,7 +26,7 @@
 
 To ensure zero bloat and uncompromising reliability, the codebase is cleanly segregated into two distinct operating systems:
 
-| Architectural Dimension | [libredroid-mobile/](file:///home/nitin/fkgugal/libredroid-mobile) (Mobile OS) | [os/](file:///home/nitin/fkgugal/os) (Laptop & PC OS) |
+| Architectural Dimension | [android/](file:///home/nitin/fkgugal/android) (Mobile OS) | [os/](file:///home/nitin/fkgugal/os) (Laptop & PC OS) |
 | :--- | :--- | :--- |
 | **Target Hardware** | ARM64 Smartphones & Tablets | x86_64 Laptops, Desktops, Mini-PCs |
 | **SoC / CPU** | Snapdragon, Dimensity, Exynos, Tensor | Intel Core / Xeon, AMD Ryzen / EPYC |
@@ -43,7 +43,7 @@ To ensure zero bloat and uncompromising reliability, the codebase is cleanly seg
 ## 3. Directory Layout & Subsystem Breakdown
 
 ```
-libredroid-mobile/
+android/
 ├── build.sh                     # Master build automation for the mobile OS
 ├── README.md                    # This architecture and flashing guide
 ├── output/                      # Generated flashable images and hashes
@@ -123,8 +123,8 @@ libredroid-mobile/
 Run the master build automation from the repository root:
 
 ```bash
-chmod +x libredroid-mobile/build.sh
-./libredroid-mobile/build.sh
+chmod +x android/build.sh
+./android/build.sh
 ```
 
 ### What this script does:
@@ -150,22 +150,22 @@ chmod +x libredroid-mobile/build.sh
 fastboot reboot fastboot
 
 # 2. Run automated flashing script
-chmod +x libredroid-mobile/fastboot/flash-mobile-os.sh
-./libredroid-mobile/fastboot/flash-mobile-os.sh
+chmod +x android/fastboot/flash-mobile-os.sh
+./android/fastboot/flash-mobile-os.sh
 ```
 
 ### Option B: Non-Destructive Dual-Boot (Keep Stock Android intact!)
 On seamless A/B devices, you can install LibreDroid Mobile OS to the inactive slot without touching your stock Android system on the active slot:
 
 ```bash
-chmod +x libredroid-mobile/fastboot/dualboot-slot-switcher.sh
-./libredroid-mobile/fastboot/dualboot-slot-switcher.sh
+chmod +x android/fastboot/dualboot-slot-switcher.sh
+./android/fastboot/dualboot-slot-switcher.sh
 # Select Option 4: Install LibreDroid Mobile OS to INACTIVE slot
 ```
 
 To switch back and forth between Stock Android and LibreDroid Mobile OS:
 ```bash
-./libredroid-mobile/fastboot/dualboot-slot-switcher.sh
+./android/fastboot/dualboot-slot-switcher.sh
 # Select Option 3: Toggle active slot
 ```
 
@@ -177,9 +177,10 @@ All 48 mobile verification test suites run locally without requiring physical ha
 
 ```bash
 # Run all mobile subsystem test suites:
-./libredroid-mobile/test/test-telephony.sh        # Cellular & VoLTE (10/10 PASS)
-./libredroid-mobile/test/test-sensors.sh          # Linux IIO & Camera (13/13 PASS)
-./libredroid-mobile/test/test-power.sh            # Wakelock & Battery (10/10 PASS)
-./libredroid-mobile/test/test-osk.sh              # Wayland Layer-Shell OSK (7/7 PASS)
-./libredroid-mobile/test/test-arm-translation.sh  # Play Integrity & Bridge (8/8 PASS)
+./android/test/run-all-tests.sh           # Master test runner (5/5 PASS)
+./android/test/test-telephony.sh        # Cellular & VoLTE (10/10 PASS)
+./android/test/test-sensors.sh          # Linux IIO & Camera (13/13 PASS)
+./android/test/test-power.sh            # Wakelock & Battery (10/10 PASS)
+./android/test/test-osk.sh              # Wayland Layer-Shell OSK (7/7 PASS)
+./android/test/test-arm-translation.sh  # Play Integrity & Bridge (8/8 PASS)
 ```
