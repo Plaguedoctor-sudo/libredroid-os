@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# AppArmor Profile for LibreDroid Egress Supervisor Daemon (lrd-egressd)
+# Spec compliance: LibreDroid System Design v0.1 §14 (Security model — MAC)
+
+#include <tunables/global>
+
+/usr/sbin/lrd-egressd flags=(attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/python>
+
+  # Capabilities needed to monitor netlink and conntrack
+  capability net_admin,
+
+  # Deny raw sockets — egress supervisor only reads audit journals and diagnostics
+  deny network raw,
+
+  # Policy configuration (read-only)
+  /etc/lrd/** r,
+  /var/lib/egress/policy/** r,
+  /var/lib/waydroid/data/system/packages.xml r,
+
+  # Live telemetry and runtime maps (read-write)
+  /run/libredroid/** rw,
+  /tmp/libredroid/** rw,
+
+  # Kernel network stats & netfilter logging inspection
+  /proc/net/** r,
+  /proc/sys/net/** r,
+  /sys/devices/** r,
+
+  # Deny user home directories completely (anti-telemetry enforcement)
+  deny /home/** mrwklx,
+  deny /root/** mrwklx,
+}

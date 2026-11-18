@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""
+lrd-waydroid-freezer — Waydroid Container Lifecycle & Idle Freezer Guardian
+Spec compliance: LibreDroid System Design v0.1 §6 (App runtime — Waydroid)
+
+Responsibilities:
+1. Frozen-by-default container lifecycle supervisor.
+2. Cold start on first launch; freezes on screen-off / idle-timeout to minimize attack surface and battery drain.
+3. Interfaces with cgroup v2 freezer (cgroup.freeze) and waydroid session controller.
+4. Fast thaw (<50ms) on user launch request.
+"""
+
+import sys
+import os
+import time
+import json
+import subprocess
+import argparse
+from pathlib import Path
+
+DEFAULT_STATUS_FILE = (
+    Path("/run/libredroid/waydroid-freeze-status.json")
+    if os.access("/run", os.W_OK) or Path("/run/libredroid").is_dir()
+    else Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "libredroid" / "waydroid-freeze-status.json"
+)
+
+CGROUP_FREEZE_PATHS = [
+    Path("/sys/fs/cgroup/lrd-waydroid.slice/cgroup.freeze"),
+    Path("/sys/fs/cgroup/waydroid/cgroup.freeze"),
+    Path("/sys/fs/cgroup/waydroid.slice/cgroup.freeze")
+]
+
+class WaydroidFreezer:
+    def __init__(self, status_file: Path = DEFAULT_STATUS_FILE, mock_mode: bool = False):
+        self.status_file = Path(status_file)
+        self.mock_mode = mock_mode
+        self.state = "STOPPED"
+        self.freeze_path = None
+        for p in CGROUP_FREEZE_PATHS:
+            if p.is_file():
+                self.freeze_path = p
+                break
+        self.load_status()
+
+    def load_status(self):
+        if self.status_file.is_file():
+            try:
+                data = json.loads(self.status_file.read_text(encoding="utf-8"))
+                self.state = data.get("state", "STOPPED")
+            except Exception:
+                pass
+
+    def emit_status(self):
+        try:
+            self.status_file.parent.mkdir(parents=True, exist_ok=True)
+            dump = {
+                "state": self.state,
+                "cgroup_path": str(self.freeze_path) if self.freeze_path else "simulated",
+                "last_transition": time.time(),
+                "policy": "FROZEN_BY_DEFAULT"
+            }
+            tmp = self.status_file.with_suffix(".tmp")
+            tmp.write_text(json.dumps(dump, indent=2), encoding="utf-8")
+            tmp.replace(self.status_file)
+        except Exception:
+            fallback = Path("/tmp/libredroid/waydroid-freeze-status.json")
+            fallback.parent.mkdir(parents=True, exist_ok=True)
+            tmp = fallback.with_suffix(".tmp")
+            tmp.write_text(json.dumps(dump, indent=2), encoding="utf-8")
+            tmp.replace(fallback)
+            self.status_file = fallback
+
+    def start_or_thaw(self) -> str:
+        """Starts the container if stopped, or thaws it if frozen."""
+        if self.state == "STOPPED":
+            if not self.mock_mode and shutil_which("waydroid"):
+                subprocess.run(["waydroid", "session", "start"], check=False)
+            self.state = "RUNNING"
+        elif self.state == "FROZEN":
+            if self.freeze_path and not self.mock_mode:
+                try:
+                    self.freeze_path.write_text("0")
+                except Exception:
+                    pass
+            elif not self.mock_mode and shutil_which("waydroid"):
+                subprocess.run(["waydroid", "session", "unfreeze"], check=False)
+            self.state = "RUNNING"
+        self.emit_status()
+        return self.state
+
+    def freeze(self) -> str:
+        """Freezes container processes in RAM on screen-off / idle."""
+        if self.state == "STOPPED":
+            return self.state
+        if self.freeze_path and not self.mock_mode:
+            try:
+                self.freeze_path.write_text("1")
+            except Exception:
+                pass
+        elif not self.mock_mode and shutil_which("waydroid"):
+            subprocess.run(["waydroid", "session", "freeze"], check=False)
+        self.state = "FROZEN"
+        self.emit_status()
+        return self.state
+
+    def stop(self) -> str:
+        """Stops the container completely on prolonged inactivity."""
+        if not self.mock_mode and shutil_which("waydroid"):
+            subprocess.run(["waydroid", "session", "stop"], check=False)
+        self.state = "STOPPED"
+        self.emit_status()
+        return self.state
+
+def shutil_which(cmd: str) -> bool:
+    import shutil
+    return shutil.which(cmd) is not None
+
+def main():
+    parser = argparse.ArgumentParser(description="LibreDroid Waydroid Idle Freezer Guardian")
+    parser.add_argument("action", choices=["status", "start", "thaw", "freeze", "stop", "mock-test"],
+                        help="Action to perform")
+    parser.add_argument("--status-file", default=str(DEFAULT_STATUS_FILE), help="Status file path")
+    args = parser.parse_args()
+
+    if args.action == "mock-test":
+        freezer = WaydroidFreezer(status_file=Path("/tmp/waydroid_mock_freezer.json"), mock_mode=True)
+        assert freezer.state == "STOPPED"
+        freezer.start_or_thaw()
+        assert freezer.state == "RUNNING"
+        freezer.freeze()
+        assert freezer.state == "FROZEN"
+        freezer.start_or_thaw()
+        assert freezer.state == "RUNNING"
+        freezer.stop()
+        assert freezer.state == "STOPPED"
+        print("✔ Waydroid freezer lifecycle mock-test passed (STOPPED -> RUNNING -> FROZEN -> RUNNING -> STOPPED).")
+        return 0
+
+    freezer = WaydroidFreezer(status_file=Path(args.status_file))
+
+    if args.action == "status":
+        print(f"Waydroid Container State: {freezer.state}")
+    elif args.action in ("start", "thaw"):
+        new_state = freezer.start_or_thaw()
+        print(f"Waydroid Container State transitioned to: {new_state}")
+    elif args.action == "freeze":
+        new_state = freezer.freeze()
+        print(f"Waydroid Container State transitioned to: {new_state}")
+    elif args.action == "stop":
+        new_state = freezer.stop()
+        print(f"Waydroid Container State transitioned to: {new_state}")
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

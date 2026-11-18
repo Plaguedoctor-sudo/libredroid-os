@@ -1,0 +1,134 @@
+#!/usr/sbin/nft -f
+# ==============================================================================
+# LibreDroid Sovereign Egress Control Table (Set-Preserving Base Skeleton)
+# Spec compliance: LibreDroid System Design v0.1 §1, §8, §10
+# Canonical target: /etc/nftables/lrd-egress.nft
+#
+# Principles:
+# 1. Deny-by-default on all egress.
+# 2. WireGuard (wg0) is the sole general egress interface.
+# 3. Container traffic (waydroid0) crosses FORWARD and is strictly gated to wg0.
+# 4. Local DNS only; Unbound DoT to verified upstreams allowed on port 853.
+# 5. Proton API HTTPS bootstrap permitted; WireGuard handshakes on 443/51820/1194.
+# ==============================================================================
+
+# Ensure table exists without flushing existing sets
+add table inet lrd_egress
+
+# 1. Dynamic Sets (Preserved across atomic rule reloads)
+add set inet lrd_egress vpn_endpoints_v4 { type ipv4_addr; flags interval; }
+add set inet lrd_egress vpn_endpoints_v6 { type ipv6_addr; flags interval; }
+
+add set inet lrd_egress dns_upstream_v4 {
+    type ipv4_addr
+    flags interval
+    elements = { 9.9.9.9, 149.112.112.112, 1.1.1.1, 1.0.0.1 }
+}
+
+add set inet lrd_egress dns_upstream_v6 {
+    type ipv6_addr
+    flags interval
+    elements = { 2620:fe::fe, 2620:fe::9, 2606:4700:4700::1111, 2606:4700:4700::1001 }
+}
+
+add set inet lrd_egress proton_api_v4 {
+    type ipv4_addr
+    flags interval
+    elements = { 185.70.40.0/24, 185.70.41.0/24, 185.70.42.0/24 }
+}
+
+add set inet lrd_egress proton_api_v6 {
+    type ipv6_addr
+    flags interval
+    elements = { 2a05:54c0::/32 }
+}
+
+add set inet lrd_egress egress_allowlist_v4 { type ipv4_addr; flags interval; }
+
+# 2. Chains Initialization
+add chain inet lrd_egress egress_audit_drop
+flush chain inet lrd_egress egress_audit_drop
+
+add rule inet lrd_egress egress_audit_drop log prefix "[LRD-EGRESS-DROP] " flags all limit rate 30/minute burst 5 packets
+add rule inet lrd_egress egress_audit_drop drop
+
+# --- INPUT CHAIN ---
+add chain inet lrd_egress input { type filter hook input priority filter; policy drop; }
+flush chain inet lrd_egress input
+
+# Loopback input
+add rule inet lrd_egress input iifname "lo" accept
+
+# Established & related traffic
+add rule inet lrd_egress input ct state established,related accept
+
+# DHCP client input (IPv4 & IPv6)
+add rule inet lrd_egress input udp sport 67 udp dport 68 accept
+add rule inet lrd_egress input ip6 saddr fe80::/10 udp sport 547 udp dport 546 accept
+
+# ICMPv6 SLAAC & Path MTU Discovery
+add rule inet lrd_egress input ip6 nexthdr icmpv6 icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-advert, packet-too-big, time-exceeded, destination-unreachable } accept
+
+# Default drop
+add rule inet lrd_egress input ct state invalid drop
+add rule inet lrd_egress input drop
+
+# --- FORWARD CHAIN (Waydroid Container Containment) ---
+add chain inet lrd_egress forward { type filter hook forward priority filter; policy drop; }
+flush chain inet lrd_egress forward
+
+# Established/related container traffic
+add rule inet lrd_egress forward ct state established,related accept
+
+# Container traffic strictly gated to wg0
+add rule inet lrd_egress forward iifname "waydroid0" oifname "wg0" accept
+add rule inet lrd_egress forward iifname "wg0" oifname "waydroid0" accept
+
+# Any container attempt to bypass tunnel to physical interface is dropped & audited
+add rule inet lrd_egress forward jump egress_audit_drop
+
+# --- OUTPUT CHAIN (Strict Deny-By-Default Egress) ---
+add chain inet lrd_egress output { type filter hook output priority filter; policy drop; }
+flush chain inet lrd_egress output
+
+# 1. State tracking: established & related flows preserved across reloads
+add rule inet lrd_egress output ct state established,related accept
+
+# 2. Loopback interface (local IPC, Wayland, bridge, local Unbound)
+add rule inet lrd_egress output oifname "lo" accept
+
+# 3. DHCP negotiation on physical interfaces
+add rule inet lrd_egress output udp sport 68 udp dport 67 accept
+add rule inet lrd_egress output ip6 saddr fe80::/10 udp sport 546 udp dport 547 accept
+
+# 4. ICMPv6 Router Solicitations & SLAAC
+add rule inet lrd_egress output ip6 nexthdr icmpv6 icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit, packet-too-big } accept
+
+# 5. Local DNS Resolver enforcement (127.0.0.1:53 & ::1:53 only)
+add rule inet lrd_egress output ip daddr 127.0.0.1 udp dport 53 accept
+add rule inet lrd_egress output ip daddr 127.0.0.1 tcp dport 53 accept
+add rule inet lrd_egress output ip6 daddr ::1 udp dport 53 accept
+add rule inet lrd_egress output ip6 daddr ::1 tcp dport 53 accept
+
+# 6. Unbound Resolver Upstream DoT (Port 853) to verified DNS providers
+add rule inet lrd_egress output tcp dport 853 ip daddr @dns_upstream_v4 accept
+add rule inet lrd_egress output tcp dport 853 ip6 daddr @dns_upstream_v6 accept
+add rule inet lrd_egress output udp dport 853 ip daddr @dns_upstream_v4 accept
+add rule inet lrd_egress output udp dport 853 ip6 daddr @dns_upstream_v6 accept
+
+# 7. Proton VPN Client API Authentication Bootstrap (TCP 443 before tunnel)
+add rule inet lrd_egress output tcp dport 443 ip daddr @proton_api_v4 accept
+add rule inet lrd_egress output tcp dport 443 ip6 daddr @proton_api_v6 accept
+
+# 8. WireGuard VPN Tunnel Interface (wg0) — general egress allowed
+add rule inet lrd_egress output oifname "wg0" accept
+
+# 9. WireGuard Handshake to Active VPN Gateway Endpoints (Ports 51820, 1194, 500, 4500, 443)
+add rule inet lrd_egress output udp dport { 443, 500, 1194, 4500, 51820 } ip daddr @vpn_endpoints_v4 accept
+add rule inet lrd_egress output udp dport { 443, 500, 1194, 4500, 51820 } ip6 daddr @vpn_endpoints_v6 accept
+
+# 10. User/Admin Policy Allowlist
+add rule inet lrd_egress output ip daddr @egress_allowlist_v4 accept
+
+# 11. Kill-Switch Default Drop: All unmediated traffic audited and dropped
+add rule inet lrd_egress output jump egress_audit_drop

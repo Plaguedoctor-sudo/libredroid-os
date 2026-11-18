@@ -1,0 +1,88 @@
+#!/bin/sh
+# ==============================================================================
+# LibreDroid Early-Boot Profile Applier (POSIX /bin/sh)
+# Spec compliance: LibreDroid System Design v0.1 §2, §3, §4
+# Resolves ro.product.device / ro.product.vendor.device / ro.product.model,
+# sources <codename>.env, and emits compositor & environment configs.
+# ==============================================================================
+set -eu
+
+PROFILES_DIR="${1:-/usr/share/profiles}"
+[ -d "$PROFILES_DIR" ] || PROFILES_DIR="$(dirname "$0")"
+OUT_DIR="${2:-/run/libredroid}"
+mkdir -p "$OUT_DIR"
+
+CODENAME="${LRD_DEVICE:-}"
+
+# 1. Override file
+if [ -z "$CODENAME" ] && [ -f /etc/libredroid/profile.override ]; then
+    CODENAME="$(cat /etc/libredroid/profile.override | tr -d '\r\n ')"
+fi
+
+# 2. Kernel cmdline
+if [ -z "$CODENAME" ] && [ -f /proc/cmdline ]; then
+    CODENAME="$(sed -nE 's/.*(androidboot\.device|lrd\.device)=([^ ]+).*/\2/p' /proc/cmdline | head -1 || true)"
+fi
+
+# 3. Vendor build.prop properties
+if [ -z "$CODENAME" ]; then
+    for bp in /vendor/build.prop /vendor/etc/build.prop /system/build.prop /default.prop; do
+        if [ -f "$bp" ]; then
+            # Try ro.product.device first
+            DEV="$(sed -nE 's/^ro\.product\.(vendor\.)?device=([^ ]+)/\2/p' "$bp" | head -1 || true)"
+            if [ -n "$DEV" ]; then
+                CODENAME="$DEV"
+                break
+            fi
+            # Fallback to model
+            MODEL="$(sed -nE 's/^ro\.product\.(vendor\.)?model=([^ ]+)/\2/p' "$bp" | head -1 || true)"
+            if [ -n "$MODEL" ]; then
+                CODENAME="$MODEL"
+                break
+            fi
+        fi
+    done
+fi
+
+# Fallback default
+CODENAME="${CODENAME:-vidofnir}"
+
+PROFILE_ENV=""
+for cand in "$PROFILES_DIR/$CODENAME.env" "$PROFILES_DIR/vidofnir.env"; do
+    if [ -f "$cand" ]; then
+        PROFILE_ENV="$cand"
+        break
+    fi
+done
+
+if [ -z "$PROFILE_ENV" ] || [ ! -f "$PROFILE_ENV" ]; then
+    echo "[!] No profile found for $CODENAME. Checked in $PROFILES_DIR" >&2
+    exit 2
+fi
+
+# Source flat profile
+. "$PROFILE_ENV"
+
+# Emit /run/libredroid/profile.env
+cp "$PROFILE_ENV" "$OUT_DIR/profile.env"
+
+# Emit phoc.ini for wlroots / phoc-hybris
+cat << EOF > "$OUT_DIR/phoc.ini"
+[core]
+xwayland = true
+
+[output:${LRD_PRIMARY_OUTPUT:-DSI-1}]
+scale = ${LRD_SCALE:-2.0}
+transform = ${LRD_TRANSFORM:-normal}
+EOF
+
+# Emit Firefox mobile preferences (follow system scale -1.0)
+cat << EOF > "$OUT_DIR/firefox-mobile.cfg"
+// LibreDroid Firefox Touch & Scale Tuning for $CODENAME
+pref("layout.css.devPixelsPerPx", "${LRD_FF_SCALE:--1.0}");
+pref("dom.w3c_touch_events.enabled", 1);
+pref("ui.touch.radius.enabled", true);
+pref("browser.tabs.drawInTitlebar", false);
+EOF
+
+echo "✔ Applied LibreDroid profile for $CODENAME (Model: ${LRD_DEVICE_MODEL:-$CODENAME}, Scale: ${LRD_SCALE:-2.0}, VNDK: ${LRD_VNDK:-31})"

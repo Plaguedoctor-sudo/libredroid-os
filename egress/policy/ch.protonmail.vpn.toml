@@ -1,0 +1,15 @@
+# LibreDroid Egress Policy: Proton VPN
+# Spec compliance: LibreDroid System Design v0.1 §8, §10
+[app]
+id = "ch.protonmail.vpn"
+name = "Proton VPN Client"
+type = "native"
+systemd_unit = "protonvpn-daemon.service"
+
+[network]
+mode = "vpn_bootstrap"
+allowed_interfaces = ["*"]
+allowed_ports = [443, 500, 1194, 4500, 51820]
+allowed_destinations = ["@proton_api_v4", "@proton_api_v6", "@vpn_endpoints_v4"]
+dns_policy = "enforce_dot"
+kill_switch = false

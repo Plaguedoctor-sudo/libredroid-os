@@ -1,0 +1,17 @@
+# LibreDroid Egress Policy: Waydroid Android Container
+# Spec compliance: LibreDroid System Design v0.1 §6, §8
+[app]
+id = "io.waydroid.container"
+name = "Waydroid Container"
+type = "container"
+systemd_unit = "waydroid-container.service"
+
+[network]
+mode = "tunnel_only"
+allowed_interfaces = ["wg0"]
+forward_interface = "waydroid0"
+dns_policy = "enforce_dot"
+egress_isolated = true
+ip_accounting = true
+freeze_on_idle = true
+kill_switch = true

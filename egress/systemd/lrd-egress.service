@@ -1,0 +1,21 @@
+[Unit]
+Description=LibreDroid Deny-By-Default Egress Firewall (nftables)
+Documentation=https://github.com/libredroid/libredroid
+DefaultDependencies=no
+Before=network-pre.target shutdown.target
+Wants=network-pre.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables/lrd-egress.nft
+ExecReload=/usr/bin/lrd-egress-reload /etc/nftables/lrd-egress.nft
+ExecStop=/usr/sbin/nft 'flush table inet lrd_egress; delete table inet lrd_egress'
+Restart=on-failure
+RestartSec=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target

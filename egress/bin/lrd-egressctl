@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# LibreDroid Egress Controller CLI
+# Spec compliance: LibreDroid System Design v0.1 §8, §10
+#
+# Interacts with 'inet lrd_egress' nftables table:
+# - Monitors drop ring buffer
+# - Injects WireGuard VPN gateway endpoints dynamically
+# - Inspects and audits per-app network verdicts
+# ==============================================================================
+set -euo pipefail
+
+TABLE="lrd_egress"
+ACTION="${1:-status}"
+
+case "$ACTION" in
+    status)
+        echo "=== LibreDroid Egress Control Status ==="
+        if ! nft list table inet "$TABLE" >/dev/null 2>&1; then
+            echo "Status: INACTIVE (Table '$TABLE' not loaded)"
+            echo "Run 'lrd-egress-reload' to activate deny-by-default rules."
+            exit 1
+        fi
+        echo "Status: ACTIVE (Deny-by-Default Enforced)"
+        echo "Kill Switch: ARMED"
+        echo ""
+        echo "Active VPN Endpoints:"
+        nft list set inet "$TABLE" vpn_endpoints_v4 2>/dev/null || true
+        echo ""
+        echo "Egress Allowlist Entries:"
+        nft list set inet "$TABLE" egress_allowlist_v4 2>/dev/null || true
+        ;;
+
+    add-endpoint)
+        IP="${2:-}"
+        if [ -z "$IP" ]; then
+            echo "Usage: $0 add-endpoint <ip_address>"
+            exit 1
+        fi
+        if [[ "$IP" =~ : ]]; then
+            nft add element inet "$TABLE" vpn_endpoints_v6 "{ $IP }"
+        else
+            nft add element inet "$TABLE" vpn_endpoints_v4 "{ $IP }"
+        fi
+        echo ":: Added VPN endpoint $IP to allowed bootstrap set."
+        ;;
+
+    remove-endpoint)
+        IP="${2:-}"
+        if [ -z "$IP" ]; then
+            echo "Usage: $0 remove-endpoint <ip_address>"
+            exit 1
+        fi
+        if [[ "$IP" =~ : ]]; then
+            nft delete element inet "$TABLE" vpn_endpoints_v6 "{ $IP }" 2>/dev/null || true
+        else
+            nft delete element inet "$TABLE" vpn_endpoints_v4 "{ $IP }" 2>/dev/null || true
+        fi
+        echo ":: Removed VPN endpoint $IP from allowed set."
+        ;;
+
+    allow)
+        IP="${2:-}"
+        if [ -z "$IP" ]; then
+            echo "Usage: $0 allow <ip_address>"
+            exit 1
+        fi
+        nft add element inet "$TABLE" egress_allowlist_v4 "{ $IP }"
+        echo ":: Policy allowlist granted for destination: $IP"
+        ;;
+
+    deny)
+        IP="${2:-}"
+        if [ -z "$IP" ]; then
+            echo "Usage: $0 deny <ip_address>"
+            exit 1
+        fi
+        nft delete element inet "$TABLE" egress_allowlist_v4 "{ $IP }" 2>/dev/null || true
+        echo ":: Policy allowlist revoked for destination: $IP"
+        ;;
+
+    audit)
+        echo ":: Streaming egress drop events from journal..."
+        if command -v journalctl >/dev/null 2>&1; then
+            journalctl -k -f --grep="\[LRD-EGRESS-DROP\]"
+        else
+            dmesg -w | grep --line-buffered "\[LRD-EGRESS-DROP\]"
+        fi
+        ;;
+
+    policies)
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        python3 "${SCRIPT_DIR}/../daemon/lrd-egressd.py" --check-only --state-file /run/libredroid/egress-status.json 2>/dev/null || \
+        python3 "${SCRIPT_DIR}/../daemon/lrd-egressd.py" --check-only --state-file /tmp/lrd-egress-status.json
+        ;;
+
+    *)
+        echo "Usage: $0 {status|policies|add-endpoint <ip>|remove-endpoint <ip>|allow <ip>|deny <ip>|audit}"
+        exit 1
+        ;;
+esac

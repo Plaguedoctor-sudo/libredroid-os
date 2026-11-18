@@ -30,6 +30,7 @@ freestack/keys/*.sig
 
 # Build artifacts and distributions
 dist/
+dist-release/
 /build/
 build-out/
 out/
@@ -59,6 +60,15 @@ yarn-error.log*
 # Python caches
 __pycache__/
 *.py[cod]
+
+# Halium unpack directories and archives
+halium-vidofnir/unpacked_boot/
+halium-vidofnir/unpacked_vendor_boot/
+halium-vidofnir/partitions/
+halium-vidofnir/*.tar.xz
+dist-rootfs/
+dist-boot/
+*.so
 
 # OS & Editor generated files
 .DS_Store

@@ -1,0 +1,14 @@
+# LibreDroid Egress Policy: F-Droid Client
+# Spec compliance: LibreDroid System Design v0.1 §7, §8
+[app]
+id = "org.fdroid.fdroid"
+name = "F-Droid App Store"
+type = "container"
+systemd_unit = "waydroid-container.service"
+
+[network]
+mode = "tunnel_only"
+allowed_interfaces = ["wg0"]
+dns_policy = "enforce_dot"
+anti_features_visible = true
+kill_switch = true

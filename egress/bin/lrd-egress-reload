@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# LibreDroid Atomic Egress Ruleset Reloader
+# Spec compliance: LibreDroid System Design v0.1 §8a
+#
+# Reloads ruleset in a single atomic kernel transaction while preserving
+# dynamic sets (@vpn_endpoints_v4, @egress_allowlist_v4).
+# ==============================================================================
+set -euo pipefail
+
+RULES_FILE="${1:-/etc/nftables/lrd-egress.nft}"
+if [ ! -f "$RULES_FILE" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    RULES_FILE="${SCRIPT_DIR}/../nftables/lrd-egress.nft"
+fi
+
+if [ ! -f "$RULES_FILE" ]; then
+    echo "xx Egress ruleset not found at: $RULES_FILE" >&2
+    exit 1
+fi
+
+# Atomic load in a single transaction
+if ! nft -f "$RULES_FILE"; then
+    echo "xx Failed to reload egress ruleset from $RULES_FILE" >&2
+    exit 1
+fi
+
+echo ":: LibreDroid egress rules reloaded atomically (sets preserved)."

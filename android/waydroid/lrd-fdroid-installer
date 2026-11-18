@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""
+lrd-fdroid-installer — F-Droid Session Installer Bridge & Anti-Feature Inspector
+Spec compliance: LibreDroid System Design v0.1 §7 (App delivery — F-Droid)
+
+Responsibilities:
+1. Implements session-based APK installation bridge for Waydroid container.
+2. Inspects and surfaces F-Droid Anti-Features (Tracking, Ads, NonFreeNet, NonFreeDep) before install.
+3. Generates transparent audit logs for the Settings Privacy panel.
+"""
+
+import sys
+import os
+import json
+import subprocess
+import argparse
+from pathlib import Path
+
+ANTI_FEATURE_DESCRIPTIONS = {
+    "Tracking": "App reports user activity, telemetry, or analytics to upstream servers.",
+    "Ads": "App contains integrated advertisements.",
+    "NonFreeNet": "App relies on non-free or proprietary network services.",
+    "NonFreeDep": "App depends on proprietary libraries or Google Play Services.",
+    "NonFreeAssets": "App includes proprietary assets, media, or closed fonts.",
+    "UpstreamNonFree": "The upstream source code or release is proprietary/non-free."
+}
+
+class FdroidInstallerBridge:
+    def __init__(self, index_cache: Path | None = None):
+        self.index_cache = index_cache
+        self.apps = {}
+        if index_cache and Path(index_cache).is_file():
+            self.load_index(Path(index_cache))
+
+    def load_index(self, index_file: Path):
+        try:
+            data = json.loads(index_file.read_text(encoding="utf-8"))
+            # Supports F-Droid index-v1 format
+            if "apps" in data:
+                for app in data["apps"]:
+                    pkg = app.get("packageName")
+                    if pkg:
+                        self.apps[pkg] = {
+                            "name": app.get("name", pkg),
+                            "summary": app.get("summary", ""),
+                            "anti_features": app.get("antiFeatures", []),
+                            "suggested_version": app.get("suggestedVersionCode", 0)
+                        }
+        except Exception as e:
+            sys.stderr.write(f"[!] Could not load F-Droid index {index_file}: {e}\n")
+
+    def audit_package(self, package_name: str) -> dict:
+        """Surfaces anti-features and risk assessment for a package."""
+        app_info = self.apps.get(package_name, {
+            "name": package_name,
+            "anti_features": []
+        })
+
+        afs = app_info.get("anti_features", [])
+        detailed_afs = [
+            {
+                "flag": af,
+                "description": ANTI_FEATURE_DESCRIPTIONS.get(af, "Unspecified non-free attribute.")
+            }
+            for af in afs
+        ]
+
+        verdict = "CLEAN"
+        if "Tracking" in afs or "NonFreeDep" in afs:
+            verdict = "RISK_HIGH"
+        elif afs:
+            verdict = "RISK_MODERATE"
+
+        return {
+            "package": package_name,
+            "name": app_info.get("name", package_name),
+            "verdict": verdict,
+            "anti_features": detailed_afs,
+            "can_install": True
+        }
+
+    def install_apk(self, apk_path: Path, force: bool = False, dry_run: bool = False) -> bool:
+        """Installs APK into Waydroid container via session bridge."""
+        if not dry_run and not apk_path.is_file():
+            raise FileNotFoundError(f"APK file not found: {apk_path}")
+
+        # In production, check anti-features if known
+        pkg_stem = apk_path.stem
+        audit = self.audit_package(pkg_stem)
+
+        if audit["verdict"] == "RISK_HIGH" and not force:
+            sys.stderr.write(f"[!] BLOCKED: Package {pkg_stem} has anti-features: {[a['flag'] for a in audit['anti_features']]}\n")
+            sys.stderr.write("    Pass --force to override sovereign privacy guard.\n")
+            return False
+
+        if dry_run:
+            return True
+
+        # Execute Waydroid session installation bridge
+        try:
+            res = subprocess.run(["waydroid", "app", "install", str(apk_path)],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return res.returncode == 0
+        except Exception as e:
+            sys.stderr.write(f"[!] Waydroid session installer error: {e}\n")
+            return False
+
+def main():
+    parser = argparse.ArgumentParser(description="LibreDroid F-Droid Session Installer Bridge")
+    parser.add_argument("action", choices=["audit", "install", "mock-test"], help="Action to execute")
+    parser.add_argument("--package", help="Android package name to audit")
+    parser.add_argument("--apk", help="Path to APK to install")
+    parser.add_argument("--index", help="Path to F-Droid index-v1.json")
+    parser.add_argument("--force", action="store_true", help="Force install despite anti-features")
+    args = parser.parse_args()
+
+    bridge = FdroidInstallerBridge(index_cache=Path(args.index) if args.index else None)
+
+    if args.action == "mock-test":
+        mock_index = {
+            "apps": [
+                {
+                    "packageName": "org.thoughtcrime.securesms",
+                    "name": "Signal",
+                    "antiFeatures": ["NonFreeNet"]
+                },
+                {
+                    "packageName": "com.duckduckgo.mobile.android",
+                    "name": "DuckDuckGo",
+                    "antiFeatures": ["Tracking", "Ads"]
+                },
+                {
+                    "packageName": "org.fdroid.fdroid",
+                    "name": "F-Droid",
+                    "antiFeatures": []
+                }
+            ]
+        }
+        tmp_idx = Path("/tmp/mock_fdroid_index.json")
+        tmp_idx.write_text(json.dumps(mock_index))
+        bridge.load_index(tmp_idx)
+
+        # Audit clean app
+        c = bridge.audit_package("org.fdroid.fdroid")
+        assert c["verdict"] == "CLEAN", f"Expected CLEAN, got {c['verdict']}"
+        assert len(c["anti_features"]) == 0
+
+        # Audit moderate app
+        m = bridge.audit_package("org.thoughtcrime.securesms")
+        assert m["verdict"] == "RISK_MODERATE", f"Expected RISK_MODERATE, got {m['verdict']}"
+        assert m["anti_features"][0]["flag"] == "NonFreeNet"
+
+        # Audit high risk tracking app
+        h = bridge.audit_package("com.duckduckgo.mobile.android")
+        assert h["verdict"] == "RISK_HIGH", f"Expected RISK_HIGH, got {h['verdict']}"
+
+        # Test install guard
+        assert bridge.install_apk(Path("/tmp/com.duckduckgo.mobile.android.apk"), force=False, dry_run=True) is False
+        assert bridge.install_apk(Path("/tmp/com.duckduckgo.mobile.android.apk"), force=True, dry_run=True) is True
+
+        print("✔ F-Droid session installer bridge and anti-feature inspection test passed.")
+        return 0
+
+    if args.action == "audit":
+        if not args.package:
+            parser.error("--package is required for audit")
+        res = bridge.audit_package(args.package)
+        print(json.dumps(res, indent=2))
+    elif args.action == "install":
+        if not args.apk:
+            parser.error("--apk is required for install")
+        ok = bridge.install_apk(Path(args.apk), force=args.force)
+        if ok:
+            print(f"✔ Successfully installed {args.apk}")
+        else:
+            print(f"xx Failed to install {args.apk}")
+            return 1
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

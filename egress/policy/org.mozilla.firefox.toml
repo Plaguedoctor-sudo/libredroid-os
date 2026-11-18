@@ -1,0 +1,14 @@
+# LibreDroid Egress Policy: Firefox Mobile
+[app]
+id = "org.mozilla.firefox"
+name = "Firefox Mobile"
+type = "native"
+systemd_unit = "app-firefox.service"
+
+[network]
+mode = "tunnel_only"
+allowed_interfaces = ["wg0", "lo"]
+allowed_destinations = []
+dns_policy = "enforce_dot"
+ip_accounting = true
+kill_switch = true

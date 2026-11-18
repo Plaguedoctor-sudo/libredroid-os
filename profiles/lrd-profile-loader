@@ -1,0 +1,352 @@
+#!/usr/bin/env python3
+"""
+LibreDroid Device Profile Loader & Probe Supervisor
+Spec compliance: LibreDroid System Design v0.1 §2, §3, §4, §5
+
+Resolves device codename via /vendor, /proc/cmdline, or getprop,
+loads /usr/share/profiles/<codename>.toml (<120 lines),
+supports aliases (e.g. vidofnir -> X23, OP5DA6L1 -> OPD2304),
+performs direct kernel feature probing, and generates runtime artifacts.
+"""
+
+import os
+import sys
+import argparse
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None
+
+def load_toml(path: Path) -> dict:
+    content = path.read_text(encoding="utf-8")
+    if tomllib is not None:
+        return tomllib.loads(content)
+    data = {}
+    cur = data
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            cur = data.setdefault(line[1:-1].strip(), {})
+        elif "=" in line:
+            k, v = line.split("=", 1)
+            k = k.strip()
+            v = v.split("#")[0].strip()
+            if v.startswith('"') and v.endswith('"'):
+                cur[k] = v[1:-1]
+            elif v.lower() in ("true", "false"):
+                cur[k] = (v.lower() == "true")
+            elif v.startswith("[") and v.endswith("]"):
+                cur[k] = [x.strip().strip('"').strip("'") for x in v[1:-1].split(",") if x.strip()]
+            else:
+                try:
+                    cur[k] = int(v) if "." not in v else float(v)
+                except ValueError:
+                    cur[k] = v
+    return data
+
+def probe_kernel_features() -> dict:
+    results = {}
+    try:
+        res = subprocess.run(["unshare", "-Ur", "true"], capture_output=True, timeout=2)
+        results["user_namespaces"] = "pass" if res.returncode == 0 else "fail"
+    except Exception as e:
+        results["user_namespaces"] = f"error: {e}"
+
+    psi_io = Path("/proc/pressure/io")
+    psi_mem = Path("/proc/pressure/memory")
+    results["psi"] = "pass" if (psi_io.exists() and psi_mem.exists()) else "missing"
+
+    binder_present = any(Path(p).exists() for p in ["/dev/binder", "/dev/binderfs", "/dev/hwbinder"])
+    results["binder_ipc"] = "pass" if binder_present else "missing (will test mount)"
+
+    results["device_mapper"] = "pass" if Path("/dev/mapper/control").exists() else "missing"
+    results["cgroup_v2"] = "pass" if Path("/sys/fs/cgroup/cgroup.controllers").exists() else "legacy_or_missing"
+    return results
+
+def detect_device_props(vendor_path: Path = Path("/vendor")) -> dict:
+    detected = {
+        "ro.product.device": "",
+        "ro.product.vendor.device": "",
+        "ro.vndk.version": "",
+        "ro.board.platform": "",
+        "ro.product.model": "",
+    }
+
+    override_file = Path("/etc/libredroid/profile.override")
+    if override_file.is_file():
+        override = override_file.read_text().strip()
+        if override:
+            detected["ro.product.device"] = override
+
+    cmdline_file = Path("/proc/cmdline")
+    if cmdline_file.is_file():
+        try:
+            for item in cmdline_file.read_text(encoding="utf-8", errors="replace").split():
+                if "=" in item:
+                    k, v = item.split("=", 1)
+                    if k in ("androidboot.device", "androidboot.product.device", "lrd.device"):
+                        detected["ro.product.device"] = v
+        except Exception:
+            pass
+
+    for p in [
+        vendor_path / "build.prop",
+        vendor_path / "default.prop",
+        vendor_path / "etc" / "build.prop",
+        Path("/system/build.prop"),
+    ]:
+        if p.is_file():
+            try:
+                for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        if k in detected and not detected[k]:
+                            detected[k] = v.strip()
+                        # Also check ro.product.vendor.model or ro.product.model
+                        if k == "ro.product.vendor.model" and not detected["ro.product.model"]:
+                            detected["ro.product.model"] = v.strip()
+            except Exception:
+                pass
+
+    if not detected["ro.product.device"] and shutil.which("getprop"):
+        try:
+            for k in detected:
+                res = subprocess.run(["getprop", k], capture_output=True, text=True, timeout=1)
+                val = res.stdout.strip()
+                if val:
+                    detected[k] = val
+        except Exception:
+            pass
+
+    return detected
+
+def validate_profile(data: dict) -> list[str]:
+    errors = []
+    required_sections = ["device", "android", "display", "hybris", "shell", "egress"]
+    for sec in required_sections:
+        if sec not in data:
+            errors.append(f"Missing required section [{sec}] in profile")
+
+    if "android" in data:
+        vndk = data["android"].get("target_vndk")
+        if vndk is not None:
+            try:
+                vndk_int = int(vndk)
+                if not (28 <= vndk_int <= 34):
+                    errors.append(f"Unsupported target_vndk={vndk_int}. Must be 28..34")
+            except ValueError:
+                errors.append(f"Invalid target_vndk format: {vndk}")
+
+    if "display" in data:
+        scale = data["display"].get("scale")
+        if scale is not None:
+            try:
+                scale_float = float(scale)
+                if not (0.5 <= scale_float <= 4.0):
+                    errors.append(f"Display scale {scale_float} out of bounds")
+            except ValueError:
+                errors.append(f"Invalid scale format: {scale}")
+
+    return errors
+
+def find_matching_profile(candidates: list[str], search_dirs: list[Path]) -> tuple[Path | None, dict | None]:
+    for cand in candidates:
+        if not cand:
+            continue
+        # Direct filename match
+        for d in search_dirs:
+            p = d / f"{cand}.toml"
+            if p.is_file():
+                try:
+                    data = load_toml(p)
+                    return p, data
+                except Exception:
+                    pass
+    
+    # Alias search inside all TOML files
+    for d in search_dirs:
+        if not d.is_dir():
+            continue
+        for p in d.glob("*.toml"):
+            try:
+                data = load_toml(p)
+                dev_sec = data.get("device", {})
+                codename = dev_sec.get("codename", "")
+                aliases = dev_sec.get("aliases", [])
+                for cand in candidates:
+                    if cand and (cand == codename or cand in aliases):
+                        return p, data
+            except Exception:
+                pass
+    return None, None
+
+def emit_runtime_configs(profile: dict, out_dir: Path) -> dict:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    generated = {}
+
+    codename = profile["device"].get("codename", "generic")
+    scale = float(profile["display"].get("scale", 1.0))
+    vndk = profile["android"].get("target_vndk", 31)
+    primary_output = profile["display"].get("primary_output", "DSI-1")
+    form_factor = profile["device"].get("form_factor", "phone")
+    ff_scale = float(profile["shell"].get("firefox_touch_scale", -1.0))
+
+    gdk_scale = max(1, int(round(scale)))
+    gdk_dpi_scale = round(scale / gdk_scale, 2)
+
+    env_content = f"""# LibreDroid Runtime Environment for {codename}
+# Auto-generated by lrd-profile-loader
+export LRD_DEVICE_CODENAME="{codename}"
+export LRD_DEVICE_MODEL="{profile['device'].get('model', codename)}"
+export LRD_FORM_FACTOR="{form_factor}"
+export LRD_SCALE="{scale}"
+export LRD_VNDK="{vndk}"
+export GDK_SCALE="{gdk_scale}"
+export GDK_DPI_SCALE="{gdk_dpi_scale}"
+export QT_SCALE_FACTOR="{scale}"
+export WLR_LIBINPUT_NO_CONFIG="1"
+export HYBRIS_LD_LIBRARY_PATH="/usr/lib/libhybris/arm64-v8a/vndk-{vndk}"
+export PHOC_INI="{out_dir}/phoc.ini"
+"""
+    env_file = out_dir / "profile.env"
+    env_file.write_text(env_content, encoding="utf-8")
+    generated["env"] = str(env_file)
+
+    phoc_content = f"""# Phoc Compositor Configuration for {codename}
+[core]
+xwayland = true
+
+[output:{primary_output}]
+scale = {scale}
+transform = {profile['display'].get('transform', 'normal')}
+"""
+    phoc_file = out_dir / "phoc.ini"
+    phoc_file.write_text(phoc_content, encoding="utf-8")
+    generated["phoc"] = str(phoc_file)
+
+    ff_content = f"""// LibreDroid Firefox Touch & Scale Tuning for {codename}
+pref("layout.css.devPixelsPerPx", "{ff_scale}");
+pref("dom.w3c_touch_events.enabled", 1);
+pref("ui.touch.radius.enabled", true);
+pref("browser.tabs.drawInTitlebar", false);
+"""
+    ff_file = out_dir / "firefox-mobile.cfg"
+    ff_file.write_text(ff_content, encoding="utf-8")
+    generated["firefox"] = str(ff_file)
+
+    json_file = out_dir / "profile.json"
+    json_file.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    generated["json"] = str(json_file)
+
+    return generated
+
+def handle_probe_and_report(detected: dict, kernel_features: dict, out_dir: Path) -> int:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report_file = out_dir / "probe-report.json"
+    dev_name = detected.get("ro.product.device") or "unknown_device"
+
+    report = {
+        "status": "unsupported_or_unprofiled",
+        "detected_properties": detected,
+        "kernel_features": kernel_features,
+        "rule_evaluation": {
+            "treble_support": "pass" if detected.get("ro.vndk.version") else "unconfirmed",
+            "vndk_version": detected.get("ro.vndk.version", "unknown"),
+            "profile_present": False,
+        }
+    }
+    report_file.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+    sys.stderr.write(f"\n[!] PROBE-AND-REPORT: No official profile for '{dev_name}'.\n")
+    sys.stderr.write(f"    Diagnostics emitted to {report_file}\n")
+    return 2
+
+def main():
+    parser = argparse.ArgumentParser(description="LibreDroid Device Profile Loader & Probe")
+    parser.add_argument("--device", help="Force specific device codename or alias")
+    parser.add_argument("--profiles-dir", action="append", default=[], help="Directory to search for profiles")
+    parser.add_argument("--vendor", default="/vendor", help="Path to mounted vendor filesystem")
+    parser.add_argument("--out-dir", default="/run/libredroid", help="Output directory for generated runtime artifacts")
+    parser.add_argument("--probe", action="store_true", help="Probe hardware and kernel features only")
+    parser.add_argument("--check", help="Check syntax and validity of a specific .toml profile file")
+
+    args = parser.parse_args()
+
+    if args.check:
+        p = Path(args.check)
+        if not p.is_file():
+            sys.stderr.write(f"File not found: {p}\n")
+            return 1
+        data = load_toml(p)
+        errs = validate_profile(data)
+        if errs:
+            sys.stderr.write(f"Profile validation failed for {p}:\n")
+            for e in errs:
+                sys.stderr.write(f"  - {e}\n")
+            return 1
+        print(f"✔ Profile {p} is valid (Codename: {data['device'].get('codename')}, Scale: {data['display'].get('scale')}).")
+        return 0
+
+    detected = detect_device_props(vendor_path=Path(args.vendor))
+    candidates = []
+    if args.device:
+        candidates.append(args.device)
+    if detected.get("ro.product.device"):
+        candidates.append(detected["ro.product.device"])
+    if detected.get("ro.product.vendor.device"):
+        candidates.append(detected["ro.product.vendor.device"])
+    if detected.get("ro.product.model"):
+        candidates.append(detected["ro.product.model"])
+
+    kernel_features = probe_kernel_features()
+
+    if args.probe or not candidates:
+        return handle_probe_and_report(detected, kernel_features, Path(args.out_dir))
+
+    search_dirs = [Path(d) for d in args.profiles_dir]
+    script_dir = Path(__file__).resolve().parent
+    search_dirs.extend([
+        Path("/usr/share/profiles"),
+        script_dir,
+        Path.cwd() / "profiles",
+    ])
+
+    profile_path, profile_data = find_matching_profile(candidates, search_dirs)
+    if not profile_path or not profile_data:
+        return handle_probe_and_report(detected, kernel_features, Path(args.out_dir))
+
+    validation_errors = validate_profile(profile_data)
+    if validation_errors:
+        sys.stderr.write(f"[ERROR] Validation failed for profile {profile_path}:\n")
+        for err in validation_errors:
+            sys.stderr.write(f"  - {err}\n")
+        return 1
+
+    out_dir = Path(args.out_dir)
+    generated = emit_runtime_configs(profile_data, out_dir)
+
+    codename = profile_data['device']['codename']
+    print(f"✔ LibreDroid Profile Resolved: {profile_data['device']['model']} [{codename}]")
+    print(f"  Matched via: {candidates}")
+    print(f"  Source:      {profile_path}")
+    print(f"  SoC/GPU:     {profile_data['device'].get('soc')} / {profile_data['device'].get('gpu', 'N/A')}")
+    print(f"  Scale:       {profile_data['display']['scale']} (Firefox factor: {profile_data['shell'].get('firefox_touch_scale')})")
+    print(f"  VNDK/Halium: {profile_data['android']['target_vndk']} / {profile_data['android'].get('halium_version')}")
+    print(f"  Kernel Probes: {kernel_features}")
+    print(f"  Artifacts:   {', '.join(generated.keys())} -> {out_dir}")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,55 @@
+# LibreDroid Device Profile: Volla Phone X23 (Hallo Welt Systeme)
+# Spec compliance: LibreDroid System Design v0.1 §2, §3, §4 (<120 lines)
+# Canonical install target: /usr/share/profiles/vidofnir.toml
+
+[device]
+codename = "vidofnir"
+aliases = ["X23", "volla-x23"]
+model = "Volla Phone X23"
+manufacturer = "Volla"
+form_factor = "phone"
+soc = "mt6789"
+gpu = "Mali-G57 MC2"
+arch = "arm64"
+support_tier = "T1"
+
+[android]
+target_vndk = 31
+halium_version = 12
+kernel_min_version = "5.10.0"
+binder_devices = ["binder", "hwbinder", "vndbinder"]
+vendor_mount = "/vendor"
+
+[display]
+scale = 2.0
+primary_output = "DSI-1"
+resolution_width = 720
+resolution_height = 1560
+diagonal_inches = 6.1
+refresh_rate = 60
+transform = "normal"
+touch_device = "auto"
+
+[hybris]
+gralloc_version = "4.0"
+hwcomposer_version = "2.3"
+audio_backend = "pulseaudio-droid"
+vndk_shim_band = "vndk-31"
+
+[shell]
+compositor = "phoc-hybris"
+session_ui = "phosh"
+desktop_scale = 2.0
+# Firefox follows compositor scale (-1.0) to prevent double-scaling
+firefox_touch_scale = -1.0
+
+[waydroid]
+enable = true
+container_scale = 2.0
+freeze_on_idle = true
+egress_isolated = true
+
+[egress]
+default_mode = "tunnel_only"
+kill_switch = true
+enforce_unbound = true
